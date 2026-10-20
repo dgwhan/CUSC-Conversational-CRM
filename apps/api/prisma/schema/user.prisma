@@ -1,30 +1,48 @@
-enum Role {
+enum StaffRole {
   ADMIN
-  LEAD
-  AGENT
+  MANAGER
+  STAFF
 }
 
-model User {
-  id String @id @default(uuid()) @db.Uuid
-  email String @unique @db.VarChar(255)
-  phoneNumber String @map("phone_number") @db.VarChar(20)
-  passwordHash String @map("password_hash") @db.VarChar(255)
-  role Role
-  isActive Boolean @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  staff Staff[]
-
-  @@map("users")
+enum StaffStatus {
+  ACTIVE
+  LOCKED
 }
 
 model Staff {
-  id String @id @default(uuid()) @db.Uuid
-  userId String @map("user_id") @db.Uuid
-  fullName String @map("full_name") @db.VarChar(100)
-  telegramChatId String? @map("telegram_chat_id") @db.VarChar(100)
-  user User @relation(fields: [userId], references: [id])
+  id                 String       @id @default(uuid()) @db.Uuid
+  email              String       @unique
+  fullName           String       @map("full_name")
+  passwordHash       String       @map("password_hash")
+  role               StaffRole    @default(STAFF)
+  status             StaffStatus  @default(ACTIVE)
+  telegramChatId     String?      @unique @map("telegram_chat_id")
+  tokenVersion       Int          @default(0) @map("token_version")
+  mustChangePassword Boolean      @default(false) @map("must_change_password")
+  lockedAt           DateTime?    @map("locked_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
 
-  @@index([userId])
+  refreshTokens RefreshToken[]
+
   @@map("staff")
+}
+
+model RefreshToken {
+  id           String    @id @default(uuid()) @db.Uuid
+  staffId      String    @map("staff_id") @db.Uuid
+  familyId     String    @map("family_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash")
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  replacedById String?   @map("replaced_by_id") @db.Uuid
+  userAgent    String?   @map("user_agent")
+  ip           String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+  @@index([familyId])
+  @@map("refresh_tokens")
 }
