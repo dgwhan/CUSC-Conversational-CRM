@@ -6,5 +6,8 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.e2e-spec.ts'],
+    env: {
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/crm_test?schema=public',
+    },
   },
 });

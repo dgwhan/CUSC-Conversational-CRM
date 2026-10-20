@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+.git
+.gitignore
+.env
+.env.*
+dist
+build
+coverage
+*.tsbuildinfo
+.vscode
+.idea
+README.md
+apps/web/src
+apps/web/public

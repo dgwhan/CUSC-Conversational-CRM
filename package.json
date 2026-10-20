@@ -1,0 +1,11 @@
+{
+  "name": "recruitment-crm",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build:api": "pnpm --filter api build",
+    "start:api": "pnpm --filter api start:prod",
+    "dev:api": "pnpm --filter api start:dev",
+    "dev:web": "pnpm --filter web dev"
+  }
+}
