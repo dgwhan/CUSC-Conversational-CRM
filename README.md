@@ -47,33 +47,51 @@ The system is organized into a decoupled monorepo containing:
 ## Repository Structure
 
 ```text
-.
+crm-system/
 ├── apps/
-│   ├── api/                         # NestJS Backend API service
-│   │   ├── src/
-│   │   │   ├── main.ts              # Entry point: Fastify adapter, prefix, shutdown hooks
-│   │   │   ├── app.module.ts        # Root module importing platform and feature modules
-│   │   │   ├── platform/            # Core infrastructure modules
-│   │   │   │   ├── config/          # Zod schema and configuration module (env.schema.ts)
-│   │   │   │   └── health/          # Health check endpoint (/api/health)
-│   │   │   └── modules/             # Business domain modules
-│   │   ├── test/                    # Integration and E2E test suites
-│   │   ├── Dockerfile               # Multi-stage production container
-│   │   └── package.json
-│   │
-│   └── web/                         # React frontend client
-│       ├── src/                     # React application source code
-│       ├── index.html               # HTML entry
-│       ├── vite.config.ts           # Vite configuration
-│       └── package.json
-│
-├── .dockerignore                    # Build context exclusions
-├── .env.example                     # Environment variable reference
-├── docker-compose.yml               # Service orchestration (PostgreSQL + API)
-├── package.json                     # Monorepo root scripts
-├── pnpm-lock.yaml                   # Dependency lockfile
-├── pnpm-workspace.yaml              # pnpm workspace definition
-└── README.md
+│   ├── api/
+│   │   ├── prisma/
+│   │   │   ├── schema/                  # base.prisma, messaging.prisma, leads.prisma ...
+│   │   │   ├── migrations/
+│   │   │   └── seed.ts
+│   │   ├── test/                        # integration tests
+│   │   └── src/
+│   │       ├── main.ts
+│   │       ├── app.module.ts
+│   │       ├── platform/                # config, database, queue, scheduler, logger
+│   │       ├── common/                  # guards chung, filters, interceptors, decorators
+│   │       └── modules/
+│   │           ├── messaging/           # đủ 4 lớp
+│   │           │   ├── domain/          # Message, port ChannelAdapter
+│   │           │   ├── application/     # use case ReceiveInboundMessage
+│   │           │   ├── infrastructure/  # adapters (facebook, zalo, manual-import), repo
+│   │           │   ├── presentation/    # webhook controller + signature guard
+│   │           │   ├── index.ts         # API công khai
+│   │           │   └── messaging.module.ts
+│   │           ├── classification/      # đủ 4 lớp, domain/ thuần (hàm chấm điểm)
+│   │           ├── leads/               # đủ 4 lớp (trạng thái, SLA, phân công)
+│   │           ├── customers/           # đơn giản
+│   │           ├── identity/            # đơn giản (hoặc gộp vào customers)
+│   │           ├── cases/               # giai đoạn 2
+│   │           ├── iam/                 # staff, role, đăng nhập
+│   │           ├── notifications/       # Telegram, email
+│   │           └── reporting/           # chỉ đọc
+│   └── web/
+│       └── src/
+│           ├── app/                     # providers, router
+│           ├── components/ui/           # thành phần giao diện dùng chung
+│           ├── lib/                     # api client, query client
+│           └── modules/
+│               ├── inbox/  customers/  leads/  cases/  dashboard/  auth/  settings/
+│               #  mỗi module: api/ components/ hooks/ types/
+├── packages/
+│   └── contracts/                       # Zod schemas, DTO, enum dùng chung
+├── tests/
+│   ├── architecture/                    # dependency-cruiser
+│   └── e2e/
+├── docs/adr/
+├── package.json  pnpm-workspace.yaml  tsconfig.base.json
+├── docker-compose.yml  .env.example  .nvmrc
 ```
 
 ---
@@ -294,6 +312,56 @@ To permanently wipe all PostgreSQL data and recreate a blank database:
 docker compose down -v
 docker compose up -d
 ```
+
+
+### How to work with Prisma
+
+Khởi tạo Prisma Client (TypeScript Types)
+```bash
+pnpm --filter api prisma:generate
+```
+
+Tạo Migrations (Khi thay đổi schema)
+```bash
+pnpm --filter api prisma:migrate
+```
+
+Mở giao diện quản trị dữ liệu trực quan (Prisma Studio)
+```bash
+pnpm --filter api prisma:studio
+```
+Đảm bảo postgre đã bật
+
+Chạy SQL bằng Prisma Client
+```typescript
+// apps/api/src/app.service.ts
+import { PrismaClient } from '@prisma/client';
+
+// Tạo 1 PrismaClient local dùng trực tiếp cho các file .ts thuần
+const prisma = new PrismaClient();
+
+// Hoặc có thể dùng trong Module bằng @InjectModel
+@Injectable()
+export class MyService {
+  constructor(private readonly prisma: PrismaClient) {}
+  // ... dùng this.prisma ...
+}
+```
+
+Chạy Migration trong Docker
+```bash
+# Chỉ chạy migrate mà không cần vào shell
+docker compose run --rm api pnpm --filter api prisma:migrate
+
+# Vào shell container để debug
+docker compose exec api sh
+# داخل container:
+prisma migrate dev
+# Exit container
+exit
+```
+
+Khi nào cần Prisma generate? Khi bạn thay đổi file schema.prisma. Sau khi chạy lệnh này, Prisma sẽ tự động tạo ra thư mục src/generated/prisma (hoặc node_modules/.prisma) chứa các file TypeScript interface và client tương ứng với database.
 
 ---
 

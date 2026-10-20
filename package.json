@@ -6,6 +6,9 @@
     "build:api": "pnpm --filter api build",
     "start:api": "pnpm --filter api start:prod",
     "dev:api": "pnpm --filter api start:dev",
-    "dev:web": "pnpm --filter web dev"
+    "dev:web": "pnpm --filter web dev",
+    "prisma:generate": "pnpm --filter api prisma generate",
+    "prisma:migrate": "pnpm --filter api prisma migrate dev",
+    "prisma:studio": "pnpm --filter api prisma studio"
   }
 }
