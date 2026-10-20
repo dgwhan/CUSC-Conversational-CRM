@@ -14,6 +14,9 @@ export const envSchema = z.object({
   POSTGRES_DB: z.string().optional(),
   POSTGRES_PORT: z.coerce.number().optional(),
   POSTGRES_HOST: z.string().optional(),
+  JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
+  JWT_ACCESS_TTL: z.string().default('15m'),
+  REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(7),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
