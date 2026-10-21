@@ -28,6 +28,7 @@ describe('validateEnv', () => {
       DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/crm?schema=public',
       PORT: '4000',
       NODE_ENV: 'production',
+      JWT_ACCESS_SECRET: 'daylasecretkeysieucapbimat32kytu',
     };
 
     const parsed = validateEnv(validConfig);
@@ -36,5 +37,6 @@ describe('validateEnv', () => {
     );
     expect(parsed.PORT).toBe(4000);
     expect(parsed.NODE_ENV).toBe('production');
+    expect(parsed.JWT_ACCESS_SECRET).toBe('daylasecretkeysieucapbimat32kytu');
   });
 });
