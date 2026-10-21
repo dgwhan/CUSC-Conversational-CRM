@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import bcrypt from 'bcryptjs';
+import argon2 from 'argon2';
 import dotenv from 'dotenv';
 import pg from 'pg';
 
@@ -42,7 +42,7 @@ try {
   await client.query('BEGIN');
 
   for (const account of accounts) {
-    const passwordHash = await bcrypt.hash(account.password, 12);
+    const passwordHash = await argon2.hash(account.password);
 
     await client.query(
       `INSERT INTO staff

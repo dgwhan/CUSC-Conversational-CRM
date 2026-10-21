@@ -20,6 +20,8 @@ model Staff {
   tokenVersion       Int          @default(0) @map("token_version")
   mustChangePassword Boolean      @default(false) @map("must_change_password")
   lockedAt           DateTime?    @map("locked_at")
+  failedLoginAttempts Int         @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?   @map("locked_until")
   createdAt          DateTime     @default(now()) @map("created_at")
   updatedAt          DateTime     @updatedAt @map("updated_at")
 
