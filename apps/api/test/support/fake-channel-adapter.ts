@@ -23,7 +23,9 @@ export class FakeChannelAdapter implements ChannelAdapter {
         const received = request.headers[FAKE_SIGNATURE_HEADER];
 
         if(!received) return false;
-        const a = Buffer.from(received);
+        const sig = Array.isArray(received) ? received[0] : received;
+        if (!sig) return false;
+        const a = Buffer.from(sig);
         const b = Buffer.from(this.sign(request.rawBody));
         return a.length === b.length && timingSafeEqual(a,b);
     }

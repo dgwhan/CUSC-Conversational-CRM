@@ -3,9 +3,11 @@ import { InboundEvent } from "./inbound-event.js";
 
 export interface RawWebhookRequest {
     // Key x-hub-signature-256
-    readonly headers: Readonly<Record<string, string | undefined>>;
+    readonly headers: Readonly<Record<string, string | string[] | undefined>>;
     // Root bytes, HMAC
     readonly rawBody: Buffer;
+
+    readonly query?: Record<string, unknown>;
 }
 
 export class InvalidWebhookPayloadError extends Error {
@@ -15,6 +17,10 @@ export class InvalidWebhookPayloadError extends Error {
     }
 }
 
+export const INBOUND_QUEUE = Symbol('INBOUND_QUEUE');
+export interface InboundMessageQueue {
+    enqueue(messageIds: string[]): Promise<void>;
+}
 export interface ChannelAdapter {
     readonly channel: Channel;
     /** true nếu request thật sự đến từ nền tảng (kiểm tra chữ ký). Không ném lỗi. */

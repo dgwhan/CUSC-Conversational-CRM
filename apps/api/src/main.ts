@@ -4,7 +4,7 @@ import { NestFastifyApplication, FastifyAdapter } from '@nestjs/platform-fastify
 import { ConfigService } from '@nestjs/config';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), { rawBody: true });
 
   // Allow API endpoints will start with /api/ 
   app.setGlobalPrefix('api');
