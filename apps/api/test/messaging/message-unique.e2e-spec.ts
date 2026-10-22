@@ -3,9 +3,11 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  'postgresql://postgres:admin123456@localhost:5432/recruitment_crm?schema=public';
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL must be set to run messaging e2e tests');
+}
 
 const pool = new pg.Pool({ connectionString });
 const adapter = new PrismaPg(pool);
