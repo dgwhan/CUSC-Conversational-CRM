@@ -93,4 +93,44 @@ describe('ReceiveInboundMessage UseCase', () => {
         expect(mockRepo.insertManyIgnoreDuplicate).not.toHaveBeenCalled();
         expect(mockQueue.enqueue).not.toHaveBeenCalled();
     });
+
+    it('gửi cùng một sự kiện 10 lần: lần 1 tạo 1 job, 9 lần sau bị bỏ qua (0 job thêm)', async () => {
+        vi.mocked(mockAdapter.verifyRequest).mockReturnValue(true);
+
+        const event: InboundEvent = {
+            channel: Channel.ZALO,
+            externalAccountId: 'oa-1',
+            externalMessageId: 'ext-dup-10',
+            senderExternalId: 'sender-1',
+            direction: MessageDirection.INBOUND,
+            content: 'Duplicate message test',
+            sentAt: new Date(),
+            rawPayload: {},
+        };
+
+        vi.mocked(mockAdapter.parseEvents).mockReturnValue([event]);
+
+        // Lần đầu tiên insert thành công trả về ID
+        // 9 lần sau do ON CONFLICT DO NOTHING nên insertManyIgnoreDuplicate trả về []
+        vi.mocked(mockRepo.insertManyIgnoreDuplicate!)
+            .mockResolvedValueOnce([{ id: 'msg-first-time-id' }])
+            .mockResolvedValue([]);
+
+        const req: RawWebhookRequest & { channel: Channel } = {
+            channel: Channel.ZALO,
+            headers: {},
+            rawBody: Buffer.from('test'),
+        };
+
+        // Gửi 10 lần
+        for (let i = 0; i < 10; i++) {
+            await useCase.execute(req);
+        }
+
+        // Repo được gọi 10 lần để check/insert với DB
+        expect(mockRepo.insertManyIgnoreDuplicate).toHaveBeenCalledTimes(10);
+        // Nhưng queue chỉ được enqueue ĐÚNG 1 LẦN cho tin nhắn đầu tiên
+        expect(mockQueue.enqueue).toHaveBeenCalledTimes(1);
+        expect(mockQueue.enqueue).toHaveBeenCalledWith(['msg-first-time-id']);
+    });
 });
