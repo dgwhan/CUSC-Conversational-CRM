@@ -1,0 +1,13 @@
+:root {
+  --border-width-default: 1px;
+}
+
+@theme {
+  --radius-sm: 4px;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-xl: 16px;
+
+  --shadow-card: 0 8px 24px rgb(20 38 63 / 8%);
+  --shadow-popover: 0 12px 32px rgb(20 38 63 / 14%);
+}

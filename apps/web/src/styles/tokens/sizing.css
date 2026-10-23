@@ -1,0 +1,14 @@
+:root {
+  --size-icon-sm: 16px;
+  --size-icon-md: 20px;
+  --size-icon-lg: 24px;
+
+  --control-height-sm: 36px;
+  --control-height-md: 40px;
+  --control-height-lg: 48px;
+  --control-height-xl: 52px;
+
+  --auth-card-max-width: 548px;
+  --auth-content-max-width: 436px;
+  --auth-card-padding: 56px;
+}
