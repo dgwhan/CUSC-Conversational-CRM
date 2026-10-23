@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Message, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../platform/database/prisma.service.js";
 import { InboundEvent } from "../domain/inbound-event.js";
 import { MessageDirection } from "../domain/channel.js";
@@ -7,6 +7,19 @@ import { MessageDirection } from "../domain/channel.js";
 @Injectable()
 export class MessageRepository {
     constructor(private readonly prisma: PrismaService) {}
+
+    async findById(id: string): Promise<Message | null> {
+        return this.prisma.message.findUnique({
+            where: { id },
+        });
+    }
+
+    async markProcessed(id: string, processedAt: Date = new Date()): Promise<void> {
+        await this.prisma.message.update({
+            where: { id },
+            data: { processedAt },
+        });
+    }
 
     async insertManyIgnoreDuplicate(events: InboundEvent[]): Promise<Array<{ id: string }>> {
         if (events.length === 0) {
