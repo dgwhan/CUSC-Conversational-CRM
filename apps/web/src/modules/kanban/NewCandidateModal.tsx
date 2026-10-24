@@ -4,6 +4,7 @@ import { KANBAN_COLUMNS } from './kanban.config.js';
 import type { ChannelType, LeadStage } from '../inbox/types.js';
 import { X, UserPlus } from 'lucide-react';
 import { notify } from '../../components/feedback/toastEmitter.js';
+import { useUserRole } from '../auth/UserRoleContext.js';
 
 interface NewCandidateModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
   onClose,
   onAddCandidate,
 }) => {
+  const { staffName } = useUserRole();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -36,7 +38,10 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
     }
 
     const staffMap: Record<string, { name: string; avatar: string }> = {
-      'staff-1': { name: 'Nguyễn Văn Minh (Bạn)', avatar: 'MV' },
+      'staff-1': {
+        name: staffName ? `${staffName} (Bạn)` : 'Bạn',
+        avatar: staffName ? staffName.slice(0, 2).toUpperCase() : 'ME',
+      },
       'staff-2': { name: 'Lê Thị Thu Lan', avatar: 'TL' },
       'staff-3': { name: 'Trần Hoàng Nam', avatar: 'HN' },
     };
@@ -59,7 +64,7 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
       priority: 'HIGH',
       interestCourses: [course],
       assignedStaffId: assignedStaff,
-      assignedStaffName: staffMap[assignedStaff]?.name || 'Nguyễn Văn Minh',
+      assignedStaffName: staffMap[assignedStaff]?.name || staffName || 'Bạn',
       assignedStaffAvatar: staffMap[assignedStaff]?.avatar || 'MV',
       assignedStaffPresence: 'ONLINE',
       lastActivityAt: 'Vừa xong',
@@ -160,7 +165,7 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
                 value={assignedStaff}
                 onChange={(e) => setAssignedStaff(e.target.value)}
               >
-                <option value="staff-1">Nguyễn Văn Minh (Bạn) - Online</option>
+                <option value="staff-1">{staffName ? `${staffName} (Bạn) - Online` : 'Bạn - Online'}</option>
                 <option value="staff-2">Lê Thị Thu Lan - Away</option>
                 <option value="staff-3">Trần Hoàng Nam - Busy</option>
               </select>

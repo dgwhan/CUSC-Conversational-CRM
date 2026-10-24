@@ -26,7 +26,7 @@ interface AdmissionKanbanBoardProps {
 
 export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({ onOpenChat }) => {
   const { staffPresences, onPipelineChange } = useRealtime();
-  const { isOwner, isAgent, staffId } = useUserRole();
+  const { isOwner, isAgent, staffId, staffName } = useUserRole();
 
   const [candidates, setCandidates] = useState<KanbanCandidate[]>(() => {
     // Thử khôi phục từ localStorage nếu có
@@ -275,7 +275,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({ onOp
             onChange={(e) => setStaffFilter(e.target.value)}
           >
             <option value="ALL">Mọi tư vấn viên</option>
-            <option value="staff-1">Nguyễn Văn Minh (Bạn)</option>
+            <option value="staff-1">{staffName ? `${staffName} (Bạn)` : 'Bạn'}</option>
             <option value="staff-2">Lê Thị Thu Lan</option>
             <option value="staff-3">Trần Hoàng Nam</option>
           </select>
