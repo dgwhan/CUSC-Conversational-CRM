@@ -1,14 +1,72 @@
-import React, { useState } from 'react';
-import type { ConversationItem, LeadStatus, MessageAttachment } from '../types.js';
+import React, { useState, useEffect } from 'react';
+import type { ConversationItem, LeadStatus, LeadStage, MessageAttachment } from '../types.js';
 import { INITIAL_CONVERSATIONS, MOCK_STAFF_LIST, MOCK_QUICK_REPLIES } from '../mockData.js';
 import { ConversationListColumn } from '../components/ConversationListColumn.js';
 import { ChatWindowColumn } from '../components/ChatWindowColumn.js';
 import { CustomerProfileColumn } from '../components/CustomerProfileColumn.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
+import { useRealtime } from '../../realtime/RealtimeContext.js';
 
-export const UnifiedInboxPage: React.FC = () => {
+interface UnifiedInboxPageProps {
+  onNavigateToKanban?: () => void;
+  initialConversationId?: string | null;
+}
+
+export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
+  onNavigateToKanban,
+  initialConversationId,
+}) => {
+  const { onNewMessage } = useRealtime();
   const [conversations, setConversations] = useState<ConversationItem[]>(INITIAL_CONVERSATIONS);
-  const [selectedId, setSelectedId] = useState<string | null>(INITIAL_CONVERSATIONS[0]?.id || null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialConversationId || INITIAL_CONVERSATIONS[0]?.id || null
+  );
+
+  // Cập nhật selectedId nếu initialConversationId thay đổi từ bên ngoài (ví dụ bấm Chat từ Kanban)
+  useEffect(() => {
+    if (initialConversationId) {
+      setSelectedId(initialConversationId);
+    }
+  }, [initialConversationId]);
+
+  // Lắng nghe sự kiện tin nhắn thời gian thực (Realtime SSE)
+  useEffect(() => {
+    const unsubscribe = onNewMessage((msg) => {
+      setConversations((prev) => {
+        const targetId = msg.conversationId || prev[0]?.id || 'conv-1';
+        const exists = prev.some((c) => c.id === targetId);
+
+        const newChatMsg = {
+          id: msg.id,
+          conversationId: targetId,
+          direction: 'INBOUND' as const,
+          content: msg.content,
+          sentAt: msg.sentAt || 'Vừa xong',
+          senderName: msg.senderName,
+          senderAvatar: msg.senderAvatar,
+          status: 'DELIVERED' as const,
+        };
+
+        if (exists) {
+          return prev.map((c) => {
+            if (c.id !== targetId) return c;
+            const isCurrentlyOpen = c.id === selectedId;
+            return {
+              ...c,
+              snippet: msg.content,
+              lastMessageAt: 'Vừa xong',
+              lastCustomerMessageAt: new Date().toISOString(),
+              unreadCount: isCurrentlyOpen ? 0 : c.unreadCount + 1,
+              messages: [...c.messages, newChatMsg],
+            };
+          });
+        }
+        return prev;
+      });
+    });
+
+    return unsubscribe;
+  }, [onNewMessage, selectedId]);
 
   const currentConv = conversations.find((c) => c.id === selectedId) || conversations[0];
 
@@ -128,6 +186,22 @@ export const UnifiedInboxPage: React.FC = () => {
     notify.success(`Đã cập nhật phễu khách hàng sang "${newStatus}".`);
   };
 
+  // 4b. Cập nhật Lead Stage theo 7 giai đoạn tuyển sinh
+  const handleUpdateLeadStage = (newStage: LeadStage) => {
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id !== currentConv.id) return c;
+        return {
+          ...c,
+          customer: {
+            ...c.customer,
+            leadStage: newStage,
+          },
+        };
+      })
+    );
+  };
+
   // 5. Thêm nhãn
   const handleAddTag = (tag: string) => {
     if (currentConv.tags.includes(tag)) return;
@@ -227,6 +301,8 @@ export const UnifiedInboxPage: React.FC = () => {
         <CustomerProfileColumn
           customer={currentConv.customer}
           onUpdateLeadStatus={handleUpdateLeadStatus}
+          onUpdateLeadStage={handleUpdateLeadStage}
+          onNavigateToKanban={onNavigateToKanban}
           onAddTag={handleAddTag}
           onRemoveTag={handleRemoveTag}
           onAddNote={handleAddNote}

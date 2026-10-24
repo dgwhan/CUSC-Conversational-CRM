@@ -14,10 +14,12 @@ describe('ProcessMessageReceived UseCase (Worker message.received)', () => {
 
     const createSampleMessage = (overrides: Partial<Message> = {}): Message => ({
         id: 'msg-uuid-123',
+        conversationId: null,
         channelAccountId: 'account-uuid-1',
         channel: Channel.ZALO,
         direction: MessageDirection.INBOUND,
         content: 'Tư vấn khóa học Frontend React',
+        attachments: null,
         sentAt: new Date('2026-10-23T08:00:00.000Z'),
         externalMessageId: 'ext-zalo-msg-999',
         rawPayload: {

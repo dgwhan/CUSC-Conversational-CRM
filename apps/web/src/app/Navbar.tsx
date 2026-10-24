@@ -4,6 +4,7 @@ import { apiClient } from '../lib/api-client.js';
 import type { ActiveNavTab } from './Sidebar.js';
 import { useTranslation } from '../i18n/index.js';
 import { LanguageSwitcher } from '../i18n/LanguageSwitcher.js';
+import { StaffPresenceSelector } from '../modules/realtime/StaffPresenceSelector.js';
 
 interface NavbarProps {
   currentTab: ActiveNavTab;
@@ -26,6 +27,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUr
     switch (currentTab) {
       case 'inbox':
         return t('nav.liveChatBreadcrumb');
+      case 'kanban':
+        return 'Bảng Phễu Tuyển Sinh (Kanban Admission Pipeline)';
       case 'onboarding':
         return t('nav.onboardingBreadcrumb');
       case 'import':
@@ -57,6 +60,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUr
           </button>
           <button
             type="button"
+            className={`navbar-tab-btn ${currentTab === 'kanban' ? 'active' : ''}`}
+            onClick={() => onTabChange?.('kanban')}
+          >
+            Phễu Kanban
+          </button>
+          <button
+            type="button"
             className={`navbar-tab-btn ${currentTab === 'onboarding' ? 'active' : ''}`}
             onClick={() => onTabChange?.('onboarding')}
           >
@@ -70,6 +80,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUr
             {t('nav.quickTabImport')}
           </button>
         </div>
+
+        {/* Trạng thái nhân viên & Chuông Ting ting */}
+        <StaffPresenceSelector />
 
         <LanguageSwitcher />
 

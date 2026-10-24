@@ -2,6 +2,18 @@ export type ChannelType = 'FACEBOOK' | 'ZALO' | 'TIKTOK' | 'INSTAGRAM' | 'MANUAL
 
 export type LeadStatus = 'NEW' | 'POTENTIAL' | 'CONVERTED' | 'UNQUALIFIED';
 
+// Các giai đoạn phễu tuyển sinh / Sales Pipeline theo chuẩn đào tạo CUSC
+export type LeadStage =
+  | 'NEW'          // 1. Tiếp nhận mới (Chưa liên hệ)
+  | 'CONTACTED'    // 2. Đã liên hệ / Tư vấn thông tin
+  | 'QUALIFIED'    // 3. Tiềm năng cao (Hỏi học bổng & lộ trình)
+  | 'APPOINTMENT'  // 4. Hẹn nộp hồ sơ / Đăng ký trực tiếp
+  | 'SUBMITTED'    // 5. Đã nộp hồ sơ / Chờ xét duyệt
+  | 'ENROLLED'     // 6. Trúng tuyển / Đã nhập học (Đã chốt)
+  | 'LOST';        // 7. Thất bại / Hủy hồ sơ
+
+export type StaffPresenceStatus = 'ONLINE' | 'AWAY' | 'BUSY';
+
 export interface MessageAttachment {
   id: string;
   type: 'IMAGE' | 'FILE' | 'AUDIO';
@@ -40,6 +52,9 @@ export interface CustomerProfile {
   channel: ChannelType;
   channelAccountName: string;
   leadStatus: LeadStatus;
+  leadStage?: LeadStage;
+  estimatedValue?: number; // Học phí dự kiến (VNĐ)
+  priority?: 'HIGH' | 'MEDIUM' | 'LOW';
   tags: string[];
   interestCourses: string[];
   notes: InternalNote[];
@@ -50,6 +65,7 @@ export interface AssignedStaff {
   name: string;
   avatar: string;
   role: string;
+  presenceStatus?: StaffPresenceStatus;
 }
 
 export interface ConversationItem {

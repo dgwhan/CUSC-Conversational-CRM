@@ -11,14 +11,17 @@ import {
   Copy,
   Check,
   TrendingUp,
+  LayoutGrid,
 } from 'lucide-react';
-import type { CustomerProfile, LeadStatus } from '../types.js';
+import type { CustomerProfile, LeadStatus, LeadStage } from '../types.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useTranslation } from '../../../i18n/index.js';
 
 export interface CustomerProfileColumnProps {
   customer: CustomerProfile;
   onUpdateLeadStatus: (status: LeadStatus) => void;
+  onUpdateLeadStage?: (stage: LeadStage) => void;
+  onNavigateToKanban?: () => void;
   onAddTag: (tag: string) => void;
   onRemoveTag: (tag: string) => void;
   onAddNote: (content: string) => void;
@@ -28,6 +31,8 @@ export interface CustomerProfileColumnProps {
 export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   customer,
   onUpdateLeadStatus,
+  onUpdateLeadStage,
+  onNavigateToKanban,
   onAddTag,
   onRemoveTag,
   onAddNote,
@@ -39,12 +44,34 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   const [newNoteInput, setNewNoteInput] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const leadStatusConfig: { key: LeadStatus; label: string; color: string; bg: string }[] = [
-    { key: 'NEW', label: t('inbox.profile.leadStatuses.new'), color: '#0284c7', bg: '#f0f9ff' },
-    { key: 'POTENTIAL', label: t('inbox.profile.leadStatuses.potential'), color: '#f59e0b', bg: '#fffbeb' },
-    { key: 'CONVERTED', label: t('inbox.profile.leadStatuses.converted'), color: '#10b981', bg: '#ecfdf5' },
-    { key: 'UNQUALIFIED', label: t('inbox.profile.leadStatuses.unqualified'), color: '#64748b', bg: '#f8fafc' },
+  // 7 Giai đoạn phễu tuyển sinh chuẩn CUSC
+  const admissionStagesConfig: { key: LeadStage; label: string; color: string; bg: string; legacyStatus: LeadStatus }[] = [
+    { key: 'NEW', label: '1. Tiếp nhận mới', color: '#0284c7', bg: '#f0f9ff', legacyStatus: 'NEW' },
+    { key: 'CONTACTED', label: '2. Đã liên hệ', color: '#6366f1', bg: '#eef2ff', legacyStatus: 'NEW' },
+    { key: 'QUALIFIED', label: '3. Tiềm năng cao', color: '#d97706', bg: '#fffbeb', legacyStatus: 'POTENTIAL' },
+    { key: 'APPOINTMENT', label: '4. Hẹn nộp hồ sơ', color: '#ea580c', bg: '#fff7ed', legacyStatus: 'POTENTIAL' },
+    { key: 'SUBMITTED', label: '5. Đã nộp hồ sơ', color: '#0d9488', bg: '#f0fdfa', legacyStatus: 'POTENTIAL' },
+    { key: 'ENROLLED', label: '6. Trúng tuyển / Nhập học', color: '#16a34a', bg: '#f0fdf4', legacyStatus: 'CONVERTED' },
+    { key: 'LOST', label: '7. Hủy / Thất bại', color: '#64748b', bg: '#f8fafc', legacyStatus: 'UNQUALIFIED' },
   ];
+
+  const currentStageKey: LeadStage =
+    customer.leadStage ||
+    (customer.leadStatus === 'CONVERTED'
+      ? 'ENROLLED'
+      : customer.leadStatus === 'POTENTIAL'
+      ? 'QUALIFIED'
+      : customer.leadStatus === 'UNQUALIFIED'
+      ? 'LOST'
+      : 'NEW');
+
+  const handleStageSelect = (stageItem: typeof admissionStagesConfig[0]) => {
+    onUpdateLeadStatus(stageItem.legacyStatus);
+    if (onUpdateLeadStage) {
+      onUpdateLeadStage(stageItem.key);
+    }
+    notify.success(`Đã cập nhật giai đoạn tuyển sinh: "${stageItem.label}".`);
+  };
 
   const handleCopy = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
@@ -114,30 +141,44 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
       </div>
 
       <div className="profile-scroll-body">
-        {/* 2. Phễu Khách Hàng (Lead Funnel) */}
+        {/* 2. Phễu Khách Hàng (Admission Pipeline Stages) */}
         <div className="profile-section-card">
-          <div className="section-title-row">
-            <TrendingUp size={15} className="section-title-icon" />
-            <h4 className="section-title">{t('inbox.profile.leadFunnelTitle')}</h4>
+          <div className="section-title-row" style={{ justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <TrendingUp size={15} className="section-title-icon" />
+              <h4 className="section-title">Phễu Tuyển Sinh</h4>
+            </div>
+            {onNavigateToKanban && (
+              <button
+                type="button"
+                className="btn-link-kanban"
+                onClick={onNavigateToKanban}
+                title="Mở Bảng Phễu Chăm Sóc Tuyển Sinh dạng Kanban"
+              >
+                <LayoutGrid size={12} />
+                <span>Bảng Kanban</span>
+              </button>
+            )}
           </div>
 
-          <div className="lead-funnel-selector">
-            {leadStatusConfig.map((item) => {
-              const isCurrent = customer.leadStatus === item.key;
+          <div className="lead-pipeline-stepper">
+            {admissionStagesConfig.map((item) => {
+              const isCurrent = currentStageKey === item.key;
               return (
                 <button
                   key={item.key}
                   type="button"
-                  className={`funnel-stage-btn ${isCurrent ? 'active' : ''}`}
+                  className={`pipeline-stage-pill ${isCurrent ? 'active' : ''}`}
                   style={{
                     backgroundColor: isCurrent ? item.bg : undefined,
                     color: isCurrent ? item.color : undefined,
                     borderColor: isCurrent ? item.color : undefined,
                   }}
-                  onClick={() => onUpdateLeadStatus(item.key)}
+                  onClick={() => handleStageSelect(item)}
                 >
-                  <span className="funnel-dot" style={{ backgroundColor: item.color }} />
-                  <span className="funnel-text">{item.label}</span>
+                  <span className="pipeline-dot" style={{ backgroundColor: item.color }} />
+                  <span className="pipeline-label">{item.label}</span>
+                  {isCurrent && <span className="pipeline-check">✓</span>}
                 </button>
               );
             })}

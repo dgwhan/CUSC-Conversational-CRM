@@ -5,7 +5,9 @@ import { ErrorBoundary } from './app/ErrorBoundary.js';
 import { I18nProvider } from './i18n/I18nContext.js';
 import { ToastProvider } from './components/feedback/ToastContext.js';
 import { ToastContainer } from './components/feedback/ToastContainer.js';
+import { RealtimeProvider } from './modules/realtime/RealtimeContext.js';
 import { UnifiedInboxPage } from './modules/inbox/pages/UnifiedInboxPage.js';
+import { AdmissionKanbanBoard } from './modules/kanban/index.js';
 import { OnboardingWizardPage } from './modules/onboarding/pages/OnboardingWizardPage.js';
 import { MessagingImportPage } from './modules/messaging/pages/MessagingImportPage.js';
 import { Error404Page } from './pages/errors/Error404Page.js';
@@ -20,8 +22,17 @@ function CrashTriggerComponent(): React.ReactNode {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveNavTab>('inbox');
+  const [activeChatConvId, setActiveChatConvId] = useState<string | null>(null);
   const [simulatedErrorCode, setSimulatedErrorCode] = useState<number | null>(null);
   const [shouldCrash, setShouldCrash] = useState(false);
+
+  // Mở trực tiếp khung chat từ Kanban card
+  const handleOpenChatFromKanban = (conversationId?: string) => {
+    if (conversationId) {
+      setActiveChatConvId(conversationId);
+    }
+    setActiveTab('inbox');
+  };
 
   // Nếu người dùng yêu cầu crash để test ErrorBoundary
   if (shouldCrash) {
@@ -64,7 +75,15 @@ export default function App() {
     // Giao diện chính điều hướng theo Tab
     return (
       <AppLayout currentTab={activeTab} onTabChange={setActiveTab}>
-        {activeTab === 'inbox' && <UnifiedInboxPage />}
+        {activeTab === 'inbox' && (
+          <UnifiedInboxPage
+            onNavigateToKanban={() => setActiveTab('kanban')}
+            initialConversationId={activeChatConvId}
+          />
+        )}
+        {activeTab === 'kanban' && (
+          <AdmissionKanbanBoard onOpenChat={handleOpenChatFromKanban} />
+        )}
         {activeTab === 'onboarding' && (
           <OnboardingWizardPage
             onComplete={() => setActiveTab('inbox')}
@@ -80,18 +99,20 @@ export default function App() {
     <ErrorBoundary>
       <I18nProvider>
         <ToastProvider>
-          {/* Khung hiển thị Toast Thông Báo */}
-          <ToastContainer />
+          <RealtimeProvider>
+            {/* Khung hiển thị Toast Thông Báo */}
+            <ToastContainer />
 
-          {/* Thanh công cụ kiểm thử lỗi & thông báo */}
-          <ErrorSimulationBar
-            currentSimulatedCode={simulatedErrorCode}
-            onSimulatePage={(code) => setSimulatedErrorCode(code)}
-            onTriggerCrash={() => setShouldCrash(true)}
-          />
+            {/* Thanh công cụ kiểm thử lỗi & thông báo */}
+            <ErrorSimulationBar
+              currentSimulatedCode={simulatedErrorCode}
+              onSimulatePage={(code) => setSimulatedErrorCode(code)}
+              onTriggerCrash={() => setShouldCrash(true)}
+            />
 
-          {/* Màn hình chính hoặc màn hình lỗi */}
-          {renderCurrentView()}
+            {/* Màn hình chính hoặc màn hình lỗi */}
+            {renderCurrentView()}
+          </RealtimeProvider>
         </ToastProvider>
       </I18nProvider>
     </ErrorBoundary>

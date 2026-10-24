@@ -1,6 +1,7 @@
 @import './styles/theme.css';
 @import './styles/onboarding.css';
 @import './styles/pancake-inbox.css';
+@import './styles/kanban-realtime.css';
 
 /* App Global Layout Wrapper */
 #root {

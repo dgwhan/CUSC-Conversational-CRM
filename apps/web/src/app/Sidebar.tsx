@@ -8,10 +8,12 @@ import {
   Layers,
   GraduationCap,
   FileSpreadsheet,
+  LayoutGrid,
 } from 'lucide-react';
 import { useTranslation } from '../i18n/index.js';
+import { useRealtime } from '../modules/realtime/RealtimeContext.js';
 
-export type ActiveNavTab = 'inbox' | 'onboarding' | 'import';
+export type ActiveNavTab = 'inbox' | 'kanban' | 'onboarding' | 'import';
 
 export interface SidebarProps {
   currentTab: ActiveNavTab;
@@ -20,26 +22,33 @@ export interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
   const { t } = useTranslation();
+  const { myPresence } = useRealtime();
 
   const mainNavItems = [
     {
       id: 'inbox' as ActiveNavTab,
       label: t('nav.liveInbox'),
       icon: <MessageSquare size={18} />,
-      tag: 'Live Chat',
+      tag: '',
       badgeCount: 3,
+    },
+    {
+      id: 'kanban' as ActiveNavTab,
+      label: 'Bảng Phễu Tuyển Sinh',
+      icon: <LayoutGrid size={18} />,
+      tag: '',
     },
     {
       id: 'onboarding' as ActiveNavTab,
       label: t('nav.onboarding'),
       icon: <Layers size={18} />,
-      tag: 'Wizard 3 bước',
+      tag: '',
     },
     {
       id: 'import' as ActiveNavTab,
       label: t('nav.dataImport'),
       icon: <FileSpreadsheet size={18} />,
-      tag: 'MSG-06',
+      tag: '',
     },
   ];
 
@@ -112,10 +121,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
 
       <div className="crm-sidebar-footer">
         <div className="crm-user-profile">
-          <div className="crm-user-avatar">MV</div>
+          <div className="crm-user-avatar-wrapper" style={{ position: 'relative' }}>
+            <div className="crm-user-avatar">MV</div>
+            <span
+              className={`staff-status-dot ${myPresence.toLowerCase()}`}
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                right: 0,
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                border: '2px solid white',
+              }}
+            />
+          </div>
           <div className="crm-user-info">
             <span className="crm-user-name">Nguyễn Văn Minh</span>
-            <span className="crm-user-role">{t('nav.userRole')}</span>
+            <span className="crm-user-role">
+              {myPresence === 'ONLINE' && '🟢 Trực tuyến'}
+              {myPresence === 'AWAY' && '🟡 Vắng mặt'}
+              {myPresence === 'BUSY' && '🔴 Đang bận'}
+            </span>
           </div>
         </div>
       </div>
