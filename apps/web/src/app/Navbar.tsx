@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Server, ChevronRight, SlidersHorizontal, Check, Menu } from 'lucide-react';
+import { Server, ChevronRight, SlidersHorizontal, Check, LogOut, User, Menu } from 'lucide-react';
 import { apiClient } from '../lib/api-client.js';
 import type { ActiveNavTab } from './Sidebar.js';
 import { useTranslation } from '../i18n/index.js';
@@ -21,7 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleMobileMenu,
 }) => {
   const { t } = useTranslation();
-  const { isOwner } = useUserRole();
+  const { isOwner, staffName, logout } = useUserRole();
   const [showConfig, setShowConfig] = useState(false);
   const [apiUrl, setApiUrl] = useState(apiClient.getBaseUrl());
 
@@ -109,6 +109,57 @@ export const Navbar: React.FC<NavbarProps> = ({
         <StaffPresenceSelector />
 
         <LanguageSwitcher />
+
+        {/* Thông tin tài khoản & Nút Đăng xuất */}
+        <div
+          className="crm-user-profile-pill"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '4px 10px',
+            background: 'var(--color-bg-subtle, #f1f5f9)',
+            border: '1px solid var(--color-border, #e2e8f0)',
+            borderRadius: '9999px',
+            fontSize: '13px',
+          }}
+        >
+          <User size={14} style={{ color: 'var(--color-text-secondary, #64748b)' }} />
+          <span
+            style={{
+              fontWeight: 500,
+              color: 'var(--color-text-primary, #0f172a)',
+              maxWidth: '120px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={staffName}
+          >
+            {staffName}
+          </span>
+          <button
+            type="button"
+            onClick={logout}
+            title="Đăng xuất khỏi hệ thống"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              color: '#ef4444',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 500,
+            }}
+          >
+            <LogOut size={13} />
+            <span>Thoát</span>
+          </button>
+        </div>
 
         <div className="crm-status-pill">
           <span className="crm-status-dot online"></span>

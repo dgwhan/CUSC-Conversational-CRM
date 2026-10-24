@@ -32,7 +32,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
   onNavigateToSettings,
 }) => {
   const { staffPresences, onPipelineChange } = useRealtime();
-  const { isOwner, isAgent, staffId } = useUserRole();
+const { isOwner, isAgent, staffId, staffName } = useUserRole();
   const { config } = useWorkspaceConfig();
 
   const [candidates, setCandidates] = useState<KanbanCandidate[]>(() => {
@@ -299,8 +299,8 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
             value={staffFilter}
             onChange={(e) => setStaffFilter(e.target.value)}
           >
-            <option value="ALL">Tất cả nhân viên tư vấn</option>
-            <option value="staff-1">Nguyễn Văn Minh (Bạn)</option>
+<option value="ALL">Tất cả nhân viên tư vấn</option>
+            <option value="staff-1">{staffName ? `${staffName} (Bạn)` : 'Nguyễn Văn Minh (Bạn)'}</option>
             <option value="staff-2">Lê Thị Thu Lan</option>
             <option value="staff-3">Trần Hoàng Nam</option>
           </select>

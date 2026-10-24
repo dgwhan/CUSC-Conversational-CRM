@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useState } from 'react';
 import { notify } from '../../components/feedback/toastEmitter.js';
+import type { LoginResponse } from '../../features/auth/types/auth.types.js';
 
 export type UserRole = 'OWNER' | 'AGENT';
+
+const SESSION_STORAGE_KEY = 'cusc_crm_auth_session';
 
 export interface UserRoleContextValue {
   role: UserRole;
@@ -9,6 +12,11 @@ export interface UserRoleContextValue {
   isAgent: boolean;
   staffId: string;
   staffName: string;
+  staffEmail: string;
+  session: LoginResponse | null;
+  isAuthenticated: boolean;
+  login: (newSession: LoginResponse) => void;
+  logout: () => void;
   setRole: (newRole: UserRole) => void;
   toggleRole: () => void;
 }
@@ -16,6 +24,15 @@ export interface UserRoleContextValue {
 const UserRoleContext = createContext<UserRoleContextValue | null>(null);
 
 export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Lấy session đã lưu từ localStorage nếu có
+  const [session, setSession] = useState<LoginResponse | null>(() => {
+    try {
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (saved) return JSON.parse(saved) as LoginResponse;
+    } catch {}
+    return null;
+  });
+
   const [role, setRoleState] = useState<UserRole>(() => {
     try {
       const saved = localStorage.getItem('cusc_crm_user_role');
@@ -24,8 +41,38 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return 'OWNER';
   });
 
-  const staffId = 'staff-1';
-  const staffName = 'Nguyễn Văn Minh';
+  const staffId = session?.staff.id || '';
+  const staffName = session?.staff.fullName || '';
+  const staffEmail = session?.staff.email || '';
+  const isAuthenticated = session !== null;
+
+  const login = (newSession: LoginResponse) => {
+    setSession(newSession);
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(newSession));
+    } catch {}
+
+    // Tự động map role từ backend sang role RBAC của CRM giao diện
+    const mappedRole: UserRole =
+      newSession.staff.role === 'STAFF' ? 'AGENT' : 'OWNER';
+    setRoleState(mappedRole);
+    try {
+      localStorage.setItem('cusc_crm_user_role', mappedRole);
+    } catch {}
+
+    notify.success(
+      `Chào mừng ${newSession.staff.fullName} (${newSession.staff.role})!`,
+      'Đăng nhập thành công'
+    );
+  };
+
+  const logout = () => {
+    setSession(null);
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch {}
+    notify.info('Đã đăng xuất khỏi hệ thống.', 'Phiên làm việc');
+  };
 
   const setRole = (newRole: UserRole) => {
     setRoleState(newRole);
@@ -58,6 +105,11 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isAgent: role === 'AGENT',
         staffId,
         staffName,
+        staffEmail,
+        session,
+        isAuthenticated,
+        login,
+        logout,
         setRole,
         toggleRole,
       }}

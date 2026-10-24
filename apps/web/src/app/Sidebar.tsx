@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   Sliders,
   X,
+  LogOut,
 } from 'lucide-react';
 import { useTranslation } from '../i18n/index.js';
 import { useRealtime } from '../modules/realtime/RealtimeContext.js';
@@ -35,8 +36,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { t } = useTranslation();
   const { myPresence } = useRealtime();
-  const { isOwner, isAgent } = useUserRole();
   const { config } = useWorkspaceConfig();
+  const { isOwner, isAgent, staffName, logout } = useUserRole();
+
 
   const mainNavItems = [
     {
@@ -163,7 +165,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="crm-sidebar-footer">
         <div className="crm-user-profile">
           <div className="crm-user-avatar-wrapper" style={{ position: 'relative' }}>
-            <div className="crm-user-avatar">MV</div>
+            <div className="crm-user-avatar">
+              {staffName ? staffName.slice(0, 2).toUpperCase() : 'US'}
+            </div>
             <span
               className={`staff-status-dot ${myPresence.toLowerCase()}`}
               style={{
@@ -179,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <div className="crm-user-info">
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span className="crm-user-name">Nguyễn Văn Minh</span>
+              <span className="crm-user-name">{staffName}</span>
             </div>
             <span
               className="crm-user-role"
@@ -192,6 +196,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {isOwner ? '👑 Chủ doanh nghiệp (Full)' : '🎧 Tư vấn viên (Agent)'}
             </span>
           </div>
+          <button
+            type="button"
+            onClick={logout}
+            title="Đăng xuất khỏi hệ thống"
+            style={{
+              marginLeft: 'auto',
+              border: 'none',
+              background: 'transparent',
+              color: '#ef4444',
+              cursor: 'pointer',
+              padding: '6px',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </aside>

@@ -6,6 +6,7 @@ import { ChatWindowColumn } from '../components/ChatWindowColumn.js';
 import { CustomerProfileColumn } from '../components/CustomerProfileColumn.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useRealtime } from '../../realtime/RealtimeContext.js';
+import { useUserRole } from '../../auth/index.js';
 
 interface UnifiedInboxPageProps {
   onNavigateToKanban?: () => void;
@@ -17,6 +18,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   initialConversationId,
 }) => {
   const { onNewMessage } = useRealtime();
+  const { staffName } = useUserRole();
   const [conversations, setConversations] = useState<ConversationItem[]>(INITIAL_CONVERSATIONS);
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     if (initialConversationId) return initialConversationId;
@@ -94,7 +96,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
       content: text,
       attachments,
       sentAt: 'Vừa xong',
-      senderName: 'Nguyễn Văn Minh (Bạn)',
+      senderName: staffName ? `${staffName} (Bạn)` : 'Bạn',
       status: 'SENT' as const,
     };
 
@@ -243,7 +245,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   const handleAddNote = (content: string) => {
     const newNote = {
       id: `note-${Date.now()}`,
-      author: 'Nguyễn Văn Minh (Bạn)',
+      author: staffName ? `${staffName} (Bạn)` : 'Bạn',
       content,
       createdAt: 'Vừa xong',
     };

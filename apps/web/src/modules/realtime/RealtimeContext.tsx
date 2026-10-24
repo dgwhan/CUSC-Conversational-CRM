@@ -3,6 +3,7 @@ import type { StaffPresenceStatus, ChannelType } from '../inbox/types.js';
 import { playTingTingSound, isSoundEnabled, setSoundEnabled } from './audioNotification.js';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import { apiClient } from '../../lib/api-client.js';
+import { useUserRole } from '../auth/index.js';
 
 export interface InboundMessageEventData {
   id: string;
@@ -49,14 +50,6 @@ export interface RealtimeContextValue {
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 
 const DEFAULT_STAFF_PRESENCES: Record<string, StaffPresenceData> = {
-  'staff-1': {
-    staffId: 'staff-1',
-    name: 'Nguyễn Văn Minh (Bạn)',
-    avatar: 'MV',
-    role: 'Tư vấn viên chính',
-    status: 'ONLINE',
-    updatedAt: new Date().toISOString(),
-  },
   'staff-2': {
     staffId: 'staff-2',
     name: 'Lê Thị Thu Lan',
@@ -76,8 +69,22 @@ const DEFAULT_STAFF_PRESENCES: Record<string, StaffPresenceData> = {
 };
 
 export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { staffId, staffName } = useUserRole();
+  const currentStaffId = staffId || 'staff-me';
+  const currentStaffName = staffName ? `${staffName} (Bạn)` : 'Bạn';
+
   const [connectionStatus, setConnectionStatus] = useState<'CONNECTED' | 'CONNECTING' | 'DISCONNECTED'>('CONNECTING');
-  const [staffPresences, setStaffPresences] = useState<Record<string, StaffPresenceData>>(DEFAULT_STAFF_PRESENCES);
+  const [staffPresences, setStaffPresences] = useState<Record<string, StaffPresenceData>>(() => ({
+    ...DEFAULT_STAFF_PRESENCES,
+    [currentStaffId]: {
+      staffId: currentStaffId,
+      name: currentStaffName,
+      avatar: staffName ? staffName.slice(0, 2).toUpperCase() : 'ME',
+      role: 'Tư vấn viên',
+      status: 'ONLINE',
+      updatedAt: new Date().toISOString(),
+    },
+  }));
   const [myPresence, setMyPresence] = useState<StaffPresenceStatus>('ONLINE');
   const [soundActive, setSoundActiveState] = useState<boolean>(isSoundEnabled());
 
@@ -136,8 +143,13 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setMyPresence(status);
     setStaffPresences((prev) => ({
       ...prev,
-      'staff-1': {
-        ...prev['staff-1'],
+      [currentStaffId]: {
+        ...(prev[currentStaffId] || {
+          staffId: currentStaffId,
+          name: currentStaffName,
+          avatar: staffName ? staffName.slice(0, 2).toUpperCase() : 'ME',
+          role: 'Tư vấn viên',
+        }),
         status,
         updatedAt: new Date().toISOString(),
       },
@@ -145,9 +157,9 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     try {
       await apiClient.post('/realtime/presence', {
-        staffId: 'staff-1',
+        staffId: currentStaffId,
         status,
-        name: 'Nguyễn Văn Minh (Bạn)',
+        name: currentStaffName,
       }, { skipToast: true });
     } catch {
       // Backend offline thì duy trì cục bộ

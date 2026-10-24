@@ -1,4 +1,6 @@
-export type StaffRole = 'ADMIN' | 'MANAGER' | 'STAFF';
+import type { StaffRole } from '../constants/auth.constants.js';
+
+export type { StaffRole };
 
 export type LoginRequest = {
   email: string;

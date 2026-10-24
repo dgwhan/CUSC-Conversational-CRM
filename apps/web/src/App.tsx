@@ -5,7 +5,7 @@ import { ErrorBoundary } from './app/ErrorBoundary.js';
 import { I18nProvider } from './i18n/I18nContext.js';
 import { ToastProvider } from './components/feedback/ToastContext.js';
 import { ToastContainer } from './components/feedback/ToastContainer.js';
-import { UserRoleProvider } from './modules/auth/index.js';
+import { UserRoleProvider, useUserRole } from './modules/auth/index.js';
 import { RealtimeProvider } from './modules/realtime/RealtimeContext.js';
 import { WorkspaceConfigProvider, WorkspaceSettingsPage } from './modules/workspace/index.js';
 import { UnifiedInboxPage } from './modules/inbox/pages/UnifiedInboxPage.js';
@@ -15,6 +15,7 @@ import { MessagingImportPage } from './modules/messaging/pages/MessagingImportPa
 import { Error404Page } from './pages/errors/Error404Page.js';
 import { HttpErrorPage } from './pages/errors/HttpErrorPage.js';
 import { ErrorSimulationBar } from './pages/errors/ErrorSimulationBar.js';
+import { LoginPage } from './features/auth/pages/LoginPage.js';
 import './App.css';
 
 // Component phụ mô phỏng lỗi crash để kiểm tra ErrorBoundary
@@ -22,7 +23,8 @@ function CrashTriggerComponent(): React.ReactNode {
   throw new Error('Mô phỏng lỗi ngoại lệ chưa xử lý: TypeError: Cannot read properties of undefined (reading "candidate_name") tại MessagingContainer.tsx:142');
 }
 
-export default function App() {
+function CRMMainContent() {
+  const { isAuthenticated, login } = useUserRole();
   const [activeTab, setActiveTab] = useState<ActiveNavTab>('inbox');
   const [activeChatConvId, setActiveChatConvId] = useState<string | null>(null);
   const [simulatedErrorCode, setSimulatedErrorCode] = useState<number | null>(null);
@@ -35,6 +37,16 @@ export default function App() {
     }
     setActiveTab('inbox');
   };
+
+  // Chưa đăng nhập: hiển thị trang Login
+  if (!isAuthenticated) {
+    return (
+      <>
+        <ToastContainer />
+        <LoginPage onLoginSuccess={login} />
+      </>
+    );
+  }
 
   // Nếu người dùng yêu cầu crash để test ErrorBoundary
   if (shouldCrash) {
@@ -102,24 +114,32 @@ export default function App() {
   };
 
   return (
+    <>
+      {/* Khung hiển thị Toast Thông Báo */}
+      <ToastContainer />
+
+      {/* Thanh công cụ kiểm thử lỗi & thông báo */}
+      <ErrorSimulationBar
+        currentSimulatedCode={simulatedErrorCode}
+        onSimulatePage={(code) => setSimulatedErrorCode(code)}
+        onTriggerCrash={() => setShouldCrash(true)}
+      />
+
+      {/* Màn hình chính hoặc màn hình lỗi */}
+      {renderCurrentView()}
+    </>
+  );
+}
+
+export default function App() {
+  return (
     <ErrorBoundary>
       <I18nProvider>
         <ToastProvider>
           <UserRoleProvider>
             <RealtimeProvider>
               <WorkspaceConfigProvider>
-                {/* Khung hiển thị Toast Thông Báo */}
-                <ToastContainer />
-
-                {/* Thanh công cụ kiểm thử lỗi & thông báo */}
-                <ErrorSimulationBar
-                  currentSimulatedCode={simulatedErrorCode}
-                  onSimulatePage={(code) => setSimulatedErrorCode(code)}
-                  onTriggerCrash={() => setShouldCrash(true)}
-                />
-
-                {/* Màn hình chính hoặc màn hình lỗi */}
-                {renderCurrentView()}
+                <CRMMainContent />
               </WorkspaceConfigProvider>
             </RealtimeProvider>
           </UserRoleProvider>
