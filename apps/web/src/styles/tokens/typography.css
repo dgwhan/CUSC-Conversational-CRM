@@ -1,0 +1,49 @@
+:root {
+  --font-family-base: "Roboto", sans-serif;
+
+  --text-display-size: 32px;
+  --text-display-line: 40px;
+  --text-page-title-size: 28px;
+  --text-page-title-line: 36px;
+  --text-section-title-size: 24px;
+  --text-section-title-line: 32px;
+  --text-card-title-size: 20px;
+  --text-card-title-line: 28px;
+  --text-body-lg-size: 16px;
+  --text-body-lg-line: 24px;
+  --text-body-size: 14px;
+  --text-body-line: 20px;
+  --text-label-size: 14px;
+  --text-label-line: 20px;
+  --text-button-size: 14px;
+  --text-button-line: 20px;
+  --text-caption-size: 12px;
+  --text-caption-line: 16px;
+}
+
+@theme inline {
+  --font-sans: var(--font-family-base);
+  --text-display: var(--text-display-size);
+  --text-display--line-height: var(--text-display-line);
+  --text-page-title: var(--text-page-title-size);
+  --text-page-title--line-height: var(--text-page-title-line);
+  --text-section-title: var(--text-section-title-size);
+  --text-section-title--line-height: var(--text-section-title-line);
+  --text-card-title: var(--text-card-title-size);
+  --text-card-title--line-height: var(--text-card-title-line);
+  --text-body-lg: var(--text-body-lg-size);
+  --text-body-lg--line-height: var(--text-body-lg-line);
+  --text-body: var(--text-body-size);
+  --text-body--line-height: var(--text-body-line);
+  --text-label: var(--text-label-size);
+  --text-label--line-height: var(--text-label-line);
+  --text-button: var(--text-button-size);
+  --text-button--line-height: var(--text-button-line);
+  --text-caption: var(--text-caption-size);
+  --text-caption--line-height: var(--text-caption-line);
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+}

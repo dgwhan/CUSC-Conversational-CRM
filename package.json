@@ -10,5 +10,12 @@
     "prisma:generate": "pnpm --filter api prisma generate",
     "prisma:migrate": "pnpm --filter api prisma migrate dev",
     "prisma:studio": "pnpm --filter api prisma studio"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "bcrypt",
+      "msgpackr-extract",
+      "prisma"
+    ]
   }
 }

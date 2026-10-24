@@ -7,6 +7,12 @@ dotenv.config();
 dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL is required to configure Prisma.');
+}
+
 export default defineConfig({
   schema: 'prisma',
   migrations: {
@@ -14,8 +20,6 @@ export default defineConfig({
     seed: 'node prisma/seed.ts',
   },
   datasource: {
-    url:
-      process.env.DATABASE_URL ||
-      'postgresql://postgres:postgres@localhost:5432/recruitment_crm?schema=public',
+    url: databaseUrl,
   },
 });

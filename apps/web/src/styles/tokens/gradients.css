@@ -1,0 +1,8 @@
+:root {
+  --gradient-background-login: linear-gradient(
+    135deg,
+    #f8fafc 0%,
+    #e8edf6 50%,
+    #c7d2e5 100%
+  );
+}

@@ -1,0 +1,45 @@
+@import "tailwindcss";
+@import "./tokens/index.css";
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    min-width: 320px;
+    min-height: 100%;
+    font-family: var(--font-family-base);
+    color: var(--color-text-primary);
+    background: var(--color-bg-page);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+    min-height: 100svh;
+    margin: 0;
+  }
+
+  button,
+  input {
+    font: inherit;
+  }
+
+  button:focus-visible,
+  input:focus-visible {
+    outline: 3px solid rgb(41 80 151 / 30%);
+    outline-offset: 2px;
+  }
+
+  #root {
+    min-height: 100vh;
+    min-height: 100svh;
+  }
+}
