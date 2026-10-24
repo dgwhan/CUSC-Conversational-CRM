@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { AppLayout } from './app/AppLayout.js';
+import type { ActiveNavTab } from './app/Sidebar.js';
 import { ErrorBoundary } from './app/ErrorBoundary.js';
 import { ToastProvider } from './components/feedback/ToastContext.js';
 import { ToastContainer } from './components/feedback/ToastContainer.js';
+import { UnifiedInboxPage } from './modules/inbox/pages/UnifiedInboxPage.js';
+import { OnboardingWizardPage } from './modules/onboarding/pages/OnboardingWizardPage.js';
 import { MessagingImportPage } from './modules/messaging/pages/MessagingImportPage.js';
 import { Error404Page } from './pages/errors/Error404Page.js';
 import { HttpErrorPage } from './pages/errors/HttpErrorPage.js';
@@ -15,6 +18,7 @@ function CrashTriggerComponent(): React.ReactNode {
 }
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<ActiveNavTab>('inbox');
   const [simulatedErrorCode, setSimulatedErrorCode] = useState<number | null>(null);
   const [shouldCrash, setShouldCrash] = useState(false);
 
@@ -56,9 +60,17 @@ export default function App() {
       );
     }
 
+    // Giao diện chính điều hướng theo Tab
     return (
-      <AppLayout>
-        <MessagingImportPage />
+      <AppLayout currentTab={activeTab} onTabChange={setActiveTab}>
+        {activeTab === 'inbox' && <UnifiedInboxPage />}
+        {activeTab === 'onboarding' && (
+          <OnboardingWizardPage
+            onComplete={() => setActiveTab('inbox')}
+            onSkipToInbox={() => setActiveTab('inbox')}
+          />
+        )}
+        {activeTab === 'import' && <MessagingImportPage />}
       </AppLayout>
     );
   };

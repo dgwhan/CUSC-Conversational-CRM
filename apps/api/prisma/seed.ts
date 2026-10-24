@@ -58,8 +58,50 @@ try {
     );
   }
 
+  // 2. Lấy admin user để làm owner cho Default Workspace
+  const adminRes = await client.query(`SELECT id FROM staff WHERE email = 'admin@cusc.com' LIMIT 1`);
+  const adminId = adminRes.rows[0]?.id;
+
+  if (adminId) {
+    const workspaceId = randomUUID();
+    await client.query(
+      `INSERT INTO workspaces (id, name, slug, owner_id, is_active, created_at, updated_at)
+       VALUES ($1, 'Trung tâm Công nghệ Phần mềm CUSC', 'cusc', $2, true, NOW(), NOW())
+       ON CONFLICT (slug) DO UPDATE SET
+         name = EXCLUDED.name,
+         owner_id = EXCLUDED.owner_id,
+         updated_at = NOW()`,
+      [workspaceId, adminId],
+    );
+
+    const wsRes = await client.query(`SELECT id FROM workspaces WHERE slug = 'cusc' LIMIT 1`);
+    const actualWsId = wsRes.rows[0]?.id;
+
+    if (actualWsId) {
+      // Gán các staff vào workspace_members
+      const staffRows = await client.query(`SELECT id, email, role FROM staff WHERE email IN ('admin@cusc.com', 'manager@cusc.com', 'staff@cusc.com')`);
+      for (const row of staffRows.rows) {
+        const memberRole = row.role === 'ADMIN' ? 'OWNER' : row.role === 'MANAGER' ? 'ADMIN' : 'AGENT';
+        await client.query(
+          `INSERT INTO workspace_members (id, workspace_id, staff_id, role, is_active, created_at, updated_at)
+           VALUES ($1, $2, $3, $4::"workspace_member_role", true, NOW(), NOW())
+           ON CONFLICT (workspace_id, staff_id) DO UPDATE SET
+             role = EXCLUDED.role,
+             updated_at = NOW()`,
+          [randomUUID(), actualWsId, row.id, memberRole],
+        );
+      }
+
+      // Gán các channel_accounts chưa có workspace_id vào workspace mặc định
+      await client.query(
+        `UPDATE channel_accounts SET workspace_id = $1 WHERE workspace_id IS NULL`,
+        [actualWsId],
+      );
+    }
+  }
+
   await client.query('COMMIT');
-  console.log('Seeded 3 demo staff accounts: ADMIN, MANAGER, STAFF');
+  console.log('Seeded 3 demo staff accounts and Default Workspace: CUSC with multi-tenant memberships');
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;

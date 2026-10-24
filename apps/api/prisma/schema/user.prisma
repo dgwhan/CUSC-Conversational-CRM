@@ -26,6 +26,8 @@ model Staff {
   updatedAt          DateTime     @updatedAt @map("updated_at")
 
   refreshTokens RefreshToken[]
+  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[]
 
   @@map("staff")
 }
