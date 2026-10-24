@@ -196,6 +196,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     let isMounted = true;
+    let retryDelay = 5000;
 
     const connectSSE = () => {
       if (typeof window === 'undefined') return;
@@ -213,6 +214,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         es.onopen = () => {
           if (!isMounted) return;
+          retryDelay = 5000;
           setConnectionStatus('CONNECTED');
         };
 
@@ -258,16 +260,17 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setConnectionStatus('DISCONNECTED');
           es.close();
 
-          // Tự động thử lại kết nối sau 6s
+          // Tăng dần thời gian thử lại (Exponential backoff 5s -> 10s -> 20s -> tối đa 30s)
+          // để tránh spam kết nối khi máy chủ Backend chưa được khởi động
+          retryDelay = Math.min(Math.round(retryDelay * 1.5), 30000);
           reconnectTimeout = setTimeout(() => {
             if (isMounted) {
               setConnectionStatus('CONNECTING');
               connectSSE();
             }
-          }, 6000);
+          }, retryDelay);
         };
-      } catch (err) {
-        console.warn('SSE connection failed to initialize:', err);
+      } catch {
         setConnectionStatus('DISCONNECTED');
       }
     };
