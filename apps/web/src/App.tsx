@@ -7,6 +7,7 @@ import { ToastProvider } from './components/feedback/ToastContext.js';
 import { ToastContainer } from './components/feedback/ToastContainer.js';
 import { UserRoleProvider } from './modules/auth/index.js';
 import { RealtimeProvider } from './modules/realtime/RealtimeContext.js';
+import { WorkspaceConfigProvider, WorkspaceSettingsPage } from './modules/workspace/index.js';
 import { UnifiedInboxPage } from './modules/inbox/pages/UnifiedInboxPage.js';
 import { AdmissionKanbanBoard } from './modules/kanban/index.js';
 import { OnboardingWizardPage } from './modules/onboarding/pages/OnboardingWizardPage.js';
@@ -83,8 +84,12 @@ export default function App() {
           />
         )}
         {activeTab === 'kanban' && (
-          <AdmissionKanbanBoard onOpenChat={handleOpenChatFromKanban} />
+          <AdmissionKanbanBoard
+            onOpenChat={handleOpenChatFromKanban}
+            onNavigateToSettings={() => setActiveTab('workspace-settings')}
+          />
         )}
+        {activeTab === 'workspace-settings' && <WorkspaceSettingsPage />}
         {activeTab === 'onboarding' && (
           <OnboardingWizardPage
             onComplete={() => setActiveTab('inbox')}
@@ -102,18 +107,20 @@ export default function App() {
         <ToastProvider>
           <UserRoleProvider>
             <RealtimeProvider>
-              {/* Khung hiển thị Toast Thông Báo */}
-              <ToastContainer />
+              <WorkspaceConfigProvider>
+                {/* Khung hiển thị Toast Thông Báo */}
+                <ToastContainer />
 
-              {/* Thanh công cụ kiểm thử lỗi & thông báo */}
-              <ErrorSimulationBar
-                currentSimulatedCode={simulatedErrorCode}
-                onSimulatePage={(code) => setSimulatedErrorCode(code)}
-                onTriggerCrash={() => setShouldCrash(true)}
-              />
+                {/* Thanh công cụ kiểm thử lỗi & thông báo */}
+                <ErrorSimulationBar
+                  currentSimulatedCode={simulatedErrorCode}
+                  onSimulatePage={(code) => setSimulatedErrorCode(code)}
+                  onTriggerCrash={() => setShouldCrash(true)}
+                />
 
-              {/* Màn hình chính hoặc màn hình lỗi */}
-              {renderCurrentView()}
+                {/* Màn hình chính hoặc màn hình lỗi */}
+                {renderCurrentView()}
+              </WorkspaceConfigProvider>
             </RealtimeProvider>
           </UserRoleProvider>
         </ToastProvider>

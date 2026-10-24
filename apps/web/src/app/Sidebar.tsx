@@ -9,23 +9,34 @@ import {
   GraduationCap,
   FileSpreadsheet,
   LayoutGrid,
+  Sliders,
+  X,
 } from 'lucide-react';
 import { useTranslation } from '../i18n/index.js';
 import { useRealtime } from '../modules/realtime/RealtimeContext.js';
 import { useUserRole } from '../modules/auth/UserRoleContext.js';
+import { useWorkspaceConfig } from '../modules/workspace/WorkspaceConfigContext.js';
 import { notify } from '../components/feedback/toastEmitter.js';
 
-export type ActiveNavTab = 'inbox' | 'kanban' | 'onboarding' | 'import';
+export type ActiveNavTab = 'inbox' | 'kanban' | 'onboarding' | 'import' | 'workspace-settings';
 
 export interface SidebarProps {
   currentTab: ActiveNavTab;
   onTabChange: (tab: ActiveNavTab) => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  currentTab,
+  onTabChange,
+  isMobileOpen = false,
+  onCloseMobile,
+}) => {
   const { t } = useTranslation();
   const { myPresence } = useRealtime();
   const { isOwner, isAgent } = useUserRole();
+  const { config } = useWorkspaceConfig();
 
   const mainNavItems = [
     {
@@ -37,9 +48,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
     },
     {
       id: 'kanban' as ActiveNavTab,
-      label: 'Bảng Phễu Tuyển Sinh',
+      label: config.terminology.pipelineName || 'Bảng Phễu Bán Hàng',
       icon: <LayoutGrid size={18} />,
       tag: '',
+    },
+    {
+      id: 'workspace-settings' as ActiveNavTab,
+      label: 'Cấu Hình Phễu & Multi-tenant',
+      icon: <Sliders size={18} />,
+      tag: isAgent ? 'Chỉ Owner' : 'Tùy biến',
+      restricted: isAgent,
     },
     {
       id: 'onboarding' as ActiveNavTab,
@@ -64,8 +82,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
   ];
 
   return (
-    <aside className="crm-sidebar">
-      <div className="crm-sidebar-brand">
+    <aside className={`crm-sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
+      <div className="crm-sidebar-brand" style={{ position: 'relative' }}>
         <div className="crm-brand-icon">
           <GraduationCap size={22} />
         </div>
@@ -73,6 +91,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
           <span className="crm-brand-name">{t('common.systemName')}</span>
           <span className="crm-brand-sub">{t('common.portalName')}</span>
         </div>
+        {onCloseMobile && (
+          <button
+            type="button"
+            className="navbar-mobile-toggle"
+            onClick={onCloseMobile}
+            style={{ marginLeft: 'auto', display: isMobileOpen ? 'inline-flex' : undefined }}
+            title="Đóng menu"
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       <div className="crm-sidebar-menu">

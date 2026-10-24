@@ -165,6 +165,18 @@ export interface TranslationDictionary {
       reopenBtn: string;
     };
     quickRepliesLabel: string;
+    chatInput?: {
+      placeholder: string;
+      sendBtn: string;
+      warning24hPlaceholder: string;
+      attachFile: string;
+      attachImage: string;
+      voiceMessage: string;
+      insertEmoji: string;
+      attachSimulated: string;
+      voiceRecordingNotice: string;
+      voiceSentSuccess: string;
+    };
     input: {
       shortcutHint: string;
       placeholder: string;

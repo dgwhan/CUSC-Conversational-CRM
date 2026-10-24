@@ -8,6 +8,7 @@ import { PasswordRecoveryModule } from './modules/password-recovery/password-rec
 import { MessagingModule } from './modules/messaging/messaging.module.js';
 import { ChannelConnectionModule } from './modules/channel-connection/channel-connection.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
+import { WorkspaceConfigModule } from './modules/workspace-config/workspace-config.module.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module.js';
     MessagingModule,
     ChannelConnectionModule,
     RealtimeModule,
+    WorkspaceConfigModule,
   ],
   controllers: [AppController],
   providers: [AppService],

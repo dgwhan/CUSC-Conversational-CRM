@@ -758,6 +758,83 @@ input:checked + .crm-slider:before {
   justify-content: space-between;
 }
 
+/* ==========================================================================
+   SKIP & CONTINUE BUTTON EFFECTS (CHANNEL CONNECTION / ONBOARDING)
+   ========================================================================== */
+
+.onboarding-card-footer .skip-btn,
+.wizard-title-group ~ .skip-btn,
+.skip-btn {
+  background: #ffffff !important;
+  color: #64748b !important;
+  border: 1px dashed #cbd5e1 !important;
+  font-weight: 600 !important;
+  padding: 6px 13px !important;
+  border-radius: 6px !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+}
+
+.onboarding-card-footer .skip-btn:hover,
+.wizard-title-group ~ .skip-btn:hover,
+.skip-btn:hover {
+  background: #f0f9ff !important;
+  color: #0284c7 !important;
+  border: 1px solid #38bdf8 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 12px rgba(2, 132, 199, 0.2) !important;
+}
+
+.onboarding-card-footer .skip-btn:active,
+.wizard-title-group ~ .skip-btn:active,
+.skip-btn:active {
+  transform: translateY(0);
+}
+
+.onboarding-card-footer .continue-btn,
+.onboarding-card-footer .crm-btn-primary.crm-btn-gradient-primary {
+  background: var(--gradient-primary) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(14, 165, 233, 0.45) !important;
+  box-shadow: 0 3px 12px rgba(14, 165, 233, 0.38) !important;
+  font-weight: 600 !important;
+  padding: 7px 16px !important;
+  border-radius: 6px !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+}
+
+.onboarding-card-footer .continue-btn:hover,
+.onboarding-card-footer .crm-btn-primary.crm-btn-gradient-primary:hover {
+  background: var(--gradient-primary-hover) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 7px 22px rgba(14, 165, 233, 0.5) !important;
+}
+
+.onboarding-card-footer .continue-btn:active,
+.onboarding-card-footer .crm-btn-primary.crm-btn-gradient-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3) !important;
+}
+
+.onboarding-card-footer .continue-btn svg,
+.onboarding-card-footer .crm-btn-primary svg {
+  transition: transform 0.22s ease !important;
+}
+
+.onboarding-card-footer .continue-btn:hover svg,
+.onboarding-card-footer .crm-btn-primary:hover svg {
+  transform: translateX(4px) !important;
+}
+
 /* OAuth Modal */
 .crm-modal-backdrop {
   position: fixed;
