@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import type { StaffRole } from '../../contracts/iam.js';
+import type { StaffRole } from '../../../../contracts/iam.js';
 
 export const ROLES_KEY = 'roles';
 

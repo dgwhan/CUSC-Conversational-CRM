@@ -6,9 +6,9 @@ import {
   type ExecutionContext,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { StaffRoleSchema, type StaffRole } from '../../contracts/iam.js';
-import type { AuthUser } from './auth-user.js';
-import { ROLES_KEY } from './roles.decorator.js';
+import { StaffRoleSchema, type StaffRole } from '../../../../contracts/iam.js';
+import type { AuthUser } from '../../domain/types/auth-user.js';
+import { ROLES_KEY } from '../decorators/roles.decorator.js';
 
 @Injectable()
 export class RolesGuard implements CanActivate {

@@ -9,9 +9,8 @@ import { JwtService, type JwtSignOptions } from "@nestjs/jwt";
 import { Prisma } from "@prisma/client";
 import argon2 from "argon2";
 import bcrypt from "bcryptjs";
-import { PrismaService } from "../../platform/database/prisma.service.js";
-import type { LoginRequestDto } from "./dto/login-request.dto.js";
-import type { LoginResponseDto } from "./dto/login-response.dto.js";
+import { PrismaService } from "../../../../platform/database/prisma.service.js";
+import type { AuthUser } from "../../domain/types/auth-user.js";
 
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCK_DURATION_MS = 15 * 60 * 1000;
@@ -26,7 +25,14 @@ export type LoginRequestContext = {
 };
 
 export type AuthLoginResult = {
-    response: LoginResponseDto;
+    response: {
+        accessToken: string;
+        staff: AuthUser & {
+            email: string;
+            fullName: string;
+            mustChangePassword: boolean;
+        };
+    };
     refreshToken: string;
     refreshTokenMaxAgeSeconds: number;
 };
@@ -40,7 +46,7 @@ export class AuthService {
     ) {}
 
     async login(
-        input: LoginRequestDto,
+        input: { email: string; password: string },
         context: LoginRequestContext,
     ): Promise<AuthLoginResult> {
         const normalizedEmail = input.email.trim().toLowerCase();
@@ -157,7 +163,7 @@ export class AuthService {
                             },
                         });
 
-                        const response: LoginResponseDto = {
+                        const response = {
                             accessToken,
                             staff: {
                                 id: staff.id,

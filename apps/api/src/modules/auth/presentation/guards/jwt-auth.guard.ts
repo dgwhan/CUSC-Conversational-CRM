@@ -6,9 +6,9 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
-import { StaffRoleSchema } from '../../contracts/iam.js';
-import { PrismaService } from '../../platform/database/prisma.service.js';
-import type { AuthUser } from './auth-user.js';
+import { StaffRoleSchema } from '../../../../contracts/iam.js';
+import { PrismaService } from '../../../../platform/database/prisma.service.js';
+import type { AuthUser } from '../../domain/types/auth-user.js';
 
 type AuthenticatedRequest = Request & { user?: AuthUser };
 type AccessTokenPayload = {

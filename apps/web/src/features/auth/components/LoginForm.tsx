@@ -12,6 +12,7 @@ const EMAIL_FORMAT_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type LoginFormProps = {
   onSuccess: (result: LoginResponse) => void;
+  onForgotPassword: () => void;
 };
 
 function readRememberedEmail(): string {
@@ -22,13 +23,12 @@ function readRememberedEmail(): string {
   }
 }
 
-export function LoginForm({ onSuccess }: LoginFormProps) {
+export function LoginForm({ onSuccess, onForgotPassword }: LoginFormProps) {
   const [email, setEmail] = useState(readRememberedEmail);
   const [password, setPassword] = useState('');
   const [rememberEmail, setRememberEmail] = useState(() => Boolean(readRememberedEmail()));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
@@ -48,7 +48,6 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
-    setNotice('');
 
     const nextEmailError = validateEmail(email);
     const nextPasswordError = password.length === 0 ? 'Vui lòng nhập mật khẩu.' : '';
@@ -109,21 +108,11 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         </Checkbox>
 
         <button className="font-sans text-body text-brand-primary hover:underline"
-          type="button" aria-expanded={Boolean(notice)} aria-controls="forgot-password-notice"
-          onClick={() =>
-            setNotice('Tính năng quên mật khẩu chưa được triển khai. Vui lòng liên hệ quản trị viên để được hỗ trợ.')
-          }>
+          type="button"
+          onClick={onForgotPassword}>
           Quên mật khẩu?
         </button>
       </div>
-
-      {notice && (
-        <p className="-mt-3 rounded-control border border-border-subtle bg-bg-page px-3 py-2 font-sans text-body text-text-secondary"
-          id="forgot-password-notice"
-          role="status">
-          {notice}
-        </p>
-      )}
 
       {error && (
         <p className="-mt-3 rounded-control border border-state-error bg-state-error-bg px-3 py-2 font-sans text-body text-state-error" role="alert">

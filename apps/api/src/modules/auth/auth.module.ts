@@ -2,11 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../../platform/database/prisma.module.js';
-import { AuthController } from './auth.controller.js';
-import { AdminController } from './admin.controller.js';
-import { AuthService } from './auth.service.js';
-import { RolesGuard } from './roles.guard.js';
-import { JwtAuthGuard } from './jwt-auth.guard.js';
+import { AuthController } from './presentation/controllers/auth.controller.js';
+import { AdminController } from './presentation/controllers/admin.controller.js';
+import { AuthService } from './application/services/auth.service.js';
+import { RolesGuard } from './presentation/guards/roles.guard.js';
+import { JwtAuthGuard } from './presentation/guards/jwt-auth.guard.js';
 
 @Module({
   imports: [

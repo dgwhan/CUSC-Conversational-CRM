@@ -10,11 +10,11 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { HttpAdapterHost } from "@nestjs/core";
-import { AuthService } from "./auth.service.js";
-import { loginRequestSchema } from "./dto/login-request.dto.js";
-import type { LoginRequestDto } from "./dto/login-request.dto.js";
-import type { LoginResponseDto } from "./dto/login-response.dto.js";
-import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe.js";
+import { AuthService } from "../../application/services/auth.service.js";
+import { loginRequestSchema } from "../dto/login-request.dto.js";
+import type { LoginRequestDto } from "../dto/login-request.dto.js";
+import type { LoginResponseDto } from "../dto/login-response.dto.js";
+import { ZodValidationPipe } from "../../../../common/pipes/zod-validation.pipe.js";
 
 const REFRESH_COOKIE_NAME = "refresh_token";
 const REFRESH_COOKIE_PATH = "/api/auth";

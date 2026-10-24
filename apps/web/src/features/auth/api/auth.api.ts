@@ -3,12 +3,15 @@ import type { LoginRequest, LoginResponse } from '../types/auth.types.js';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export class AuthApiError extends Error {
+  readonly status: number;
+
   constructor(
     message: string,
-    public readonly status: number,
+    status: number,
   ) {
     super(message);
     this.name = 'AuthApiError';
+    this.status = status;
   }
 }
 

@@ -26,6 +26,7 @@ model Staff {
   updatedAt          DateTime     @updatedAt @map("updated_at")
 
   refreshTokens RefreshToken[]
+  passwordRecoveryChallenges PasswordRecoveryChallenge[]
 
   @@map("staff")
 }
