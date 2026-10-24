@@ -3,8 +3,10 @@ import { PrismaModule } from '../../platform/database/prisma.module.js';
 import { ChannelAdapterRegistry, CHANNEL_ADAPTERS } from './application/channel-adapter.registry.js';
 import { ReceiveInboundMessage } from './application/receive-inbound-message.usecase.js';
 import { ProcessMessageReceived } from './application/process-message-received.usecase.js';
+import { ImportMessagesUseCase } from './application/import-messages.usecase.js';
 import { MessageRepository } from './infrastructure/message.repository.js';
 import { WebhookController } from './presentation/webhook.controller.js';
+import { MessageImportController } from './presentation/message-import.controller.js';
 import { INBOUND_QUEUE, InboundMessageQueue } from './domain/channel-adapter.port.js';
 import { ManualImportAdapter } from './infrastructure/adapters/manual-import.adapter.js';
 import { ZaloAdapter } from './infrastructure/adapters/zalo.adapter.js';
@@ -47,12 +49,13 @@ const adaptersProvider: Provider = {
 
 @Module({
     imports: [PrismaModule],
-    controllers: [WebhookController],
+    controllers: [WebhookController, MessageImportController],
     providers: [
         MessageRepository,
         ChannelAdapterRegistry,
         ReceiveInboundMessage,
         ProcessMessageReceived,
+        ImportMessagesUseCase,
         DefaultCustomerGateway,
         DefaultClassificationGateway,
         ManualImportAdapter,
@@ -68,6 +71,7 @@ const adaptersProvider: Provider = {
         ChannelAdapterRegistry,
         ReceiveInboundMessage,
         ProcessMessageReceived,
+        ImportMessagesUseCase,
         INBOUND_QUEUE,
         CHANNEL_ADAPTERS,
         CUSTOMER_GATEWAY,

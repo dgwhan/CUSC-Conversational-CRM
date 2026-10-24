@@ -110,7 +110,7 @@ describe('ProcessMessageReceived UseCase (Worker message.received)', () => {
         let currentMessage = createSampleMessage();
         vi.mocked(mockRepo.findById!).mockImplementation(async () => currentMessage);
         vi.mocked(mockRepo.markProcessed!).mockImplementation(async (_id, date) => {
-            currentMessage = { ...currentMessage, processedAt: date };
+            currentMessage = { ...currentMessage, processedAt: date ?? new Date() };
         });
 
         // Lần 1: Worker đang chạy thì bị crash/lỗi ở bước phân loại (tắt worker giữa chừng)

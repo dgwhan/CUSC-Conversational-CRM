@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Message, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../platform/database/prisma.service.js";
 import { InboundEvent } from "../domain/inbound-event.js";
-import { MessageDirection } from "../domain/channel.js";
+import { Channel, MessageDirection } from "../domain/channel.js";
 
 @Injectable()
 export class MessageRepository {
@@ -19,6 +19,44 @@ export class MessageRepository {
             where: { id },
             data: { processedAt },
         });
+    }
+
+    async findMany(options?: {
+        limit?: number;
+        offset?: number;
+        channel?: Channel;
+        search?: string;
+    }): Promise<{ items: any[]; total: number }> {
+        const where: Prisma.MessageWhereInput = {};
+        if (options?.channel) {
+            where.channel = options.channel;
+        }
+        if (options?.search) {
+            where.OR = [
+                { content: { contains: options.search, mode: 'insensitive' } },
+                { externalMessageId: { contains: options.search, mode: 'insensitive' } },
+            ];
+        }
+
+        const [items, total] = await Promise.all([
+            this.prisma.message.findMany({
+                where,
+                include: {
+                    channelAccount: {
+                        select: {
+                            displayName: true,
+                            externalAccountId: true,
+                        },
+                    },
+                },
+                orderBy: { sentAt: 'desc' },
+                take: options?.limit ?? 50,
+                skip: options?.offset ?? 0,
+            }),
+            this.prisma.message.count({ where }),
+        ]);
+
+        return { items, total };
     }
 
     async insertManyIgnoreDuplicate(events: InboundEvent[]): Promise<Array<{ id: string }>> {
