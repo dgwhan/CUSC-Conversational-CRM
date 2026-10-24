@@ -7,7 +7,7 @@ const recoveryKeys = {
   PASSWORD_RECOVERY_OTP_ENCRYPTION_KEY: Buffer.alloc(32, 3).toString('base64'),
 };
 
-describe('validateEnv', () => {
+describe('validateEnv (Security & Configuration Integrity)', () => {
   it('should throw an error with clear message when DATABASE_URL is missing', () => {
     const invalidConfig = {
       NODE_ENV: 'development',
@@ -29,14 +29,14 @@ describe('validateEnv', () => {
     );
   });
 
-  it('should validate and parse valid environment configuration successfully', () => {
+  it('should validate and parse valid environment configuration successfully in development', () => {
     const validConfig = {
       ...recoveryKeys,
       DATABASE_URL:
         'postgresql://postgres:postgres@localhost:5432/crm?schema=public',
-      JWT_ACCESS_SECRET: 'a'.repeat(32),
       PORT: '4000',
-      NODE_ENV: 'production',
+      NODE_ENV: 'development',
+      JWT_ACCESS_SECRET: 'daylasecretkeysieucapbimat32kytu',
     };
 
     const parsed = validateEnv(validConfig);
@@ -44,20 +44,49 @@ describe('validateEnv', () => {
       'postgresql://postgres:postgres@localhost:5432/crm?schema=public',
     );
     expect(parsed.PORT).toBe(4000);
+    expect(parsed.NODE_ENV).toBe('development');
+    expect(parsed.JWT_ACCESS_SECRET).toBe('daylasecretkeysieucapbimat32kytu');
+  });
+
+  it('should strictly reject default sample keys in production environment', () => {
+    const insecureProdConfig = {
+      ...recoveryKeys,
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/crm?schema=public',
+      NODE_ENV: 'production',
+      JWT_ACCESS_SECRET: 'daylasecretkeysieucapbimat32kytu', // default sample key
+    };
+
+    expect(() => validateEnv(insecureProdConfig)).toThrowError(
+      /In production, JWT_ACCESS_SECRET must not use the default sample key/,
+    );
+  });
+
+  it('should accept secure, unique secrets in production mode', () => {
+    const secureProdConfig = {
+      ...recoveryKeys,
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/crm?schema=public',
+      PORT: '3000',
+      NODE_ENV: 'production',
+      JWT_ACCESS_SECRET: 'production_super_strong_jwt_access_secret_key_12345',
+      TOKEN_ENCRYPTION_KEY: 'production_super_strong_token_encryption_key_12345',
+      FRONTEND_URL: 'https://crm.cusc.vn',
+      APP_BASE_URL: 'https://api.crm.cusc.vn',
+    };
+
+    const parsed = validateEnv(secureProdConfig);
     expect(parsed.NODE_ENV).toBe('production');
+    expect(parsed.JWT_ACCESS_SECRET).toBe('production_super_strong_jwt_access_secret_key_12345');
+    expect(parsed.TOKEN_ENCRYPTION_KEY).toBe('production_super_strong_token_encryption_key_12345');
+    expect(parsed.FRONTEND_URL).toBe('https://crm.cusc.vn');
     expect(parsed.PASSWORD_RECOVERY_DELIVERY_POLL_INTERVAL_SECONDS).toBe(5);
     expect(parsed.PASSWORD_RECOVERY_IP_VERIFY_LIMIT).toBe(20);
     expect(parsed.PASSWORD_RECOVERY_DELIVERY_LEASE_SECONDS).toBe(60);
     expect(parsed.PASSWORD_RECOVERY_DELIVERY_MAX_ATTEMPTS).toBe(5);
     expect(parsed.PASSWORD_RECOVERY_DELIVERY_RETRY_BASE_SECONDS).toBe(30);
     expect(parsed.PASSWORD_RECOVERY_DELIVERY_BATCH_SIZE).toBe(20);
-    expect(parsed.PASSWORD_RECOVERY_DELIVERY_MAX_RETRY_DELAY_SECONDS).toBe(
-      3600,
-    );
+    expect(parsed.PASSWORD_RECOVERY_DELIVERY_MAX_RETRY_DELAY_SECONDS).toBe(3600);
     expect(parsed.PASSWORD_RECOVERY_CHALLENGE_STATE_RETRY_LIMIT).toBe(20);
-    expect(
-      parsed.PASSWORD_RECOVERY_RATE_LIMIT_SERIALIZATION_RETRY_LIMIT,
-    ).toBe(3);
+    expect(parsed.PASSWORD_RECOVERY_RATE_LIMIT_SERIALIZATION_RETRY_LIMIT).toBe(3);
     expect(parsed.MAIL_SECURE).toBe(false);
   });
 

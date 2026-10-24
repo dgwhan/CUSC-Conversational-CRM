@@ -27,6 +27,8 @@ model Staff {
 
   refreshTokens RefreshToken[]
   passwordRecoveryChallenges PasswordRecoveryChallenge[]
+  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[]
 
   @@map("staff")
 }

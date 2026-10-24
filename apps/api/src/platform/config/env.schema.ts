@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+const DEV_DEFAULT_ENCRYPTION_KEY =
+  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+const DEV_DEFAULT_JWT_SECRET = 'daylasecretkeysieucapbimat32kytu';
+
 const optionalTrimmedString = z.preprocess(
   (value) => (value === '' ? undefined : value),
   z.string().trim().min(1).optional(),
@@ -49,12 +53,14 @@ export const envSchema = z
       .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
     JWT_ACCESS_TTL: z.string().default('15m'),
     REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(7),
+    // Mail (SMTP)
     MAIL_HOST: optionalTrimmedString,
     MAIL_PORT: optionalPort,
     MAIL_SECURE: optionalBoolean,
     MAIL_USER: optionalTrimmedString,
     MAIL_PASSWORD: optionalTrimmedString,
     MAIL_FROM: optionalTrimmedString,
+    // Password Recovery
     PASSWORD_RECOVERY_EMAIL_HMAC_KEY: encryptionKey,
     PASSWORD_RECOVERY_OTP_HMAC_KEY: encryptionKey,
     PASSWORD_RECOVERY_OTP_ENCRYPTION_KEY: encryptionKey,
@@ -123,8 +129,23 @@ export const envSchema = z
       .int()
       .positive()
       .default(3),
+    // Social integrations (from main)
+    TOKEN_ENCRYPTION_KEY: z
+      .string()
+      .min(32, 'TOKEN_ENCRYPTION_KEY must be at least 32 characters')
+      .default(DEV_DEFAULT_ENCRYPTION_KEY),
+    FRONTEND_URL: z.string().default('http://localhost:5173'),
+    APP_BASE_URL: z.string().default('http://localhost:3000'),
+    META_APP_ID: z.string().optional(),
+    META_APP_SECRET: z.string().optional(),
+    META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+    ZALO_APP_ID: z.string().optional(),
+    ZALO_APP_SECRET: z.string().optional(),
+    TIKTOK_CLIENT_KEY: z.string().optional(),
+    TIKTOK_CLIENT_SECRET: z.string().optional(),
   })
   .superRefine((config, context) => {
+    // Mail validation
     const hasMailSettings = Boolean(
       config.MAIL_HOST ||
       config.MAIL_PORT ||
@@ -160,6 +181,26 @@ export const envSchema = z
         path: ['MAIL_PASSWORD'],
         message: 'MAIL_USER and MAIL_PASSWORD must be provided together',
       });
+    }
+
+    // Production security checks (from main)
+    if (config.NODE_ENV === 'production') {
+      if (config.TOKEN_ENCRYPTION_KEY === DEV_DEFAULT_ENCRYPTION_KEY) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['TOKEN_ENCRYPTION_KEY'],
+          message:
+            'In production, TOKEN_ENCRYPTION_KEY must be a unique, cryptographically strong secret (not the default dev key)',
+        });
+      }
+      if (config.JWT_ACCESS_SECRET === DEV_DEFAULT_JWT_SECRET) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['JWT_ACCESS_SECRET'],
+          message:
+            'In production, JWT_ACCESS_SECRET must not use the default sample key',
+        });
+      }
     }
   });
 

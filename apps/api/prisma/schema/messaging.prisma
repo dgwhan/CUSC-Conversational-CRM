@@ -7,44 +7,112 @@ enum Channel {
     @@map("channel")
 }
 
-enum MessageDirection{
+enum MessageDirection {
     INBOUND
     OUTBOUND
 
     @@map("message_direction")
 }
 
-model ChannelAccount {
-    id String @id @default(uuid()) @db.Uuid
-    channel Channel
-    externalAccountId String @map("external_account_id")
-    displayName String @map("display_name")
-    isActive Boolean @default(true) @map("is_active")
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-    updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+enum ConversationStatus {
+    OPEN
+    PENDING
+    RESOLVED
 
-    messages Message[]
+    @@map("conversation_status")
+}
+
+model ChannelAccount {
+    id                  String    @id @default(uuid()) @db.Uuid
+    workspaceId         String?   @map("workspace_id") @db.Uuid
+    channel             Channel
+    externalAccountId   String    @map("external_account_id")
+    displayName         String    @map("display_name")
+    avatarUrl           String?   @map("avatar_url")
+    encryptedAccessToken String?  @map("encrypted_access_token") @db.Text
+    refreshToken        String?   @map("refresh_token") @db.Text
+    tokenExpiresAt      DateTime? @map("token_expires_at") @db.Timestamptz(3)
+    isWebhookSubscribed Boolean   @default(false) @map("is_webhook_subscribed")
+    metadata            Json?     @map("metadata") @db.JsonB
+    isActive            Boolean   @default(true) @map("is_active")
+    createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+    updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+    workspace           Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+    messages            Message[]
+    conversations       Conversation[]
 
     @@unique([channel, externalAccountId])
+    @@index([workspaceId])
     @@map("channel_accounts")
 }
 
-model Message {
-    id String @id @default(uuid()) @db.Uuid
-    channelAccountId String @map("channel_account_id") @db.Uuid
-    channel Channel
-    direction MessageDirection
-    content String? @db.Text
-    sentAt DateTime @map("sent_at") @db.Timestamptz(3)
-    externalMessageId String @map("external_message_id")
-    rawPayload Json @map("raw_payload") @db.JsonB
-    processedAt DateTime? @map("processed_at") @db.Timestamptz(3)
-    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+model Customer {
+    id                String         @id @default(uuid()) @db.Uuid
+    workspaceId       String?        @map("workspace_id") @db.Uuid
+    fullName          String         @map("full_name")
+    phone             String?
+    email             String?
+    avatarUrl         String?        @map("avatar_url")
+    channelIdentities Json?          @map("channel_identities") @db.JsonB
+    createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+    updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-    channelAccount ChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Restrict)
+    workspace         Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+    conversations     Conversation[]
+
+    @@index([workspaceId])
+    @@index([phone])
+    @@index([email])
+    @@map("customers")
+}
+
+model Conversation {
+    id                    String              @id @default(uuid()) @db.Uuid
+    workspaceId           String?             @map("workspace_id") @db.Uuid
+    channelAccountId      String              @map("channel_account_id") @db.Uuid
+    customerId            String?             @map("customer_id") @db.Uuid
+    assignedMemberId      String?             @map("assigned_member_id") @db.Uuid
+    status                ConversationStatus  @default(OPEN)
+    snippet               String?             @db.Text
+    unreadCount           Int                 @default(0) @map("unread_count")
+    tags                  String[]            @default([])
+    lastMessageAt         DateTime?           @map("last_message_at") @db.Timestamptz(3)
+    lastCustomerMessageAt DateTime?           @map("last_customer_message_at") @db.Timestamptz(3)
+    createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+    updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+    workspace             Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+    channelAccount        ChannelAccount      @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
+    customer              Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+    assignedMember        WorkspaceMember?    @relation(fields: [assignedMemberId], references: [id], onDelete: SetNull)
+    messages              Message[]
+
+    @@index([workspaceId, lastMessageAt])
+    @@index([channelAccountId])
+    @@index([customerId])
+    @@map("conversations")
+}
+
+model Message {
+    id                String           @id @default(uuid()) @db.Uuid
+    conversationId    String?          @map("conversation_id") @db.Uuid
+    channelAccountId  String           @map("channel_account_id") @db.Uuid
+    channel           Channel
+    direction         MessageDirection
+    content           String?          @db.Text
+    attachments       Json?            @map("attachments") @db.JsonB
+    sentAt            DateTime         @map("sent_at") @db.Timestamptz(3)
+    externalMessageId String           @map("external_message_id")
+    rawPayload        Json             @map("raw_payload") @db.JsonB
+    processedAt       DateTime?        @map("processed_at") @db.Timestamptz(3)
+    createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+    channelAccount    ChannelAccount   @relation(fields: [channelAccountId], references: [id], onDelete: Restrict)
+    conversation      Conversation?    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
     @@unique([channel, externalMessageId])
     @@index([channelAccountId, sentAt])
+    @@index([conversationId])
     @@map("messages")
 }
-
