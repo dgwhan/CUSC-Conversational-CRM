@@ -6,6 +6,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import type { ConversationItem, ChannelType } from '../types.js';
+import { useTranslation } from '../../../i18n/index.js';
 
 export interface ConversationListColumnProps {
   conversations: ConversationItem[];
@@ -18,6 +19,7 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
   selectedId,
   onSelect,
 }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<'ALL' | ChannelType>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNREAD' | 'ASSIGNED_TO_ME' | 'UNASSIGNED'>('ALL');
@@ -79,12 +81,12 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
       <div className="col-left-header">
         <div className="inbox-title-row">
           <div className="title-with-badge">
-            <h2 className="inbox-title">Hội thoại</h2>
+            <h2 className="inbox-title">{t('inbox.conversationsTitle')}</h2>
             {totalUnread > 0 && (
-              <span className="unread-total-badge">{totalUnread} chưa đọc</span>
+              <span className="unread-total-badge">{totalUnread} {t('inbox.unreadCount')}</span>
             )}
           </div>
-          <span className="total-convs-label">{conversations.length} khách</span>
+          <span className="total-convs-label">{conversations.length} {t('inbox.contactsCount')}</span>
         </div>
 
         {/* Thanh tìm kiếm */}
@@ -93,7 +95,7 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
           <input
             type="text"
             className="inbox-search-input"
-            placeholder="Tìm theo tên, SĐT, tag, nội dung..."
+            placeholder={t('inbox.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -106,7 +108,7 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
             className={`channel-pill ${selectedChannel === 'ALL' ? 'active' : ''}`}
             onClick={() => setSelectedChannel('ALL')}
           >
-            Tất cả
+            {t('common.all')}
           </button>
           <button
             type="button"
@@ -149,10 +151,10 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
               )
             }
           >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="UNREAD">Chỉ tin chưa đọc</option>
-            <option value="ASSIGNED_TO_ME">Gán cho tôi</option>
-            <option value="UNASSIGNED">Chưa có người gán</option>
+            <option value="ALL">{t('inbox.filterAll')}</option>
+            <option value="UNREAD">{t('inbox.filterUnread')}</option>
+            <option value="ASSIGNED_TO_ME">{t('inbox.filterAssignedToMe')}</option>
+            <option value="UNASSIGNED">{t('inbox.filterUnassigned')}</option>
           </select>
         </div>
       </div>
@@ -161,7 +163,7 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
       <div className="conversation-items-list">
         {filteredConversations.length === 0 ? (
           <div className="empty-inbox-state">
-            <p>Không tìm thấy cuộc hội thoại nào phù hợp với bộ lọc.</p>
+            <p>{t('inbox.emptyList')}</p>
           </div>
         ) : (
           filteredConversations.map((item) => {

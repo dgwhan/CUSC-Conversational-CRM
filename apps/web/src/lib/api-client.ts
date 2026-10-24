@@ -149,8 +149,61 @@ class ApiClient {
     });
   }
 
+  patch<T>(endpoint: string, body?: unknown, options?: ApiRequestOptions): Promise<T> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: body !== undefined ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
+    });
+  }
+
   delete<T>(endpoint: string, options?: ApiRequestOptions): Promise<T> {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
+  }
+
+  // Channel Connection & OAuth API Endpoints
+  getAuthorizeUrl(channel: string, redirectUri?: string) {
+    return this.get<{ authorizeUrl: string; state: string; channel: string }>(
+      `/oauth/${channel.toLowerCase()}/authorize-url`,
+      { params: { redirectUri } },
+    );
+  }
+
+  exchangeOAuthToken(channel: string, code: string, state: string, redirectUri?: string) {
+    return this.post<{
+      channel: string;
+      userName?: string;
+      userId?: string;
+      pages: Array<{
+        id: string;
+        externalAccountId: string;
+        name: string;
+        category: string;
+        avatarUrl?: string;
+        followerCount?: number;
+        channel: string;
+        accessToken: string;
+      }>;
+    }>(`/oauth/${channel.toLowerCase()}/exchange-token`, { code, state, redirectUri });
+  }
+
+  activateChannels(pages: Record<string, unknown>[], workspaceId?: string) {
+    return this.post<{ activatedCount: number; workspaceId: string; channels: Record<string, unknown>[] }>(
+      '/channels/activate',
+      { pages, workspaceId },
+    );
+  }
+
+  getChannels(workspaceId?: string) {
+    return this.get<Record<string, unknown>[]>('/channels', { params: { workspaceId } });
+  }
+
+  toggleChannel(id: string, isActive?: boolean) {
+    return this.patch<Record<string, unknown>>(`/channels/${id}/toggle`, { isActive });
+  }
+
+  disconnectChannel(id: string) {
+    return this.delete<{ success: boolean; id: string }>(`/channels/${id}`);
   }
 }
 

@@ -1,6 +1,7 @@
 import type { Channel, MessageDirection } from "./channel.js";
 
 export interface InboundEvent {
+    readonly workspaceId?: string;
     readonly channel: Channel;
     readonly externalAccountId: string;
     readonly externalMessageId: string;

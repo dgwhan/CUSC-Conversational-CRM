@@ -17,6 +17,7 @@ import {
 import type { ConversationItem, AssignedStaff, QuickReplyItem, MessageAttachment } from '../types.js';
 import { QuickReplyBar } from './QuickReplyBar.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
+import { useTranslation } from '../../../i18n/index.js';
 
 export interface ChatWindowColumnProps {
   conversation: ConversationItem;
@@ -35,6 +36,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
   onAssignStaff,
   onToggleStatus,
 }) => {
+  const { t } = useTranslation();
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [currentTimestamp] = useState(() => Date.now());
@@ -146,7 +148,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
               </span>
             </div>
             <div className="chat-user-sub">
-              <span>Đang nhắn qua: <strong>{conversation.channelAccountName}</strong></span>
+              <span>{t('inbox.chatHeader.messagingVia')} <strong>{conversation.channelAccountName}</strong></span>
             </div>
           </div>
         </div>
@@ -165,12 +167,12 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
               {isWithin24Hours ? (
                 <>
                   <Clock size={13} />
-                  <span>Cửa sổ 24h: còn ~{hoursRemaining}h</span>
+                  <span>{t('inbox.chatHeader.meta24hValid')} ~{hoursRemaining}h</span>
                 </>
               ) : (
                 <>
                   <AlertTriangle size={13} />
-                  <span>Hết hạn 24h (Cần Tag)</span>
+                  <span>{t('inbox.chatHeader.meta24hExpired')}</span>
                 </>
               )}
             </div>
@@ -184,7 +186,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
               value={conversation.assignedStaff?.id || ''}
               onChange={(e) => onAssignStaff(e.target.value)}
             >
-              <option value="">Chưa gán ai</option>
+              <option value="">{t('inbox.chatHeader.unassigned')}</option>
               {staffList.map((st) => (
                 <option key={st.id} value={st.id}>
                   {st.name}
@@ -196,19 +198,19 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
           {/* Nút Đổi trạng thái Giải quyết */}
           <button
             type="button"
-            className={`crm-btn crm-btn-sm ${conversation.status === 'RESOLVED' ? 'crm-btn-secondary' : 'crm-btn-secondary'}`}
+            className="crm-btn crm-btn-sm crm-btn-secondary"
             onClick={onToggleStatus}
-            title={conversation.status === 'RESOLVED' ? 'Mở lại hội thoại' : 'Đánh dấu đã giải quyết'}
+            title={conversation.status === 'RESOLVED' ? t('inbox.chatHeader.reopenBtn') : t('inbox.chatHeader.resolveBtn')}
           >
             {conversation.status === 'RESOLVED' ? (
               <>
                 <Radio size={14} style={{ color: 'var(--color-primary)' }} />
-                <span>Mở lại</span>
+                <span>{t('inbox.chatHeader.reopenBtn')}</span>
               </>
             ) : (
               <>
                 <Check size={14} style={{ color: 'var(--color-success)' }} />
-                <span>Hoàn tất</span>
+                <span>{t('inbox.chatHeader.resolveBtn')}</span>
               </>
             )}
           </button>
@@ -218,7 +220,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
       {/* 2. Luồng Tin Nhắn (Message Stream) */}
       <div className="chat-messages-stream">
         <div className="chat-date-divider">
-          <span>Hôm nay</span>
+          <span>{t('common.today')}</span>
         </div>
 
         {conversation.messages.map((msg) => {
@@ -330,7 +332,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
             type="button"
             className="input-tool-btn"
             onClick={handleSimulateAttachImage}
-            title="Gửi hình ảnh"
+            title={t('inbox.input.tooltipPhoto')}
           >
             <ImageIcon size={18} />
           </button>
@@ -338,7 +340,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
             type="button"
             className="input-tool-btn"
             onClick={handleSimulateAttachFile}
-            title="Đính kèm tài liệu PDF / DOCX"
+            title={t('inbox.input.tooltipFile')}
           >
             <Paperclip size={18} />
           </button>
@@ -346,7 +348,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
             type="button"
             className={`input-tool-btn ${isRecording ? 'recording' : ''}`}
             onClick={handleToggleRecord}
-            title={isRecording ? 'Dừng & Gửi ghi âm' : 'Tin nhắn thoại (Voice)'}
+            title={t('inbox.input.tooltipMic')}
           >
             <Mic size={18} />
           </button>
@@ -354,13 +356,13 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
             type="button"
             className="input-tool-btn"
             onClick={() => handleSelectQuickReply('Dạ vâng ạ! ')}
-            title="Biểu tượng cảm xúc"
+            title={t('inbox.input.tooltipEmoji')}
           >
             <Smile size={18} />
           </button>
 
           <span className="input-shortcut-hint">
-            Nhấn <strong>Enter</strong> để gửi, <strong>Shift + Enter</strong> xuống dòng
+            {t('inbox.input.shortcutHint')}
           </span>
         </div>
 
@@ -368,7 +370,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
           <textarea
             className="chat-textarea"
             rows={2}
-            placeholder={`Nhập tin nhắn phản hồi cho ${conversation.customer.fullName}...`}
+            placeholder={`${t('inbox.input.placeholder')} ${conversation.customer.fullName}...`}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -380,7 +382,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
             disabled={!inputText.trim()}
           >
             <Send size={16} />
-            <span>Gửi</span>
+            <span>{t('inbox.input.sendBtn')}</span>
           </button>
         </div>
       </div>

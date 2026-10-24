@@ -9,13 +9,14 @@ import {
   AlertCircle,
   ExternalLink,
 } from 'lucide-react';
-import type { ChannelKey, FanpageItem } from '../types.js';
+import type { ChannelKey, FanpageItem, DiscoveredPageDto } from '../types.js';
 import { OAuthSimulationModal } from './OAuthSimulationModal.js';
+import { useTranslation } from '../../../i18n/index.js';
 
 export interface Step2ChannelConnectProps {
   connectedChannels: ChannelKey[];
   pages: FanpageItem[];
-  onConnectChannel: (channel: ChannelKey) => void;
+  onConnectChannel: (channel: ChannelKey, pages?: DiscoveredPageDto[]) => void;
   onTogglePage: (pageId: string) => void;
   onNext: () => void;
   onBack: () => void;
@@ -29,6 +30,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
   onNext,
   onBack,
 }) => {
+  const { t } = useTranslation();
   const [activeOAuthChannel, setActiveOAuthChannel] = useState<ChannelKey | null>(null);
 
   const channelsConfig: {
@@ -43,8 +45,8 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
     {
       key: 'FACEBOOK',
       title: 'Facebook Fanpage',
-      description: 'Nhận tin nhắn Messenger, bình luận bài viết tuyển sinh, quản lý nhiều trang.',
-      badge: 'Phổ biến nhất',
+      description: t('onboarding.step2.channels.facebookDesc'),
+      badge: t('onboarding.step2.popularBadge'),
       brandColor: '#1877F2',
       gradient: 'linear-gradient(135deg, #1877F2 0%, #0d5bbd 100%)',
       iconText: 'FB',
@@ -52,8 +54,8 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
     {
       key: 'ZALO',
       title: 'Zalo Official Account (OA)',
-      description: 'Giao tiếp khách hàng Việt Nam qua Zalo OA Doanh nghiệp, gửi thông báo ZNS.',
-      badge: 'Tỷ lệ phản hồi cao',
+      description: t('onboarding.step2.channels.zaloDesc'),
+      badge: t('onboarding.step2.highResponseBadge'),
       brandColor: '#0068FF',
       gradient: 'linear-gradient(135deg, #0068FF 0%, #004ecc 100%)',
       iconText: 'OA',
@@ -61,7 +63,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
     {
       key: 'TIKTOK',
       title: 'TikTok Shop / Messaging',
-      description: 'Gom tin nhắn từ các video viral, livestream tư vấn và gian hàng TikTok Shop.',
+      description: t('onboarding.step2.channels.tiktokDesc'),
       brandColor: '#000000',
       gradient: 'linear-gradient(135deg, #25F4EE 0%, #FE2C55 100%)',
       iconText: 'TT',
@@ -69,7 +71,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
     {
       key: 'INSTAGRAM',
       title: 'Instagram Direct',
-      description: 'Đồng bộ tin nhắn trực tiếp Direct Message và phản hồi story của học viên trẻ.',
+      description: t('onboarding.step2.channels.instagramDesc'),
       brandColor: '#E1306C',
       gradient: 'linear-gradient(135deg, #f09433 0%, #dc2743 50%, #bc1888 100%)',
       iconText: 'IG',
@@ -86,7 +88,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
           channel={activeOAuthChannel}
           isOpen={!!activeOAuthChannel}
           onClose={() => setActiveOAuthChannel(null)}
-          onSuccess={(ch) => onConnectChannel(ch)}
+          onSuccess={(ch, pages) => onConnectChannel(ch, pages)}
         />
       )}
 
@@ -95,9 +97,9 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
           <Share2 size={24} />
         </div>
         <div>
-          <h2 className="onboarding-card-title">Bước 2: Kết nối Kênh Mạng Xã Hội</h2>
+          <h2 className="onboarding-card-title">{t('onboarding.step2.title')}</h2>
           <p className="onboarding-card-desc">
-            Ủy quyền tài khoản mạng xã hội để hệ thống tự động gom tin nhắn khách hàng vào Hộp thư tập trung.
+            {t('onboarding.step2.desc')}
           </p>
         </div>
       </div>
@@ -127,7 +129,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
                 {isConnected && (
                   <span className="channel-connected-pill">
                     <CheckCircle2 size={13} />
-                    Đã liên kết ({activeCount} Page)
+                    {t('common.connected')} ({activeCount} Page)
                   </span>
                 )}
               </div>
@@ -144,7 +146,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
                     onClick={() => setActiveOAuthChannel(ch.key)}
                   >
                     <Plus size={14} />
-                    Thêm trang khác
+                    {t('onboarding.step2.addAnotherPage')}
                   </button>
                 ) : (
                   <button
@@ -158,7 +160,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
                     onClick={() => setActiveOAuthChannel(ch.key)}
                   >
                     <ExternalLink size={14} />
-                    Kết nối ngay
+                    {t('common.connectNow')}
                   </button>
                 )}
               </div>
@@ -172,14 +174,14 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
         <div className="fanpages-header">
           <div>
             <h3 className="fanpages-title">
-              Danh sách Trang Fanpage / OA đã tìm thấy ({pages.length})
+              {t('onboarding.step2.fanpagesFound')} ({pages.length})
             </h3>
             <p className="fanpages-subtitle">
-              Bật công tắc (Toggle) để chọn những Fanpage bạn muốn đồng bộ tin nhắn vào CRM.
+              {t('onboarding.step2.fanpagesHint')}
             </p>
           </div>
           <span className="pages-selected-count">
-            Đã kích hoạt: <strong>{selectedPagesCount}</strong> trang
+            {t('onboarding.step2.activatedPages')}: <strong>{selectedPagesCount}</strong>
           </span>
         </div>
 
@@ -187,7 +189,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
           <div className="empty-fanpages-box">
             <AlertCircle size={24} className="empty-alert-icon" />
             <p className="empty-text">
-              Chưa có kênh nào được liên kết. Vui lòng nhấn nút <strong>"Kết nối ngay"</strong> ở các thẻ phía trên.
+              {t('onboarding.step2.noPagesYet')}
             </p>
           </div>
         ) : (
@@ -218,7 +220,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
                     <span>•</span>
                     <span className="fanpage-followers">
                       <Users size={12} />
-                      {page.followerCount.toLocaleString()} người theo dõi
+                      {page.followerCount.toLocaleString()} {t('onboarding.step2.followers')}
                     </span>
                   </div>
                 </div>
@@ -248,7 +250,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
           onClick={onBack}
         >
           <ArrowLeft size={18} />
-          <span>Quay lại</span>
+          <span>{t('onboarding.step2.backBtn')}</span>
         </button>
 
         <button
@@ -257,7 +259,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
           style={{ minWidth: '220px' }}
           onClick={onNext}
         >
-          <span>Tiếp tục: Mời thành viên</span>
+          <span>{t('onboarding.step2.continueBtn')}</span>
           <ArrowRight size={18} />
         </button>
       </div>

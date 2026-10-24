@@ -22,12 +22,16 @@ export class MessageRepository {
     }
 
     async findMany(options?: {
+        workspaceId?: string;
         limit?: number;
         offset?: number;
         channel?: Channel;
         search?: string;
     }): Promise<{ items: any[]; total: number }> {
         const where: Prisma.MessageWhereInput = {};
+        if (options?.workspaceId) {
+            where.channelAccount = { workspaceId: options.workspaceId };
+        }
         if (options?.channel) {
             where.channel = options.channel;
         }
@@ -76,19 +80,20 @@ export class MessageRepository {
         }
 
         // 2. Đảm bảo tồn tại ChannelAccount cho từng cặp (channel, externalAccountId)
-        const uniqueAccounts = new Map<string, { channel: InboundEvent['channel']; externalAccountId: string }>();
+        const uniqueAccounts = new Map<string, { channel: InboundEvent['channel']; externalAccountId: string; workspaceId?: string }>();
         for (const event of uniqueEvents) {
             const key = `${event.channel}:${event.externalAccountId}`;
             if (!uniqueAccounts.has(key)) {
                 uniqueAccounts.set(key, {
                     channel: event.channel,
                     externalAccountId: event.externalAccountId,
+                    workspaceId: event.workspaceId,
                 });
             }
         }
 
         const accountMap = new Map<string, string>();
-        for (const [key, { channel, externalAccountId }] of uniqueAccounts.entries()) {
+        for (const [key, { channel, externalAccountId, workspaceId }] of uniqueAccounts.entries()) {
             const account = await this.prisma.channelAccount.upsert({
                 where: {
                     channel_externalAccountId: {
@@ -96,11 +101,12 @@ export class MessageRepository {
                         externalAccountId,
                     },
                 },
-                update: {},
+                update: workspaceId ? { workspaceId } : {},
                 create: {
                     channel,
                     externalAccountId,
                     displayName: externalAccountId,
+                    workspaceId,
                 },
                 select: { id: true },
             });

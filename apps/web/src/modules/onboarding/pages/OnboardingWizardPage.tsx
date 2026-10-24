@@ -5,11 +5,13 @@ import {
   Users2,
   Check,
 } from 'lucide-react';
-import type { OnboardingState, BusinessSetupData, ChannelKey } from '../types.js';
+import type { OnboardingState, BusinessSetupData, ChannelKey, FanpageItem, DiscoveredPageDto } from '../types.js';
 import { Step1BusinessSetup } from '../components/Step1BusinessSetup.js';
 import { Step2ChannelConnect } from '../components/Step2ChannelConnect.js';
 import { Step3TeamInvite } from '../components/Step3TeamInvite.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
+import { apiClient } from '../../../lib/api-client.js';
+import { useTranslation } from '../../../i18n/index.js';
 
 export interface OnboardingWizardPageProps {
   onComplete: (data: OnboardingState) => void;
@@ -20,6 +22,7 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
   onComplete,
   onSkipToInbox,
 }) => {
+  const { t } = useTranslation();
   const [state, setState] = useState<OnboardingState>({
     step: 1,
     business: {
@@ -76,9 +79,9 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
   });
 
   const stepsMeta = [
-    { number: 1, title: 'Thông tin Doanh nghiệp', icon: <Building2 size={16} /> },
-    { number: 2, title: 'Kết nối Kênh MXH', icon: <Share2 size={16} /> },
-    { number: 3, title: 'Mời Thành viên', icon: <Users2 size={16} /> },
+    { number: 1, title: t('onboarding.steps.step1'), icon: <Building2 size={16} /> },
+    { number: 2, title: t('onboarding.steps.step2'), icon: <Share2 size={16} /> },
+    { number: 3, title: t('onboarding.steps.step3'), icon: <Users2 size={16} /> },
   ];
 
   const handleStep1Next = (businessData: BusinessSetupData) => {
@@ -86,20 +89,43 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
     notify.info('Đã lưu thông tin doanh nghiệp. Vui lòng kết nối các kênh mạng xã hội.');
   };
 
-  const handleConnectChannel = (channel: ChannelKey) => {
+  const handleConnectChannel = (channel: ChannelKey, discoveredPages?: DiscoveredPageDto[]) => {
     setState((prev) => {
       const already = prev.connectedChannels.includes(channel);
       const nextChannels = already ? prev.connectedChannels : [...prev.connectedChannels, channel];
 
-      // Kích hoạt tất cả page thuộc kênh đó
-      const updatedPages = prev.pages.map((p) =>
-        p.channel === channel ? { ...p, selected: true } : p
-      );
+      let mergedPages = [...prev.pages];
+      if (discoveredPages && discoveredPages.length > 0) {
+        discoveredPages.forEach((dp) => {
+          const pageId = dp.id || dp.externalAccountId;
+          const idx = mergedPages.findIndex((p) => p.id === pageId);
+          const newItem: FanpageItem = {
+            id: pageId,
+            name: dp.name,
+            avatarUrl:
+              dp.avatarUrl ||
+              'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100&auto=format&fit=crop&q=60',
+            category: dp.category || 'Trang mạng xã hội',
+            followerCount: dp.followerCount || 12000,
+            channel,
+            selected: true,
+          };
+          if (idx >= 0) {
+            mergedPages[idx] = newItem;
+          } else {
+            mergedPages.push(newItem);
+          }
+        });
+      } else {
+        mergedPages = mergedPages.map((p) =>
+          p.channel === channel ? { ...p, selected: true } : p
+        );
+      }
 
       return {
         ...prev,
         connectedChannels: nextChannels,
-        pages: updatedPages,
+        pages: mergedPages,
       };
     });
 
@@ -134,7 +160,26 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
     }));
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
+    try {
+      const activePages = state.pages
+        .filter((p) => p.selected)
+        .map((p) => ({
+          channel: p.channel,
+          externalAccountId: p.id,
+          displayName: p.name,
+          avatarUrl: p.avatarUrl,
+          category: p.category,
+          accessToken: `EAA_mock_${p.id}_token_secret`,
+        }));
+
+      if (activePages.length > 0) {
+        await apiClient.activateChannels(activePages);
+      }
+    } catch {
+      // Tiếp tục chuyển hướng kể cả khi máy chủ backend offline
+    }
+
     notify.success(
       `Khởi tạo Workspace "${state.business.companyName}" hoàn tất! Đang chuyển hướng vào Hộp thư Trực tuyến...`,
       'Onboarding Thành công'
@@ -147,10 +192,10 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
       {/* Top Banner & Stepper */}
       <div className="onboarding-wizard-header">
         <div className="wizard-title-group">
-          <div className="wizard-badge">QUY TRÌNH THIẾT LẬP CRM</div>
-          <h1 className="wizard-headline">Chào mừng bạn đến với CUSC Social CRM</h1>
+          <div className="wizard-badge">{t('onboarding.badge')}</div>
+          <h1 className="wizard-headline">{t('onboarding.welcomeTitle')}</h1>
           <p className="wizard-subheadline">
-            Chỉ mất 2 phút để kết nối các kênh Fanpage, Zalo OA và bắt đầu quản lý tin nhắn khách hàng tập trung.
+            {t('onboarding.welcomeDesc')}
           </p>
         </div>
 
@@ -160,7 +205,7 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
             className="crm-btn crm-btn-secondary crm-btn-sm skip-btn"
             onClick={onSkipToInbox}
           >
-            Bỏ qua & Vào thẳng Hộp thư Pancake &rarr;
+            {t('onboarding.skipToInbox')}
           </button>
         )}
       </div>
@@ -186,7 +231,7 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
                   {isCompleted ? <Check size={14} /> : s.number}
                 </div>
                 <div className="step-label-group">
-                  <span className="step-number-tag">Bước {s.number}</span>
+                  <span className="step-number-tag">{t('onboarding.steps.stepTag')} {s.number}</span>
                   <span className="step-title-text">{s.title}</span>
                 </div>
               </div>

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { X, Check, ShieldCheck, ExternalLink, Loader2 } from 'lucide-react';
-import type { ChannelKey } from '../types.js';
+import type { ChannelKey, DiscoveredPageDto } from '../types.js';
+import { apiClient } from '../../../lib/api-client.js';
+import { useTranslation } from '../../../i18n/index.js';
 
 export interface OAuthSimulationModalProps {
   channel: ChannelKey;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (channel: ChannelKey) => void;
+  onSuccess: (channel: ChannelKey, pages?: DiscoveredPageDto[]) => void;
 }
 
 export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
@@ -15,6 +17,7 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { t } = useTranslation();
   const [isProcessing, setIsProcessing] = useState(false);
 
   if (!isOpen) return null;
@@ -68,14 +71,26 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
     },
   }[channel];
 
-  const handleAuthorize = () => {
+  const handleAuthorize = async () => {
     setIsProcessing(true);
-    // Giả lập thời gian handshake OAuth và trao đổi token (Long-lived Token exchange)
-    setTimeout(() => {
+    try {
+      // Gọi API Backend trao đổi token OAuth thực tế / mô phỏng
+      const result = await apiClient.exchangeOAuthToken(
+        channel,
+        `auth_code_${Date.now()}`,
+        `state_${Date.now()}`,
+      );
       setIsProcessing(false);
-      onSuccess(channel);
+      onSuccess(channel, result.pages as DiscoveredPageDto[]);
       onClose();
-    }, 1200);
+    } catch {
+      // Fallback nếu server backend đang offline
+      setTimeout(() => {
+        setIsProcessing(false);
+        onSuccess(channel);
+        onClose();
+      }, 700);
+    }
   };
 
   return (
@@ -90,7 +105,7 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
             <ShieldCheck size={24} className="oauth-shield-icon" />
             <span className="oauth-header-title">{channelConfig.title}</span>
           </div>
-          <button className="oauth-close-btn" onClick={onClose} aria-label="Đóng">
+          <button className="oauth-close-btn" onClick={onClose} aria-label={t('common.close')}>
             <X size={18} />
           </button>
         </div>
@@ -101,15 +116,15 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
               {channelConfig.accountName.charAt(0)}
             </div>
             <div className="oauth-user-meta">
-              <span className="oauth-account-label">Tài khoản ủy quyền:</span>
+              <span className="oauth-account-label">{t('onboarding.oauthModal.authorizingAccount')}:</span>
               <span className="oauth-account-name">{channelConfig.accountName}</span>
             </div>
-            <span className="oauth-status-tag">Đã xác minh</span>
+            <span className="oauth-status-tag">{t('onboarding.oauthModal.verified')}</span>
           </div>
 
           <div className="oauth-permissions-box">
             <div className="oauth-box-title">
-              Các quyền sẽ cấp cho <strong>CUSC Recruitment CRM</strong>:
+              {t('onboarding.oauthModal.permissionsTitle')}:
             </div>
             <ul className="oauth-permissions-list">
               {channelConfig.permissions.map((perm, idx) => (
@@ -126,7 +141,7 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
           </div>
 
           <div className="oauth-terms">
-            Bằng việc tiếp tục, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của bên cung cấp nền tảng.
+            {t('onboarding.oauthModal.termsNotice')}
           </div>
         </div>
 
@@ -137,7 +152,7 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
             onClick={onClose}
             disabled={isProcessing}
           >
-            Hủy bỏ
+            {t('onboarding.oauthModal.cancelBtn')}
           </button>
           <button
             type="button"
@@ -152,12 +167,12 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
             {isProcessing ? (
               <>
                 <Loader2 size={16} className="crm-btn-spinner" />
-                Đang cấp quyền...
+                {t('onboarding.oauthModal.authorizingBtn')}
               </>
             ) : (
               <>
                 <ExternalLink size={16} />
-                Tiếp tục & Cấp quyền
+                {t('onboarding.oauthModal.authorizeBtn')}
               </>
             )}
           </button>

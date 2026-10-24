@@ -13,11 +13,13 @@ import { parseCsv } from './csv-parser.js';
 
 export interface ImportFromItemsInput {
     type: 'manual';
+    workspaceId?: string;
     items: Array<Record<string, unknown>>;
 }
 
 export interface ImportFromCsvInput {
     type: 'csv';
+    workspaceId?: string;
     csvContent: string;
 }
 
@@ -73,6 +75,7 @@ export class ImportMessagesUseCase {
                     valid.channel === Channel.MANUAL_IMPORT ? 'manual-account' : `${valid.channel.toLowerCase()}-account`;
 
                 validEvents.push({
+                    workspaceId: input.workspaceId,
                     channel: valid.channel,
                     externalAccountId: valid.externalAccountId || defaultAccountId,
                     externalMessageId:

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Server, ChevronRight, SlidersHorizontal, Check } from 'lucide-react';
 import { apiClient } from '../lib/api-client.js';
 import type { ActiveNavTab } from './Sidebar.js';
+import { useTranslation } from '../i18n/index.js';
+import { LanguageSwitcher } from '../i18n/LanguageSwitcher.js';
 
 interface NavbarProps {
   currentTab: ActiveNavTab;
@@ -10,6 +12,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUrlChange }) => {
+  const { t } = useTranslation();
   const [showConfig, setShowConfig] = useState(false);
   const [apiUrl, setApiUrl] = useState(apiClient.getBaseUrl());
 
@@ -22,22 +25,22 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUr
   const getBreadcrumbTitle = () => {
     switch (currentTab) {
       case 'inbox':
-        return 'Hộp thư Trực tuyến Đa kênh (Pancake Live Chat)';
+        return t('nav.liveChatBreadcrumb');
       case 'onboarding':
-        return 'Quy trình Thiết lập Kênh & Onboarding Wizard';
+        return t('nav.onboardingBreadcrumb');
       case 'import':
-        return 'Nhập tay & Bảng tính In-App Grid (MSG-06)';
+        return t('nav.importBreadcrumb');
       default:
-        return 'Giao tiếp Đa kênh';
+        return t('nav.socialComm');
     }
   };
 
   return (
     <header className="crm-navbar">
       <div className="crm-breadcrumb">
-        <span className="crumb-root">Hệ thống CRM</span>
+        <span className="crumb-root">{t('nav.crmSystem')}</span>
         <ChevronRight size={14} className="crumb-separator" />
-        <span className="crumb-module">Giao tiếp Đa kênh</span>
+        <span className="crumb-module">{t('nav.socialComm')}</span>
         <ChevronRight size={14} className="crumb-separator" />
         <span className="crumb-current">{getBreadcrumbTitle()}</span>
       </div>
@@ -50,23 +53,25 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUr
             className={`navbar-tab-btn ${currentTab === 'inbox' ? 'active' : ''}`}
             onClick={() => onTabChange?.('inbox')}
           >
-            Hộp thư Chat
+            {t('nav.quickTabInbox')}
           </button>
           <button
             type="button"
             className={`navbar-tab-btn ${currentTab === 'onboarding' ? 'active' : ''}`}
             onClick={() => onTabChange?.('onboarding')}
           >
-            Onboarding Kênh
+            {t('nav.quickTabOnboarding')}
           </button>
           <button
             type="button"
             className={`navbar-tab-btn ${currentTab === 'import' ? 'active' : ''}`}
             onClick={() => onTabChange?.('import')}
           >
-            Bảng tính CSV
+            {t('nav.quickTabImport')}
           </button>
         </div>
+
+        <LanguageSwitcher />
 
         <div className="crm-status-pill">
           <span className="crm-status-dot online"></span>
@@ -77,15 +82,15 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUr
         <button
           className="btn btn-secondary btn-sm"
           onClick={() => setShowConfig(!showConfig)}
-          title="Cấu hình kết nối Backend API"
+          title={t('nav.apiConfigTitle')}
         >
           <SlidersHorizontal size={14} />
-          <span>API Config</span>
+          <span>{t('nav.apiConfig')}</span>
         </button>
 
         {showConfig && (
           <div className="crm-config-popover">
-            <div className="popover-title">Đổi địa chỉ API Backend</div>
+            <div className="popover-title">{t('nav.apiConfigTitle')}</div>
             <div className="popover-body">
               <input
                 type="text"
@@ -118,7 +123,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUr
                 onClick={handleSaveApi}
               >
                 <Check size={14} />
-                <span>Lưu cấu hình</span>
+                <span>{t('nav.apiConfigSave')}</span>
               </button>
             </div>
           </div>

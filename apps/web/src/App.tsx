@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AppLayout } from './app/AppLayout.js';
 import type { ActiveNavTab } from './app/Sidebar.js';
 import { ErrorBoundary } from './app/ErrorBoundary.js';
+import { I18nProvider } from './i18n/I18nContext.js';
 import { ToastProvider } from './components/feedback/ToastContext.js';
 import { ToastContainer } from './components/feedback/ToastContainer.js';
 import { UnifiedInboxPage } from './modules/inbox/pages/UnifiedInboxPage.js';
@@ -77,20 +78,22 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        {/* Khung hiển thị Toast Thông Báo */}
-        <ToastContainer />
+      <I18nProvider>
+        <ToastProvider>
+          {/* Khung hiển thị Toast Thông Báo */}
+          <ToastContainer />
 
-        {/* Thanh công cụ kiểm thử lỗi & thông báo */}
-        <ErrorSimulationBar
-          currentSimulatedCode={simulatedErrorCode}
-          onSimulatePage={(code) => setSimulatedErrorCode(code)}
-          onTriggerCrash={() => setShouldCrash(true)}
-        />
+          {/* Thanh công cụ kiểm thử lỗi & thông báo */}
+          <ErrorSimulationBar
+            currentSimulatedCode={simulatedErrorCode}
+            onSimulatePage={(code) => setSimulatedErrorCode(code)}
+            onTriggerCrash={() => setShouldCrash(true)}
+          />
 
-        {/* Màn hình chính hoặc màn hình lỗi */}
-        {renderCurrentView()}
-      </ToastProvider>
+          {/* Màn hình chính hoặc màn hình lỗi */}
+          {renderCurrentView()}
+        </ToastProvider>
+      </I18nProvider>
     </ErrorBoundary>
   );
 }

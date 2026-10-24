@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { CustomerProfile, LeadStatus } from '../types.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
+import { useTranslation } from '../../../i18n/index.js';
 
 export interface CustomerProfileColumnProps {
   customer: CustomerProfile;
@@ -32,22 +33,23 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   onAddNote,
   onRemoveNote,
 }) => {
+  const { t } = useTranslation();
   const [newTagInput, setNewTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newNoteInput, setNewNoteInput] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const leadStatusConfig: { key: LeadStatus; label: string; color: string; bg: string }[] = [
-    { key: 'NEW', label: 'Mới', color: '#0284c7', bg: '#f0f9ff' },
-    { key: 'POTENTIAL', label: 'Tiềm năng', color: '#f59e0b', bg: '#fffbeb' },
-    { key: 'CONVERTED', label: 'Đã chốt', color: '#10b981', bg: '#ecfdf5' },
-    { key: 'UNQUALIFIED', label: 'Không nhu cầu', color: '#64748b', bg: '#f8fafc' },
+    { key: 'NEW', label: t('inbox.profile.leadStatuses.new'), color: '#0284c7', bg: '#f0f9ff' },
+    { key: 'POTENTIAL', label: t('inbox.profile.leadStatuses.potential'), color: '#f59e0b', bg: '#fffbeb' },
+    { key: 'CONVERTED', label: t('inbox.profile.leadStatuses.converted'), color: '#10b981', bg: '#ecfdf5' },
+    { key: 'UNQUALIFIED', label: t('inbox.profile.leadStatuses.unqualified'), color: '#64748b', bg: '#f8fafc' },
   ];
 
   const handleCopy = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(fieldName);
-    notify.success(`Đã sao chép ${fieldName} vào bộ nhớ tạm.`);
+    notify.success(`${t('common.copied')}: ${fieldName}`);
     setTimeout(() => setCopiedField(null), 2000);
   };
 
@@ -92,20 +94,20 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
             <a
               href={`tel:${customer.phone.replace(/[^0-9]/g, '')}`}
               className="contact-action-btn phone"
-              title="Gọi điện tư vấn"
+              title={t('inbox.profile.callNow')}
             >
               <Phone size={14} />
-              <span>Gọi ngay</span>
+              <span>{t('inbox.profile.callNow')}</span>
             </a>
           )}
           {customer.email && (
             <a
               href={`mailto:${customer.email}`}
               className="contact-action-btn email"
-              title="Gửi email"
+              title={t('inbox.profile.sendEmail')}
             >
               <Mail size={14} />
-              <span>Gửi Mail</span>
+              <span>{t('inbox.profile.sendEmail')}</span>
             </a>
           )}
         </div>
@@ -116,7 +118,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
         <div className="profile-section-card">
           <div className="section-title-row">
             <TrendingUp size={15} className="section-title-icon" />
-            <h4 className="section-title">Phễu Khách Hàng (Lead Status)</h4>
+            <h4 className="section-title">{t('inbox.profile.leadFunnelTitle')}</h4>
           </div>
 
           <div className="lead-funnel-selector">
@@ -146,46 +148,46 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
         <div className="profile-section-card">
           <div className="section-title-row">
             <User size={15} className="section-title-icon" />
-            <h4 className="section-title">Thông Tin Liên Hệ</h4>
+            <h4 className="section-title">{t('inbox.profile.contactInfoTitle')}</h4>
           </div>
 
           <div className="contact-info-list">
             <div className="contact-info-item">
-              <span className="contact-label">Số điện thoại:</span>
+              <span className="contact-label">{t('inbox.profile.phoneLabel')}:</span>
               <div className="contact-value-group">
-                <span className="contact-value">{customer.phone || 'Chưa cung cấp'}</span>
+                <span className="contact-value">{customer.phone || '—'}</span>
                 {customer.phone && (
                   <button
                     type="button"
                     className="copy-btn"
-                    onClick={() => handleCopy(customer.phone, 'Số điện thoại')}
-                    title="Sao chép SĐT"
+                    onClick={() => handleCopy(customer.phone, t('inbox.profile.phoneLabel'))}
+                    title={t('common.copy')}
                   >
-                    {copiedField === 'Số điện thoại' ? <Check size={13} /> : <Copy size={13} />}
+                    {copiedField === t('inbox.profile.phoneLabel') ? <Check size={13} /> : <Copy size={13} />}
                   </button>
                 )}
               </div>
             </div>
 
             <div className="contact-info-item">
-              <span className="contact-label">Email:</span>
+              <span className="contact-label">{t('inbox.profile.emailLabel')}:</span>
               <div className="contact-value-group">
-                <span className="contact-value">{customer.email || 'Chưa cung cấp'}</span>
+                <span className="contact-value">{customer.email || '—'}</span>
                 {customer.email && (
                   <button
                     type="button"
                     className="copy-btn"
-                    onClick={() => handleCopy(customer.email, 'Email')}
-                    title="Sao chép Email"
+                    onClick={() => handleCopy(customer.email, t('inbox.profile.emailLabel'))}
+                    title={t('common.copy')}
                   >
-                    {copiedField === 'Email' ? <Check size={13} /> : <Copy size={13} />}
+                    {copiedField === t('inbox.profile.emailLabel') ? <Check size={13} /> : <Copy size={13} />}
                   </button>
                 )}
               </div>
             </div>
 
             <div className="contact-info-item">
-              <span className="contact-label">Kênh kết nối:</span>
+              <span className="contact-label">{t('inbox.profile.connectedChannelLabel')}:</span>
               <span className="contact-value">{customer.channelAccountName}</span>
             </div>
           </div>
@@ -195,7 +197,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
         <div className="profile-section-card">
           <div className="section-title-row">
             <Tag size={15} className="section-title-icon" />
-            <h4 className="section-title">Nhãn Phân Loại ({customer.tags.length})</h4>
+            <h4 className="section-title">{t('inbox.profile.tagsTitle')} ({customer.tags.length})</h4>
           </div>
 
           <div className="profile-tags-container">
@@ -206,7 +208,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
                   type="button"
                   className="tag-remove-btn"
                   onClick={() => onRemoveTag(tag)}
-                  title="Xóa nhãn này"
+                  title={t('common.delete')}
                 >
                   &times;
                 </button>
@@ -218,20 +220,20 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
                 <input
                   type="text"
                   className="add-tag-input"
-                  placeholder="Nhập tên tag mới..."
+                  placeholder={t('inbox.profile.tagPlaceholder')}
                   value={newTagInput}
                   onChange={(e) => setNewTagInput(e.target.value)}
                   autoFocus
                 />
                 <button type="submit" className="add-tag-submit-btn">
-                  Lưu
+                  {t('inbox.profile.saveTagBtn')}
                 </button>
                 <button
                   type="button"
                   className="add-tag-cancel-btn"
                   onClick={() => setIsAddingTag(false)}
                 >
-                  Hủy
+                  {t('inbox.profile.cancelTagBtn')}
                 </button>
               </form>
             ) : (
@@ -241,7 +243,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
                 onClick={() => setIsAddingTag(true)}
               >
                 <Plus size={12} />
-                <span>Thêm nhãn</span>
+                <span>{t('inbox.profile.addTagBtn')}</span>
               </button>
             )}
           </div>
@@ -251,11 +253,11 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
         <div className="profile-section-card">
           <div className="section-title-row">
             <BookOpen size={15} className="section-title-icon" />
-            <h4 className="section-title">Khóa Học & Ngành Nghề Quan Tâm</h4>
+            <h4 className="section-title">{t('inbox.profile.interestedCoursesTitle')}</h4>
           </div>
 
           {customer.interestCourses.length === 0 ? (
-            <p className="empty-sub-text">Chưa ghi nhận khóa học quan tâm.</p>
+            <p className="empty-sub-text">{t('inbox.profile.noCourses')}</p>
           ) : (
             <div className="courses-list">
               {customer.interestCourses.map((course, idx) => (
@@ -272,7 +274,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
         <div className="profile-section-card">
           <div className="section-title-row">
             <StickyNote size={15} className="section-title-icon" />
-            <h4 className="section-title">Ghi Chú Nội Bộ ({customer.notes.length})</h4>
+            <h4 className="section-title">{t('inbox.profile.internalNotesTitle')} ({customer.notes.length})</h4>
           </div>
 
           {/* Form thêm ghi chú */}
@@ -280,7 +282,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
             <textarea
               className="note-textarea"
               rows={2}
-              placeholder="Ghi chú riêng cho nhân viên tư vấn (khách không nhìn thấy)..."
+              placeholder={t('inbox.profile.notePlaceholder')}
               value={newNoteInput}
               onChange={(e) => setNewNoteInput(e.target.value)}
             />
@@ -291,7 +293,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
               disabled={!newNoteInput.trim()}
             >
               <Plus size={14} />
-              <span>Lưu ghi chú nội bộ</span>
+              <span>{t('inbox.profile.saveNoteBtn')}</span>
             </button>
           </form>
 
@@ -307,7 +309,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
                       type="button"
                       className="note-delete-btn"
                       onClick={() => onRemoveNote(note.id)}
-                      title="Xóa ghi chú"
+                      title={t('common.delete')}
                     >
                       <Trash2 size={13} />
                     </button>

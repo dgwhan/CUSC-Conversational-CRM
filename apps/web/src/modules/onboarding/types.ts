@@ -24,6 +24,32 @@ export interface StaffInvite {
   role: 'ADMIN' | 'AGENT';
 }
 
+export interface DiscoveredPageDto {
+  id: string;
+  externalAccountId: string;
+  name: string;
+  category: string;
+  avatarUrl?: string;
+  followerCount?: number;
+  channel: ChannelKey;
+  accessToken?: string;
+}
+
+export interface ChannelAccountDto {
+  id: string;
+  workspaceId: string | null;
+  channel: ChannelKey;
+  externalAccountId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  isActive: boolean;
+  isWebhookSubscribed: boolean;
+  hasToken: boolean;
+  tokenExpiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface OnboardingState {
   step: 1 | 2 | 3;
   business: BusinessSetupData;

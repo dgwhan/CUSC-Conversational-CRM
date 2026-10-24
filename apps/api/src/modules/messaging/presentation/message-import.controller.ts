@@ -3,6 +3,7 @@ import {
     Body,
     Controller,
     Get,
+    Headers,
     HttpCode,
     HttpStatus,
     Post,
@@ -32,12 +33,17 @@ export class MessageImportController {
         @Query('limit') limitStr?: string,
         @Query('channel') channel?: Channel,
         @Query('search') search?: string,
+        @Query('workspaceId') queryWorkspaceId?: string,
+        @Headers('x-workspace-id') headerWorkspaceId?: string,
     ) {
         const page = Math.max(1, parseInt(pageStr || '1', 10) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(limitStr || '20', 10) || 20));
         const offset = (page - 1) * limit;
 
+        const effectiveWorkspaceId = queryWorkspaceId || headerWorkspaceId;
+
         const { items, total } = await this.messageRepo.findMany({
+            workspaceId: effectiveWorkspaceId,
             limit,
             offset,
             channel,
@@ -71,15 +77,19 @@ export class MessageImportController {
     @Post('import/manual')
     @HttpCode(HttpStatus.OK)
     async importManual(
-        @Body() body: { items?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>,
+        @Body() body: { items?: Array<Record<string, unknown>>; workspaceId?: string } | Array<Record<string, unknown>>,
+        @Headers('x-workspace-id') headerWorkspaceId?: string,
     ) {
         const items = Array.isArray(body) ? body : body?.items;
         if (!Array.isArray(items) || items.length === 0) {
             throw new BadRequestException('Danh sách tin nhắn nhập tay (items) không được để trống');
         }
 
+        const workspaceId = (!Array.isArray(body) ? body?.workspaceId : undefined) || headerWorkspaceId;
+
         return this.importUseCase.execute({
             type: 'manual',
+            workspaceId,
             items,
         });
     }
@@ -90,16 +100,19 @@ export class MessageImportController {
     @Post('import/csv')
     @HttpCode(HttpStatus.OK)
     async importCsv(
-        @Body() body: { csvContent?: string; csv?: string } | string | Record<string, unknown>,
+        @Body() body: { csvContent?: string; csv?: string; workspaceId?: string } | string | Record<string, unknown>,
         @Req() req: FastifyRequest & { rawBody?: Buffer },
+        @Headers('x-workspace-id') headerWorkspaceId?: string,
     ) {
         let csvContent: string | undefined;
+        let bodyWorkspaceId: string | undefined;
 
         if (typeof body === 'string') {
             csvContent = body;
         } else if (typeof body === 'object' && body !== null) {
-            const b = body as { csvContent?: string; csv?: string };
+            const b = body as { csvContent?: string; csv?: string; workspaceId?: string };
             csvContent = b.csvContent ?? b.csv;
+            bodyWorkspaceId = b.workspaceId;
         }
 
         if (!csvContent && req.rawBody && req.rawBody.length > 0) {
@@ -110,8 +123,11 @@ export class MessageImportController {
             throw new BadRequestException('Nội dung file CSV không được để trống');
         }
 
+        const workspaceId = bodyWorkspaceId || headerWorkspaceId;
+
         return this.importUseCase.execute({
             type: 'csv',
+            workspaceId,
             csvContent,
         });
     }
@@ -121,7 +137,10 @@ export class MessageImportController {
      */
     @Post('import/google-sheet')
     @HttpCode(HttpStatus.OK)
-    async importGoogleSheet(@Body() body: { sheetUrl: string }) {
+    async importGoogleSheet(
+        @Body() body: { sheetUrl: string; workspaceId?: string },
+        @Headers('x-workspace-id') headerWorkspaceId?: string,
+    ) {
         if (!body.sheetUrl || typeof body.sheetUrl !== 'string') {
             throw new BadRequestException('Vui lòng cung cấp sheetUrl hợp lệ');
         }
@@ -150,8 +169,11 @@ export class MessageImportController {
             );
         }
 
+        const workspaceId = body.workspaceId || headerWorkspaceId;
+
         return this.importUseCase.execute({
             type: 'csv',
+            workspaceId,
             csvContent,
         });
     }
@@ -164,10 +186,15 @@ export class MessageImportController {
     async importGeneral(
         @Body() body: Record<string, unknown> | Array<Record<string, unknown>> | string,
         @Req() req: FastifyRequest & { rawBody?: Buffer },
+        @Headers('x-workspace-id') headerWorkspaceId?: string,
     ) {
+        const bodyObj = typeof body === 'object' && body !== null && !Array.isArray(body) ? (body as Record<string, unknown>) : undefined;
+        const workspaceId = (typeof bodyObj?.workspaceId === 'string' ? bodyObj.workspaceId : undefined) || headerWorkspaceId;
+
         if (typeof body === 'string') {
             return this.importUseCase.execute({
                 type: 'csv',
+                workspaceId,
                 csvContent: body,
             });
         }
@@ -175,6 +202,7 @@ export class MessageImportController {
         if (Array.isArray(body)) {
             return this.importUseCase.execute({
                 type: 'manual',
+                workspaceId,
                 items: body,
             });
         }
@@ -183,6 +211,7 @@ export class MessageImportController {
             if (Array.isArray(body.items)) {
                 return this.importUseCase.execute({
                     type: 'manual',
+                    workspaceId,
                     items: body.items as Array<Record<string, unknown>>,
                 });
             }
@@ -191,6 +220,7 @@ export class MessageImportController {
             if (typeof csv === 'string' && csv.trim().length > 0) {
                 return this.importUseCase.execute({
                     type: 'csv',
+                    workspaceId,
                     csvContent: csv,
                 });
             }
@@ -201,6 +231,7 @@ export class MessageImportController {
             if (raw.trim().length > 0) {
                 return this.importUseCase.execute({
                     type: 'csv',
+                    workspaceId,
                     csvContent: raw,
                 });
             }
