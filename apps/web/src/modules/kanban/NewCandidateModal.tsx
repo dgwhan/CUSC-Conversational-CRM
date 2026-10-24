@@ -108,6 +108,7 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
               >
                 <option value="FACEBOOK">Facebook Messenger / Fanpage</option>
                 <option value="ZALO">Zalo Official Account (OA)</option>
+                <option value="ZALO_PERSONAL">Zalo Cá nhân của tư vấn viên</option>
                 <option value="TIKTOK">TikTok Channel</option>
                 <option value="MANUAL">Trực tiếp / Hotline</option>
               </select>

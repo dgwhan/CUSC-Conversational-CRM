@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import type { ConversationItem, ChannelType } from '../types.js';
 import { useTranslation } from '../../../i18n/index.js';
+import { useUserRole } from '../../auth/UserRoleContext.js';
 
 export interface ConversationListColumnProps {
   conversations: ConversationItem[];
@@ -20,12 +21,23 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
   onSelect,
 }) => {
   const { t } = useTranslation();
+  const { isAgent, staffId } = useUserRole();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChannel, setSelectedChannel] = useState<'ALL' | ChannelType>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNREAD' | 'ASSIGNED_TO_ME' | 'UNASSIGNED'>('ALL');
 
   // Lọc danh sách hội thoại
   const filteredConversations = conversations.filter((item) => {
+    // PHƯƠNG ÁN A: Phân quyền theo vai trò (RBAC)
+    // Nếu là Nhân viên tư vấn (AGENT): Chỉ thấy tin nhắn gán cho mình hoặc tin nhắn chưa ai nhận (Unassigned)
+    if (isAgent) {
+      const isAssignedToMe = item.assignedStaff?.id === staffId;
+      const isUnassigned = !item.assignedStaff;
+      if (!isAssignedToMe && !isUnassigned) {
+        return false;
+      }
+    }
+
     // Lọc theo kênh
     if (selectedChannel !== 'ALL' && item.channel !== selectedChannel) {
       return false;
@@ -35,7 +47,7 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
     if (statusFilter === 'UNREAD' && item.unreadCount === 0) {
       return false;
     }
-    if (statusFilter === 'ASSIGNED_TO_ME' && item.assignedStaff?.id !== 'staff-1') {
+    if (statusFilter === 'ASSIGNED_TO_ME' && item.assignedStaff?.id !== staffId) {
       return false;
     }
     if (statusFilter === 'UNASSIGNED' && item.assignedStaff) {
@@ -57,7 +69,7 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
     return true;
   });
 
-  const totalUnread = conversations.reduce((acc, curr) => acc + curr.unreadCount, 0);
+  const totalUnread = filteredConversations.reduce((acc, curr) => acc + curr.unreadCount, 0);
 
   // Helper render channel icon tag
   const renderChannelBadge = (channel: ChannelType) => {
@@ -66,6 +78,8 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
         return <span className="channel-corner-icon fb">FB</span>;
       case 'ZALO':
         return <span className="channel-corner-icon zalo">OA</span>;
+      case 'ZALO_PERSONAL':
+        return <span className="channel-corner-icon zalo" style={{ background: '#ea580c' }} title="Zalo Cá nhân">ZL</span>;
       case 'TIKTOK':
         return <span className="channel-corner-icon tiktok">TT</span>;
       case 'INSTAGRAM':
@@ -216,13 +230,28 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
                         <CheckCheck size={14} className="seen-check-icon" />
                       )}
 
-                      {item.assignedStaff && (
+                      {item.assignedStaff ? (
                         <span
                           className="conv-staff-badge"
                           title={`Phụ trách: ${item.assignedStaff.name}`}
                         >
                           <UserCheck size={12} />
                           {item.assignedStaff.avatar}
+                        </span>
+                      ) : (
+                        <span
+                          className="conv-staff-badge unassigned"
+                          style={{
+                            background: '#fffbeb',
+                            color: '#b45309',
+                            border: '1px solid #fde68a',
+                            fontSize: '10px',
+                            padding: '1px 5px',
+                            fontWeight: 600,
+                          }}
+                          title="Hội thoại chưa gán - Bạn có thể bấm Nhận việc"
+                        >
+                          Chờ nhận việc
                         </span>
                       )}
                     </div>

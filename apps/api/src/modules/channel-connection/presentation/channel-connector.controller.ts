@@ -11,9 +11,12 @@ import {
   BadRequestException,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { OAuthService } from '../application/oauth.service.js';
 import { ChannelManagerService } from '../application/channel-manager.service.js';
+import { Roles } from '../../../common/decorators/roles.decorator.js';
+import { WorkspaceRolesGuard } from '../../../common/guards/workspace-roles.guard.js';
 import {
   ChannelTypeSchema,
   AuthorizeUrlQuerySchema,
@@ -27,6 +30,7 @@ import {
 } from '../../../contracts/channel-connection.js';
 
 @Controller('api')
+@UseGuards(WorkspaceRolesGuard)
 export class ChannelConnectorController {
   constructor(
     private readonly oauthService: OAuthService,
@@ -35,9 +39,10 @@ export class ChannelConnectorController {
 
   /**
    * GET /api/oauth/:channel/authorize-url
-   * Sinh URL đăng nhập OAuth kèm state token chống CSRF
+   * Sinh URL đăng nhập OAuth kèm state token chống CSRF (Chỉ OWNER / ADMIN)
    */
   @Get('oauth/:channel/authorize-url')
+  @Roles('OWNER', 'ADMIN')
   getAuthorizeUrl(
     @Param('channel') rawChannel: string,
     @Query() rawQuery: Record<string, unknown>,
@@ -63,9 +68,10 @@ export class ChannelConnectorController {
 
   /**
    * POST /api/oauth/:channel/exchange-token
-   * Trao đổi Authorization Code lấy token và danh sách Fanpage / OA
+   * Trao đổi Authorization Code lấy token và danh sách Fanpage / OA (Chỉ OWNER / ADMIN)
    */
   @Post('oauth/:channel/exchange-token')
+  @Roles('OWNER', 'ADMIN')
   @HttpCode(HttpStatus.OK)
   async exchangeToken(
     @Param('channel') rawChannel: string,
@@ -93,9 +99,10 @@ export class ChannelConnectorController {
 
   /**
    * POST /api/channels/activate
-   * Kích hoạt danh sách Fanpage vào Workspace & Mã hóa AES-256 Token
+   * Kích hoạt danh sách Fanpage vào Workspace & Mã hóa AES-256 Token (Chỉ OWNER / ADMIN)
    */
   @Post('channels/activate')
+  @Roles('OWNER', 'ADMIN')
   @HttpCode(HttpStatus.OK)
   async activateChannels(
     @Body() rawBody: unknown,
@@ -129,9 +136,10 @@ export class ChannelConnectorController {
 
   /**
    * PATCH /api/channels/:id/toggle
-   * Bật / Tắt hoạt động của kênh (Kiểm tra quyền hạn theo Workspace)
+   * Bật / Tắt hoạt động của kênh (Chỉ OWNER / ADMIN)
    */
   @Patch('channels/:id/toggle')
+  @Roles('OWNER', 'ADMIN')
   async toggleChannel(
     @Param('id') id: string,
     @Body('isActive') isActive?: boolean,
@@ -144,9 +152,10 @@ export class ChannelConnectorController {
 
   /**
    * DELETE /api/channels/:id
-   * Ngắt kết nối kênh (Kiểm tra quyền hạn theo Workspace)
+   * Ngắt kết nối kênh (Chỉ OWNER / ADMIN)
    */
   @Delete('channels/:id')
+  @Roles('OWNER', 'ADMIN')
   async disconnectChannel(
     @Param('id') id: string,
     @Headers('x-workspace-id') headerWorkspaceId?: string,

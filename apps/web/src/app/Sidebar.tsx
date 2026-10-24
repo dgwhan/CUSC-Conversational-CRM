@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '../i18n/index.js';
 import { useRealtime } from '../modules/realtime/RealtimeContext.js';
+import { useUserRole } from '../modules/auth/UserRoleContext.js';
+import { notify } from '../components/feedback/toastEmitter.js';
 
 export type ActiveNavTab = 'inbox' | 'kanban' | 'onboarding' | 'import';
 
@@ -23,6 +25,7 @@ export interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
   const { t } = useTranslation();
   const { myPresence } = useRealtime();
+  const { isOwner, isAgent } = useUserRole();
 
   const mainNavItems = [
     {
@@ -42,7 +45,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
       id: 'onboarding' as ActiveNavTab,
       label: t('nav.onboarding'),
       icon: <Layers size={18} />,
-      tag: '',
+      tag: isAgent ? 'Chỉ Owner' : '',
+      restricted: isAgent,
     },
     {
       id: 'import' as ActiveNavTab,
@@ -80,11 +84,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
               <a
                 key={item.id}
                 href={`#${item.id}`}
-                className={`crm-nav-item ${isActive ? 'active' : ''}`}
+                className={`crm-nav-item ${isActive ? 'active' : ''} ${item.restricted ? 'nav-restricted' : ''}`}
                 onClick={(e) => {
                   e.preventDefault();
+                  if (item.restricted) {
+                    notify.warning(
+                      'Bạn đang ở vai trò Tư vấn viên (Agent). Tính năng kết nối kênh MXH qua OAuth chỉ dành cho Chủ doanh nghiệp (Owner).',
+                      'Hạn chế Quyền hạn (RBAC)'
+                    );
+                    return;
+                  }
                   onTabChange(item.id);
                 }}
+                style={item.restricted ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
               >
                 <span className="crm-nav-icon">{item.icon}</span>
                 <span className="crm-nav-label">{item.label}</span>
@@ -137,11 +149,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
             />
           </div>
           <div className="crm-user-info">
-            <span className="crm-user-name">Nguyễn Văn Minh</span>
-            <span className="crm-user-role">
-              {myPresence === 'ONLINE' && '🟢 Trực tuyến'}
-              {myPresence === 'AWAY' && '🟡 Vắng mặt'}
-              {myPresence === 'BUSY' && '🔴 Đang bận'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span className="crm-user-name">Nguyễn Văn Minh</span>
+            </div>
+            <span
+              className="crm-user-role"
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: isOwner ? '#0284c7' : '#ea580c',
+              }}
+            >
+              {isOwner ? '👑 Chủ doanh nghiệp (Full)' : '🎧 Tư vấn viên (Agent)'}
             </span>
           </div>
         </div>

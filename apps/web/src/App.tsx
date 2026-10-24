@@ -5,6 +5,7 @@ import { ErrorBoundary } from './app/ErrorBoundary.js';
 import { I18nProvider } from './i18n/I18nContext.js';
 import { ToastProvider } from './components/feedback/ToastContext.js';
 import { ToastContainer } from './components/feedback/ToastContainer.js';
+import { UserRoleProvider } from './modules/auth/index.js';
 import { RealtimeProvider } from './modules/realtime/RealtimeContext.js';
 import { UnifiedInboxPage } from './modules/inbox/pages/UnifiedInboxPage.js';
 import { AdmissionKanbanBoard } from './modules/kanban/index.js';
@@ -99,20 +100,22 @@ export default function App() {
     <ErrorBoundary>
       <I18nProvider>
         <ToastProvider>
-          <RealtimeProvider>
-            {/* Khung hiển thị Toast Thông Báo */}
-            <ToastContainer />
+          <UserRoleProvider>
+            <RealtimeProvider>
+              {/* Khung hiển thị Toast Thông Báo */}
+              <ToastContainer />
 
-            {/* Thanh công cụ kiểm thử lỗi & thông báo */}
-            <ErrorSimulationBar
-              currentSimulatedCode={simulatedErrorCode}
-              onSimulatePage={(code) => setSimulatedErrorCode(code)}
-              onTriggerCrash={() => setShouldCrash(true)}
-            />
+              {/* Thanh công cụ kiểm thử lỗi & thông báo */}
+              <ErrorSimulationBar
+                currentSimulatedCode={simulatedErrorCode}
+                onSimulatePage={(code) => setSimulatedErrorCode(code)}
+                onTriggerCrash={() => setShouldCrash(true)}
+              />
 
-            {/* Màn hình chính hoặc màn hình lỗi */}
-            {renderCurrentView()}
-          </RealtimeProvider>
+              {/* Màn hình chính hoặc màn hình lỗi */}
+              {renderCurrentView()}
+            </RealtimeProvider>
+          </UserRoleProvider>
         </ToastProvider>
       </I18nProvider>
     </ErrorBoundary>

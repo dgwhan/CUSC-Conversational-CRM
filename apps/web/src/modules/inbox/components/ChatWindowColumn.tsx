@@ -18,6 +18,7 @@ import type { ConversationItem, AssignedStaff, QuickReplyItem, MessageAttachment
 import { QuickReplyBar } from './QuickReplyBar.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useTranslation } from '../../../i18n/index.js';
+import { useUserRole } from '../../auth/UserRoleContext.js';
 
 export interface ChatWindowColumnProps {
   conversation: ConversationItem;
@@ -37,6 +38,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
   onToggleStatus,
 }) => {
   const { t } = useTranslation();
+  const { isOwner, staffId } = useUserRole();
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [currentTimestamp] = useState(() => Date.now());
@@ -178,22 +180,68 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
             </div>
           )}
 
-          {/* Phân công nhân viên */}
-          <div className="assign-staff-dropdown-wrapper">
-            <UserCheck size={14} className="assign-icon" />
-            <select
-              className="assign-staff-select"
-              value={conversation.assignedStaff?.id || ''}
-              onChange={(e) => onAssignStaff(e.target.value)}
-            >
-              <option value="">{t('inbox.chatHeader.unassigned')}</option>
-              {staffList.map((st) => (
-                <option key={st.id} value={st.id}>
-                  {st.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Phân công nhân viên: Owner được chọn bất kỳ ai, Agent chỉ được bấm "Nhận tư vấn" */}
+          {isOwner ? (
+            <div className="assign-staff-dropdown-wrapper">
+              <UserCheck size={14} className="assign-icon" />
+              <select
+                className="assign-staff-select"
+                value={conversation.assignedStaff?.id || ''}
+                onChange={(e) => onAssignStaff(e.target.value)}
+                title="Chủ doanh nghiệp: Phân công cho bất kỳ tư vấn viên nào"
+              >
+                <option value="">{t('inbox.chatHeader.unassigned')}</option>
+                {staffList.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="agent-claim-box">
+              {conversation.assignedStaff?.id === staffId ? (
+                <span
+                  className="assigned-pill-mine"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    background: '#ecfdf5',
+                    color: '#059669',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                  }}
+                >
+                  <UserCheck size={13} />
+                  <span>Bạn đang phụ trách</span>
+                </span>
+              ) : !conversation.assignedStaff ? (
+                <button
+                  type="button"
+                  className="crm-btn crm-btn-sm crm-btn-primary"
+                  onClick={() => onAssignStaff(staffId)}
+                  title="Nhận cuộc hội thoại này để bắt đầu tư vấn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <UserCheck size={13} />
+                  <span>Nhận việc (Claim)</span>
+                </button>
+              ) : (
+                <span
+                  style={{
+                    fontSize: '11px',
+                    color: '#64748b',
+                    padding: '4px 6px',
+                  }}
+                >
+                  Phụ trách: {conversation.assignedStaff.name}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Nút Đổi trạng thái Giải quyết */}
           <button

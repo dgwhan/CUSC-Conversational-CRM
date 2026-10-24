@@ -5,6 +5,7 @@ import type { ActiveNavTab } from './Sidebar.js';
 import { useTranslation } from '../i18n/index.js';
 import { LanguageSwitcher } from '../i18n/LanguageSwitcher.js';
 import { StaffPresenceSelector } from '../modules/realtime/StaffPresenceSelector.js';
+import { RoleSwitcher, useUserRole } from '../modules/auth/index.js';
 
 interface NavbarProps {
   currentTab: ActiveNavTab;
@@ -14,6 +15,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUrlChange }) => {
   const { t } = useTranslation();
+  const { isOwner } = useUserRole();
   const [showConfig, setShowConfig] = useState(false);
   const [apiUrl, setApiUrl] = useState(apiClient.getBaseUrl());
 
@@ -65,13 +67,16 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUr
           >
             Phễu Kanban
           </button>
-          <button
-            type="button"
-            className={`navbar-tab-btn ${currentTab === 'onboarding' ? 'active' : ''}`}
-            onClick={() => onTabChange?.('onboarding')}
-          >
-            {t('nav.quickTabOnboarding')}
-          </button>
+          {isOwner && (
+            <button
+              type="button"
+              className={`navbar-tab-btn ${currentTab === 'onboarding' ? 'active' : ''}`}
+              onClick={() => onTabChange?.('onboarding')}
+              title="Chỉ Chủ doanh nghiệp có quyền thiết lập kênh MXH"
+            >
+              {t('nav.quickTabOnboarding')}
+            </button>
+          )}
           <button
             type="button"
             className={`navbar-tab-btn ${currentTab === 'import' ? 'active' : ''}`}
@@ -80,6 +85,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUr
             {t('nav.quickTabImport')}
           </button>
         </div>
+
+        {/* Nút Chuyển đổi Vai trò RBAC (Chủ DN <-> Nhân viên tư vấn) */}
+        <RoleSwitcher />
 
         {/* Trạng thái nhân viên & Chuông Ting ting */}
         <StaffPresenceSelector />
@@ -92,14 +100,16 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUr
           <span>API: <code>{apiUrl}</code></span>
         </div>
 
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={() => setShowConfig(!showConfig)}
-          title={t('nav.apiConfigTitle')}
-        >
-          <SlidersHorizontal size={14} />
-          <span>{t('nav.apiConfig')}</span>
-        </button>
+        {isOwner && (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setShowConfig(!showConfig)}
+            title={t('nav.apiConfigTitle')}
+          >
+            <SlidersHorizontal size={14} />
+            <span>{t('nav.apiConfig')}</span>
+          </button>
+        )}
 
         {showConfig && (
           <div className="crm-config-popover">

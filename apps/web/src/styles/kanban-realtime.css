@@ -571,6 +571,12 @@
   color: #0f172a;
 }
 
+.channel-badge-pill.zalo_personal {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
 .channel-badge-pill.manual {
   background: #fff7ed;
   color: #c2410c;
@@ -976,3 +982,70 @@
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
 }
+
+/* --------------------------------------------------------------------------
+   5. Role Switcher & RBAC Styles
+   -------------------------------------------------------------------------- */
+.role-switcher-container {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.role-switcher-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.role-switcher-btn:hover {
+  color: #0f172a;
+}
+
+.role-switcher-btn.active-owner {
+  background: white;
+  color: #0284c7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.role-switcher-btn.active-agent {
+  background: white;
+  color: #ea580c;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.role-btn-icon {
+  flex-shrink: 0;
+}
+
+.nav-restricted {
+  opacity: 0.6 !important;
+}
+
+.conv-staff-badge.unassigned {
+  animation: pulseHighlight 2s infinite ease-in-out;
+}
+
+@keyframes pulseHighlight {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+

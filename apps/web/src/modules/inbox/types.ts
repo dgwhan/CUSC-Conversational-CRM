@@ -1,4 +1,4 @@
-export type ChannelType = 'FACEBOOK' | 'ZALO' | 'TIKTOK' | 'INSTAGRAM' | 'MANUAL';
+export type ChannelType = 'FACEBOOK' | 'ZALO' | 'ZALO_PERSONAL' | 'TIKTOK' | 'INSTAGRAM' | 'MANUAL';
 
 export type LeadStatus = 'NEW' | 'POTENTIAL' | 'CONVERTED' | 'UNQUALIFIED';
 

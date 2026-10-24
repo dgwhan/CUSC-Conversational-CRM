@@ -12,10 +12,12 @@ import {
   Check,
   TrendingUp,
   LayoutGrid,
+  Smartphone,
 } from 'lucide-react';
 import type { CustomerProfile, LeadStatus, LeadStage } from '../types.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useTranslation } from '../../../i18n/index.js';
+import { LogPersonalZaloModal } from './LogPersonalZaloModal.js';
 
 export interface CustomerProfileColumnProps {
   customer: CustomerProfile;
@@ -43,6 +45,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newNoteInput, setNewNoteInput] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isLogZaloModalOpen, setIsLogZaloModalOpen] = useState(false);
 
   // 7 Giai đoạn phễu tuyển sinh chuẩn CUSC
   const admissionStagesConfig: { key: LeadStage; label: string; color: string; bg: string; legacyStatus: LeadStatus }[] = [
@@ -137,6 +140,21 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
               <span>{t('inbox.profile.sendEmail')}</span>
             </a>
           )}
+          <button
+            type="button"
+            className="contact-action-btn zalo-log"
+            onClick={() => setIsLogZaloModalOpen(true)}
+            title="Ghi nhận nhật ký tư vấn từ Zalo cá nhân của bạn"
+            style={{
+              background: '#fff7ed',
+              color: '#c2410c',
+              border: '1px solid #fed7aa',
+              cursor: 'pointer',
+            }}
+          >
+            <Smartphone size={14} />
+            <span>Log Zalo</span>
+          </button>
         </div>
       </div>
 
@@ -362,6 +380,13 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           </div>
         </div>
       </div>
+
+      <LogPersonalZaloModal
+        isOpen={isLogZaloModalOpen}
+        customer={customer}
+        onClose={() => setIsLogZaloModalOpen(false)}
+        onSaveNote={(note) => onAddNote(note)}
+      />
     </aside>
   );
 };

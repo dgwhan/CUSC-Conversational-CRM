@@ -4,6 +4,7 @@ import type { KanbanCandidate } from './kanban.types.js';
 import { KANBAN_COLUMNS, INITIAL_KANBAN_CANDIDATES } from './kanban.config.js';
 import { NewCandidateModal } from './NewCandidateModal.js';
 import { useRealtime } from '../realtime/RealtimeContext.js';
+import { useUserRole } from '../auth/UserRoleContext.js';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import {
   Search,
@@ -16,6 +17,7 @@ import {
   Check,
   Clock,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 
 interface AdmissionKanbanBoardProps {
@@ -24,6 +26,7 @@ interface AdmissionKanbanBoardProps {
 
 export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({ onOpenChat }) => {
   const { staffPresences, onPipelineChange } = useRealtime();
+  const { isOwner, isAgent, staffId } = useUserRole();
 
   const [candidates, setCandidates] = useState<KanbanCandidate[]>(() => {
     // Thử khôi phục từ localStorage nếu có
@@ -149,9 +152,12 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({ onOp
     return true;
   });
 
-  // Số liệu tổng quan KPI
+  // Số liệu tổng quan KPI (Phương án A: Agent chỉ thấy doanh số của thí sinh mình phụ trách)
   const totalLeads = candidates.length;
   const totalTuition = candidates.reduce((sum, c) => sum + c.estimatedTuition, 0);
+  const myAssignedCandidates = candidates.filter((c) => c.assignedStaffId === staffId);
+  const myTuition = myAssignedCandidates.reduce((sum, c) => sum + c.estimatedTuition, 0);
+
   const enrolledCount = candidates.filter((c) => c.stage === 'ENROLLED').length;
   const newLeadCount = candidates.filter((c) => c.stage === 'NEW').length;
   const conversionRate = totalLeads > 0 ? Math.round((enrolledCount / totalLeads) * 100) : 0;
@@ -190,10 +196,32 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({ onOp
             <DollarSign size={18} />
           </div>
           <div className="kpi-metric-info">
-            <span className="kpi-label">Quy mô Doanh thu Dự kiến</span>
-            <span className="kpi-value" style={{ color: '#0d9488' }}>
-              {formatCurrency(totalTuition)}
+            <span className="kpi-label">
+              {isOwner ? 'Doanh thu Dự kiến (Toàn trường)' : 'Học phí Thí sinh bạn chăm sóc'}
             </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span className="kpi-value" style={{ color: '#0d9488' }}>
+                {formatCurrency(isOwner ? totalTuition : myTuition)}
+              </span>
+              {isAgent && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                    fontSize: '10px',
+                    color: '#64748b',
+                    background: '#f1f5f9',
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                  }}
+                  title="Theo chính sách bảo mật RBAC, tổng doanh số toàn trường chỉ hiển thị cho Chủ doanh nghiệp."
+                >
+                  <Lock size={10} />
+                  <span>Ẩn tổng trường</span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -235,6 +263,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({ onOp
             <option value="ALL">Mọi kênh liên hệ</option>
             <option value="FACEBOOK">Facebook Messenger</option>
             <option value="ZALO">Zalo Official Account</option>
+            <option value="ZALO_PERSONAL">Zalo Cá nhân (Tư vấn viên)</option>
             <option value="TIKTOK">TikTok Channel</option>
             <option value="MANUAL">Nhập tay / Hotline</option>
           </select>
@@ -341,6 +370,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({ onOp
                           <span className={`channel-badge-pill ${candidate.channel.toLowerCase()}`}>
                             {candidate.channel === 'FACEBOOK' && 'FB Messenger'}
                             {candidate.channel === 'ZALO' && 'Zalo OA'}
+                            {candidate.channel === 'ZALO_PERSONAL' && 'Zalo Cá nhân'}
                             {candidate.channel === 'TIKTOK' && 'TikTok'}
                             {candidate.channel === 'MANUAL' && 'Trực tiếp'}
                           </span>
