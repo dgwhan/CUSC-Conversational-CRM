@@ -14,9 +14,11 @@ async function bootstrap(): Promise<void> {
     },
   );
 
-  // Cho phép CORS cho frontend kết nối
+  // Cho phép CORS từ frontend đã cấu hình — không dùng origin:true vì đó là bảo mật lỗ hổng
+  const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+  const allowedOrigins = frontendUrl.split(',').map((o) => o.trim()).filter(Boolean);
   app.enableCors({
-    origin: true,
+    origin: allowedOrigins,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     credentials: true,
   });

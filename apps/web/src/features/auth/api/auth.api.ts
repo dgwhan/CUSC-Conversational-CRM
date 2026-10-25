@@ -1,14 +1,16 @@
-import type { LoginRequest, LoginResponse } from '../types/auth.types.js';
+import type {
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+  RegisterResponse,
+} from '../types/auth.types.js';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export class AuthApiError extends Error {
   readonly status: number;
 
-  constructor(
-    message: string,
-    status: number,
-  ) {
+  constructor(message: string, status: number) {
     super(message);
     this.name = 'AuthApiError';
     this.status = status;
@@ -26,11 +28,16 @@ export async function login(input: LoginRequest): Promise<LoginResponse> {
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     if (response.status === 401) {
-      throw new AuthApiError('Email hoặc mật khẩu không chính xác.', 401);
+      throw new AuthApiError(
+        'Email/số điện thoại hoặc mật khẩu không chính xác.',
+        401,
+      );
     }
 
     const message =
-      typeof body === 'object' && body !== null && 'message' in body &&
+      typeof body === 'object' &&
+      body !== null &&
+      'message' in body &&
       typeof body.message === 'string'
         ? body.message
         : 'Không thể đăng nhập. Vui lòng thử lại.';
@@ -50,4 +57,42 @@ export async function login(input: LoginRequest): Promise<LoginResponse> {
   }
 
   return body as LoginResponse;
+}
+
+export async function register(
+  input: RegisterRequest,
+): Promise<RegisterResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(input),
+  });
+
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    let message = 'Không thể đăng ký tài khoản. Vui lòng thử lại.';
+    if (typeof body === 'object' && body !== null && 'message' in body) {
+      if (typeof body.message === 'string') {
+        message = body.message;
+      } else if (Array.isArray(body.message) && body.message.length > 0) {
+        message = body.message.join(', ');
+      }
+    }
+    throw new AuthApiError(message, response.status);
+  }
+
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    !('accessToken' in body) ||
+    typeof body.accessToken !== 'string' ||
+    !('staff' in body) ||
+    typeof body.staff !== 'object' ||
+    body.staff === null
+  ) {
+    throw new AuthApiError('Phản hồi đăng ký không hợp lệ.', response.status);
+  }
+
+  return body as RegisterResponse;
 }

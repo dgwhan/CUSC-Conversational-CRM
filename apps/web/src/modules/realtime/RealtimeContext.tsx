@@ -52,7 +52,7 @@ export interface RealtimeContextValue {
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 
 export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { staffId, staffName } = useUserRole();
+  const { staffId, staffName, isAuthenticated } = useUserRole();
   const currentStaffId = staffId || 'staff-me';
   const currentStaffName = staffName ? `${staffName} (Bạn)` : 'Bạn';
 
@@ -201,8 +201,13 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  // Khởi tạo kết nối WebSocket với Backend (kèm SSE fallback)
+  // Khởi tạo kết nối WebSocket với Backend (kèm SSE fallback, chỉ khi đã đăng nhập)
   useEffect(() => {
+    if (!isAuthenticated) {
+      setConnectionStatus('DISCONNECTED');
+      return;
+    }
+
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     let isMounted = true;
     let retryDelay = 5000;

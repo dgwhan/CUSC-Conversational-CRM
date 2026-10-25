@@ -602,3 +602,48 @@ body {
   transform: translateX(3px);
 }
 
+/* ==========================================================================
+   AUTH TABS & FORM TRANSITIONS
+   ========================================================================== */
+
+@keyframes authSlideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes authSlideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-auth-slide-right {
+  animation: authSlideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-auth-slide-left {
+  animation: authSlideInLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-auth-slide-right,
+  .animate-auth-slide-left {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+

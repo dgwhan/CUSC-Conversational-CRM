@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { MainLayout } from './layouts/index.js';
 import type { ActiveNavTab } from './app/Sidebar.js';
 import { ErrorBoundary } from './app/ErrorBoundary.js';
@@ -7,16 +7,19 @@ import { ToastProvider } from './components/feedback/ToastContext.js';
 import { ToastContainer } from './components/feedback/ToastContainer.js';
 import { UserRoleProvider, useUserRole } from './modules/auth/index.js';
 import { RealtimeProvider } from './modules/realtime/RealtimeContext.js';
-import { WorkspaceConfigProvider, WorkspaceSettingsPage } from './modules/workspace/index.js';
-import { UnifiedInboxPage } from './modules/inbox/pages/UnifiedInboxPage.js';
-import { AdmissionKanbanBoard } from './modules/kanban/index.js';
-import { OnboardingWizardPage } from './modules/onboarding/pages/OnboardingWizardPage.js';
-import { MessagingImportPage } from './modules/messaging/pages/MessagingImportPage.js';
-import { Error404Page } from './pages/errors/Error404Page.js';
-import { HttpErrorPage } from './pages/errors/HttpErrorPage.js';
-import { ErrorSimulationBar } from './pages/errors/ErrorSimulationBar.js';
-import { LoginPage } from './features/auth/pages/LoginPage.js';
-import './App.css';
+import { WorkspaceConfigProvider } from './modules/workspace/WorkspaceConfigContext.js';
+import { AuthPage } from './features/auth/pages/AuthPage.js';
+
+// Lazy load CRM internal pages and components for high performance initial load
+const AppLayout = lazy(() => import('./app/AppLayout.js').then((m) => ({ default: m.AppLayout })));
+const UnifiedInboxPage = lazy(() => import('./modules/inbox/pages/UnifiedInboxPage.js').then((m) => ({ default: m.UnifiedInboxPage })));
+const AdmissionKanbanBoard = lazy(() => import('./modules/kanban/AdmissionKanbanBoard.js').then((m) => ({ default: m.AdmissionKanbanBoard })));
+const WorkspaceSettingsPage = lazy(() => import('./modules/workspace/pages/WorkspaceSettingsPage.js').then((m) => ({ default: m.WorkspaceSettingsPage })));
+const OnboardingWizardPage = lazy(() => import('./modules/onboarding/pages/OnboardingWizardPage.js').then((m) => ({ default: m.OnboardingWizardPage })));
+const MessagingImportPage = lazy(() => import('./modules/messaging/pages/MessagingImportPage.js').then((m) => ({ default: m.MessagingImportPage })));
+const Error404Page = lazy(() => import('./pages/errors/Error404Page.js').then((m) => ({ default: m.Error404Page })));
+const HttpErrorPage = lazy(() => import('./pages/errors/HttpErrorPage.js').then((m) => ({ default: m.HttpErrorPage })));
+const ErrorSimulationBar = lazy(() => import('./pages/errors/ErrorSimulationBar.js').then((m) => ({ default: m.ErrorSimulationBar })));
 
 // Component phụ mô phỏng lỗi crash để kiểm tra ErrorBoundary
 function CrashTriggerComponent(): React.ReactNode {
@@ -38,12 +41,12 @@ function CRMMainContent() {
     setActiveTab('inbox');
   };
 
-  // Chưa đăng nhập: hiển thị trang Login
+  // Chưa đăng nhập: hiển thị trang Auth (Login / Sign Up)
   if (!isAuthenticated) {
     return (
       <>
         <ToastContainer />
-        <LoginPage onLoginSuccess={login} />
+        <AuthPage onLoginSuccess={login} />
       </>
     );
   }
@@ -118,15 +121,23 @@ function CRMMainContent() {
       {/* Khung hiển thị Toast Thông Báo */}
       <ToastContainer />
 
-      {/* Thanh công cụ kiểm thử lỗi & thông báo */}
-      <ErrorSimulationBar
-        currentSimulatedCode={simulatedErrorCode}
-        onSimulatePage={(code) => setSimulatedErrorCode(code)}
-        onTriggerCrash={() => setShouldCrash(true)}
-      />
+      <Suspense
+        fallback={
+          <div className="flex min-h-screen items-center justify-center bg-slate-50 font-sans text-sm text-slate-500">
+            Đang tải dữ liệu...
+          </div>
+        }
+      >
+        {/* Thanh công cụ kiểm thử lỗi & thông báo */}
+        <ErrorSimulationBar
+          currentSimulatedCode={simulatedErrorCode}
+          onSimulatePage={(code) => setSimulatedErrorCode(code)}
+          onTriggerCrash={() => setShouldCrash(true)}
+        />
 
-      {/* Màn hình chính hoặc màn hình lỗi */}
-      {renderCurrentView()}
+        {/* Màn hình chính hoặc màn hình lỗi */}
+        {renderCurrentView()}
+      </Suspense>
     </>
   );
 }

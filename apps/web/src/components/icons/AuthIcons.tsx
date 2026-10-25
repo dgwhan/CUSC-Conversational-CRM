@@ -1,9 +1,13 @@
 import {
+  Check,
+  Circle,
   Eye,
   EyeOff,
   Lock,
   Mail,
+  Phone,
   ShieldCheck,
+  User,
   type LucideProps,
 } from "lucide-react";
 
@@ -70,3 +74,52 @@ export function ShieldCheckIcon({ size = 16, ...props }: AuthIconProps) {
     />
   );
 }
+
+export function UserIcon({ size = 20, ...props }: AuthIconProps) {
+  return (
+    <User
+      size={size}
+      strokeWidth={1.8}
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    />
+  );
+}
+
+export function PhoneIcon({ size = 20, ...props }: AuthIconProps) {
+  return (
+    <Phone
+      size={size}
+      strokeWidth={1.8}
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    />
+  );
+}
+
+export function CheckIcon({ size = 16, ...props }: AuthIconProps) {
+  return (
+    <Check
+      size={size}
+      strokeWidth={2.2}
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    />
+  );
+}
+
+export function CircleIcon({ size = 16, ...props }: AuthIconProps) {
+  return (
+    <Circle
+      size={size}
+      strokeWidth={1.8}
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    />
+  );
+}
+

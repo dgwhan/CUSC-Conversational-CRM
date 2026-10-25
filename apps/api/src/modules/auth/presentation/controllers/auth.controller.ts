@@ -11,9 +11,12 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { HttpAdapterHost } from "@nestjs/core";
 import { AuthService } from "../../application/services/auth.service.js";
-import { loginRequestSchema } from "../dto/login-request.dto.js";
-import type { LoginRequestDto } from "../dto/login-request.dto.js";
-import type { LoginResponseDto } from "../dto/login-response.dto.js";
+import { loginRequestSchema } from "../dto/login/login-request.dto.js";
+import type { LoginRequestDto } from "../dto/login/login-request.dto.js";
+import type { LoginResponseDto } from "../dto/login/login-response.dto.js";
+import { registerRequestSchema } from "../dto/register/register-request.dto.js";
+import type { RegisterRequestDto } from "../dto/register/register-request.dto.js";
+import type { RegisterResponseDto } from "../dto/register/register-response.dto.js";
 import { ZodValidationPipe } from "../../../../common/pipes/zod-validation.pipe.js";
 
 const REFRESH_COOKIE_NAME = "refresh_token";
@@ -25,7 +28,7 @@ export class AuthController {
         private readonly authService: AuthService,
         private readonly httpAdapterHost: HttpAdapterHost,
         private readonly configService: ConfigService,
-    ) {}
+    ) { }
 
     @Post("login")
     @HttpCode(HttpStatus.OK)
@@ -38,7 +41,34 @@ export class AuthController {
     ): Promise<LoginResponseDto> {
         const result = await this.authService.login(input, { ip, userAgent });
 
-        //Nest's HTTP adapter serializes the cookie for the configured platform
+        // Nest's HTTP adapter serializes the cookie for the configured platform
+        this.httpAdapterHost.httpAdapter.setCookie(
+            response,
+            REFRESH_COOKIE_NAME,
+            result.refreshToken,
+            {
+                httpOnly: true,
+                secure: this.configService.getOrThrow<string>("NODE_ENV") === "production",
+                sameSite: "lax",
+                path: REFRESH_COOKIE_PATH,
+                maxAge: result.refreshTokenMaxAgeSeconds,
+            },
+        );
+
+        return result.response;
+    }
+
+    @Post("register")
+    @HttpCode(HttpStatus.CREATED)
+    async register(
+        @Body(new ZodValidationPipe(registerRequestSchema))
+        input: RegisterRequestDto,
+        @Ip() ip: string,
+        @Headers("user-agent") userAgent: string | undefined,
+        @Res({ passthrough: true }) response: unknown,
+    ): Promise<RegisterResponseDto> {
+        const result = await this.authService.register(input, { ip, userAgent });
+
         this.httpAdapterHost.httpAdapter.setCookie(
             response,
             REFRESH_COOKIE_NAME,
