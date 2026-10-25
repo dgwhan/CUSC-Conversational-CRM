@@ -40,7 +40,7 @@ const initialDefaultConfig: WorkspaceConfig = {
 const WorkspaceConfigContext = createContext<WorkspaceConfigContextType | undefined>(undefined);
 
 export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isOwner } = useUserRole();
+  const { isOwner, isAuthenticated } = useUserRole();
   const [isLoading, setIsLoading] = useState(false);
   const [config, setConfig] = useState<WorkspaceConfig>(() => {
     if (typeof window !== 'undefined') {
@@ -76,8 +76,9 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
   }, []);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     syncFromBackend();
-  }, [syncFromBackend]);
+  }, [syncFromBackend, isAuthenticated]);
 
   // Lưu state ra localStorage mỗi khi config thay đổi
   const saveConfig = (newConfig: WorkspaceConfig) => {

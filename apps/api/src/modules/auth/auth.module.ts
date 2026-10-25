@@ -7,6 +7,7 @@ import { OwnerController } from './presentation/controllers/owner.controller.js'
 import { AuthService } from './application/services/auth.service.js';
 import { RolesGuard } from './presentation/guards/roles.guard.js';
 import { JwtAuthGuard } from './presentation/guards/jwt-auth.guard.js';
+import { JwtTokenService } from '../../platform/config/jwt.config.js';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { JwtAuthGuard } from './presentation/guards/jwt-auth.guard.js';
     }),
   ],
   controllers: [AuthController, OwnerController],
-  providers: [AuthService, JwtAuthGuard, RolesGuard],
-  exports: [JwtAuthGuard, RolesGuard],
+  providers: [AuthService, JwtAuthGuard, RolesGuard, JwtTokenService],
+  exports: [JwtAuthGuard, RolesGuard, JwtTokenService],
 })
 export class AuthModule {}

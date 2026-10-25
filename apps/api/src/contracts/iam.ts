@@ -18,6 +18,7 @@ export const CreateStaffSchema = z.object({
   email: z.string().email().toLowerCase(),
   fullName: z.string().min(1).max(100),
   role: StaffRoleSchema.default('STAFF'),
+  phoneNumber: z.string().trim().optional(),
 });
 
 export const UpdateStaffSchema = z
@@ -25,6 +26,7 @@ export const UpdateStaffSchema = z
     email: z.string().email().toLowerCase().optional(),
     fullName: z.string().min(1).max(100).optional(),
     role: StaffRoleSchema.optional(),
+    phoneNumber: z.string().trim().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, 'Must be least one field');
 

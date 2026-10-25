@@ -1,4 +1,4 @@
-import type { StaffRole } from "@prisma/client";
+import type { StaffRole } from '../../../../../contracts/iam.js';
 
 export type LoginResponseDto = {
     accessToken: string;

@@ -8,7 +8,8 @@ export type TextFieldProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
   "prefix"
 > & {
-  label: string;
+  label: ReactNode;
+  headerRight?: ReactNode;
   leadingIcon?: ReactNode;
   trailingAdornment?: ReactNode;
   errorMessage?: string;
@@ -20,6 +21,7 @@ export function TextField({
   successMessage,
   id,
   label,
+  headerRight,
   leadingIcon,
   trailingAdornment,
   className = "",
@@ -39,12 +41,15 @@ export function TextField({
 
   return (
     <div className={`flex min-w-0 flex-col gap-2 ${className}`}>
-      <label
-        className="font-sans text-label font-medium text-text-primary"
-        htmlFor={inputId}
-      >
-        {label}
-      </label>
+      <div className="flex items-center justify-between gap-2">
+        <label
+          className="font-sans text-label font-medium text-text-primary"
+          htmlFor={inputId}
+        >
+          {label}
+        </label>
+        {headerRight}
+      </div>
 
       <div
         className={`flex min-h-[var(--control-height-lg)] min-w-0 items-center gap-2 rounded-control border px-4 transition-[border-color,box-shadow] focus-within:border-brand-primary focus-within:shadow-[0_0_0_3px_rgb(41_80_151_/_18%)] ${

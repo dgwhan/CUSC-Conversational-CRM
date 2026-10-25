@@ -53,6 +53,9 @@ export const envSchema = z
       .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
     JWT_ACCESS_TTL: z.string().default('15m'),
     REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(7),
+    JWT_ISSUER: z.string().default('CUSC-Recruitment-CRM'),
+    JWT_AUDIENCE: z.string().default('CUSC-Recruitment-CRM-Client'),
+    JWT_EXPIRES_IN_MINUTES: z.coerce.number().int().positive().default(15),
     // Mail (SMTP)
     MAIL_HOST: optionalTrimmedString,
     MAIL_PORT: optionalPort,

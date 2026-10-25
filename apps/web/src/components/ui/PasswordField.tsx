@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   EyeIcon,
   EyeOffIcon,
@@ -8,7 +8,8 @@ import { TextField } from "./TextField.js";
 
 type PasswordFieldProps = {
   id?: string;
-  label?: string;
+  label?: ReactNode;
+  headerRight?: ReactNode;
   name?: string;
   autoComplete?: string;
   value: string;
@@ -23,6 +24,7 @@ type PasswordFieldProps = {
 export function PasswordField({
   id,
   label = "Mật khẩu",
+  headerRight,
   name = "password",
   autoComplete = "current-password",
   value,
@@ -39,6 +41,7 @@ export function PasswordField({
     <TextField
       id={id}
       label={label}
+      headerRight={headerRight}
       name={name}
       type={visible ? "text" : "password"}
       autoComplete={autoComplete}

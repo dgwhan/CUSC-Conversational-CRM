@@ -72,12 +72,22 @@ export function PasswordRecoveryResetStep({
 
       <form className="mt-6 flex flex-col gap-4" noValidate onSubmit={handleSubmit}>
         {/*Trường Mật khẩu mới */}
-        <div>
+        <div className="flex flex-col gap-2">
           <PasswordField
             autoComplete="new-password"
             disabled={isSubmitting}
             errorMessage={displayedPasswordError}
             label="Mật khẩu mới"
+            headerRight={
+              newPassword.length > 0 ? (
+                <span className="font-sans text-caption font-medium text-text-secondary">
+                  Độ mạnh mật khẩu:{' '}
+                  <span className={`font-semibold ${strength.colorClass}`}>
+                    {strength.label}
+                  </span>
+                </span>
+              ) : undefined
+            }
             name="newPassword"
             onBlur={() => setHasBlurredNewPassword(true)}
             onChange={(value) => {
@@ -87,6 +97,11 @@ export function PasswordRecoveryResetStep({
             placeholder="Nhập mật khẩu mới"
             value={newPassword}
           />
+
+          {/*Checklist tiêu chuẩn thống nhất*/}
+          {newPassword.length > 0 && (
+            <PasswordStrengthIndicator strength={strength} />
+          )}
         </div>
 
         {/*Trường Xác nhận mật khẩu mới */}
@@ -107,11 +122,6 @@ export function PasswordRecoveryResetStep({
             value={confirmPassword}
           />
         </div>
-
-        {/*Checklist tiêu chuẩn*/}
-        {newPassword.length > 0 && (
-          <PasswordStrengthIndicator strength={strength} />
-        )}
 
         {/*Thông báo lỗi từ server nếu có */}
         {error && (

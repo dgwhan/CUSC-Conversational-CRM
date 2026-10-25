@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import '../App.css';
 import { Sidebar, type ActiveNavTab } from './Sidebar.js';
 import { Navbar } from './Navbar.js';
 

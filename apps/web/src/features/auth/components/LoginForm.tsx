@@ -2,70 +2,85 @@ import { useState, type FormEvent } from 'react';
 import { MailIcon } from '../../../components/icons/AuthIcons.js';
 import { Button } from '../../../components/ui/Button.js';
 import { Checkbox } from '../../../components/ui/Checkbox.js';
+import { PageHeading } from '../../../components/ui/PageHeading.js';
 import { PasswordField } from '../../../components/ui/PasswordField.js';
 import { TextField } from '../../../components/ui/TextField.js';
 import { AuthApiError, login } from '../api/auth.api.js';
 import type { LoginResponse } from '../types/auth.types.js';
+import {
+  validateIdentifier,
+  validatePassword,
+} from '../validation/auth.validation.js';
 
-const REMEMBERED_EMAIL_KEY = 'cusc.rememberedEmail';
-const EMAIL_FORMAT_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const REMEMBERED_IDENTIFIER_KEY = 'cusc.rememberedIdentifier';
 
-type LoginFormProps = {
+export type LoginFormProps = {
   onSuccess: (result: LoginResponse) => void;
   onForgotPassword: () => void;
+  onSwitchToSignUp?: () => void;
+  hideHeading?: boolean;
 };
 
-function readRememberedEmail(): string {
+function readRememberedIdentifier(): string {
   try {
-    return localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? '';
+    localStorage.removeItem('cusc.rememberedEmail');
+    const saved = localStorage.getItem(REMEMBERED_IDENTIFIER_KEY) ?? '';
+    if (saved === 'staff@cusc.com' || saved === 'owner@cusc.com') {
+      localStorage.removeItem(REMEMBERED_IDENTIFIER_KEY);
+      return '';
+    }
+    return saved;
   } catch {
     return '';
   }
 }
 
-export function LoginForm({ onSuccess, onForgotPassword }: LoginFormProps) {
-  const [email, setEmail] = useState(readRememberedEmail);
+export function LoginForm({
+  onSuccess,
+  onForgotPassword,
+  onSwitchToSignUp,
+  hideHeading = false,
+}: LoginFormProps) {
+  const [identifier, setIdentifier] = useState(readRememberedIdentifier);
   const [password, setPassword] = useState('');
-  const [rememberEmail, setRememberEmail] = useState(() => Boolean(readRememberedEmail()));
+  const [rememberIdentifier, setRememberIdentifier] = useState(() =>
+    Boolean(readRememberedIdentifier()),
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [identifierError, setIdentifierError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-
-  function validateEmail(value: string): string {
-    const normalizedEmail = value.trim();
-
-    if (!normalizedEmail) 
-      return 'Vui lòng nhập email.';
-
-    if (!EMAIL_FORMAT_PATTERN.test(normalizedEmail)) {
-      return 'Vui lòng nhập email hợp lệ.';
-    }
-
-    return '';
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
 
-    const nextEmailError = validateEmail(email);
-    const nextPasswordError = password.length === 0 ? 'Vui lòng nhập mật khẩu.' : '';
-    setEmailError(nextEmailError);
+    const nextIdentifierError = validateIdentifier(identifier);
+    const nextPasswordError = validatePassword(password);
+    setIdentifierError(nextIdentifierError);
     setPasswordError(nextPasswordError);
-    if (nextEmailError || nextPasswordError) return;
+
+    if (nextIdentifierError || nextPasswordError) return;
 
     setIsSubmitting(true);
 
     try {
-      const normalizedEmail = email.trim();
-      const result = await login({ email: normalizedEmail, password });
+      const normalizedIdentifier = identifier.trim();
+      const result = await login({
+        identifier: normalizedIdentifier,
+        password,
+      });
+
       try {
-        if (rememberEmail) localStorage.setItem(REMEMBERED_EMAIL_KEY, normalizedEmail);
-        else localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+        if (rememberIdentifier) {
+          localStorage.setItem(REMEMBERED_IDENTIFIER_KEY, normalizedIdentifier);
+        } else {
+          localStorage.removeItem(REMEMBERED_IDENTIFIER_KEY);
+        }
       } catch {
-        //email remembrance is optional if browser storage is unavailable.
+        // Remembrance is optional if browser storage is unavailable.
       }
+
       setPassword('');
       onSuccess(result);
     } catch (cause) {
@@ -80,48 +95,93 @@ export function LoginForm({ onSuccess, onForgotPassword }: LoginFormProps) {
   }
 
   return (
-    <form className="mt-6 flex flex-col gap-6" noValidate onSubmit={handleSubmit}>
-      <TextField label="Email" name="email" type="email" autoComplete="username" placeholder="Nhập email công việc" value={email}
-        onChange={(event) => {
-          setEmail(event.target.value);
-          if (emailError) setEmailError(validateEmail(event.target.value));
-          if (error) setError('');
-        }}
-        onBlur={() => setEmailError(validateEmail(email))}
-        leadingIcon={<MailIcon />}
-        errorMessage={emailError}
-        required
-        disabled={isSubmitting}/>
-
-      <PasswordField value={password} onChange={(value) => {
-          setPassword(value);
-          if (passwordError) setPasswordError(value ? '' : 'Vui lòng nhập mật khẩu.');
-          if (error) setError('');
-        }}
-        errorMessage={passwordError}
-        disabled={isSubmitting}/>
-
-      <div className="-mt-2 flex flex-wrap items-center justify-between gap-3">
-        <Checkbox checked={rememberEmail} disabled={isSubmitting}
-          onChange={(event) => setRememberEmail(event.target.checked)}>
-          Ghi nhớ đăng nhập
-        </Checkbox>
-
-        <button className="font-sans text-body text-brand-primary hover:underline"
-          type="button"
-          onClick={onForgotPassword}>
-          Quên mật khẩu?
-        </button>
-      </div>
-
-      {error && (
-        <p className="-mt-3 rounded-control border border-state-error bg-state-error-bg px-3 py-2 font-sans text-body text-state-error" role="alert">
-          {error}
-        </p>
+    <div className="flex flex-col gap-6">
+      {!hideHeading && (
+        <PageHeading
+          title="Chào mừng trở lại"
+          description="Đăng nhập để tiếp tục sử dụng hệ thống Conversational CRM của CUSC."
+        />
       )}
-      <Button fullWidth type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Đang đăng nhập…' : 'Đăng nhập'}
-      </Button>
-    </form>
+
+      <form className="flex flex-col gap-6" noValidate onSubmit={handleSubmit}>
+        <TextField
+          label="Email hoặc Số điện thoại"
+          name="identifier"
+          type="text"
+          autoComplete="username"
+          placeholder="Nhập email hoặc số điện thoại"
+          value={identifier}
+          onChange={(event) => {
+            setIdentifier(event.target.value);
+            if (identifierError) {
+              setIdentifierError(validateIdentifier(event.target.value));
+            }
+            if (error) setError('');
+          }}
+          onBlur={() => setIdentifierError(validateIdentifier(identifier))}
+          leadingIcon={<MailIcon />}
+          errorMessage={identifierError}
+          required
+          disabled={isSubmitting}
+        />
+
+        <PasswordField
+          value={password}
+          onChange={(value) => {
+            setPassword(value);
+            if (passwordError) {
+              setPasswordError(validatePassword(value));
+            }
+            if (error) setError('');
+          }}
+          errorMessage={passwordError}
+          disabled={isSubmitting}
+        />
+
+        <div className="-mt-2 flex flex-wrap items-center justify-between gap-3">
+          <Checkbox
+            checked={rememberIdentifier}
+            disabled={isSubmitting}
+            onChange={(event) => setRememberIdentifier(event.target.checked)}
+          >
+            Ghi nhớ đăng nhập
+          </Checkbox>
+
+          <button
+            className="font-sans text-body text-brand-primary hover:underline cursor-pointer"
+            type="button"
+            onClick={onForgotPassword}
+          >
+            Quên mật khẩu?
+          </button>
+        </div>
+
+        {error && (
+          <p
+            className="-mt-3 rounded-control border border-state-error bg-state-error-bg px-3 py-2 font-sans text-body text-state-error"
+            role="alert"
+          >
+            {error}
+          </p>
+        )}
+
+        <Button fullWidth type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Đang đăng nhập…' : 'Đăng nhập'}
+        </Button>
+
+        {onSwitchToSignUp && (
+          <div className="text-center font-sans text-body text-text-secondary">
+            <span>Chưa có tài khoản?</span>{' '}
+            <button
+              type="button"
+              onClick={onSwitchToSignUp}
+              className="font-medium text-brand-primary hover:underline cursor-pointer"
+            >
+              Đăng ký ngay
+            </button>
+          </div>
+        )}
+      </form>
+    </div>
   );
 }
