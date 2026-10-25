@@ -65,7 +65,7 @@ class ApiClient {
       response = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json',
+          ...(restOptions.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...headers,
         },
         ...restOptions,

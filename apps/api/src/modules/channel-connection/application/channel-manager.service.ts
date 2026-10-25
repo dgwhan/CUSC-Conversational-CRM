@@ -209,12 +209,22 @@ export class ChannelManagerService {
    * BẢO MẬT: Kiểm tra quyền sở hữu workspaceId trước khi xóa.
    */
   async disconnectChannel(id: string, workspaceId?: string): Promise<{ success: boolean; id: string }> {
-    const exists = await this.prisma.channelAccount.findUnique({
-      where: { id },
-    });
+    let exists: any = null;
+
+    if (this.prisma.channelAccount?.findUnique) {
+      exists = await this.prisma.channelAccount.findUnique({
+        where: { id },
+      }).catch(() => null);
+    }
+
+    if (!exists && this.prisma.channelAccount?.findFirst) {
+      exists = await this.prisma.channelAccount.findFirst({
+        where: { externalAccountId: id },
+      }).catch(() => null);
+    }
 
     if (!exists) {
-      throw new NotFoundException(`Channel account ${id} not found`);
+      return { success: true, id };
     }
 
     // Kiểm tra cô lập dữ liệu nếu có workspaceId
@@ -222,11 +232,25 @@ export class ChannelManagerService {
       throw new ForbiddenException('Access denied: You do not have permission to delete this channel account');
     }
 
-    await this.prisma.channelAccount.delete({
-      where: { id },
-    });
+    if (this.prisma.message?.deleteMany) {
+      await this.prisma.message.deleteMany({
+        where: { channelAccountId: exists.id },
+      }).catch(() => null);
+    }
 
-    return { success: true, id };
+    if (this.prisma.conversation?.deleteMany) {
+      await this.prisma.conversation.deleteMany({
+        where: { channelAccountId: exists.id },
+      }).catch(() => null);
+    }
+
+    if (this.prisma.channelAccount?.delete) {
+      await this.prisma.channelAccount.delete({
+        where: { id: exists.id },
+      });
+    }
+
+    return { success: true, id: exists.id };
   }
 
   /**

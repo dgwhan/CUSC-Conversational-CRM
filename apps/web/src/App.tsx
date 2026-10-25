@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { MainLayout } from './layouts/index.js';
 import type { ActiveNavTab } from './app/Sidebar.js';
 import { ErrorBoundary } from './app/ErrorBoundary.js';
@@ -28,6 +28,22 @@ function CrashTriggerComponent(): React.ReactNode {
 
 function CRMMainContent() {
   const { isAuthenticated, login } = useUserRole();
+
+  // Bắt callback từ popup OAuth Meta / Zalo nếu cửa sổ này được mở dạng popup
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.opener && window.location.search.includes('code=')) {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const state = params.get('state');
+      if (code) {
+        window.opener.postMessage(
+          { type: 'OAUTH_CALLBACK', code, state },
+          window.location.origin,
+        );
+        window.close();
+      }
+    }
+  }, []);
   const [activeTab, setActiveTab] = useState<ActiveNavTab>('inbox');
   const [activeChatConvId, setActiveChatConvId] = useState<string | null>(null);
   const [simulatedErrorCode, setSimulatedErrorCode] = useState<number | null>(null);

@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, ShieldCheck, ExternalLink, Loader2, KeyRound, Globe, HelpCircle } from 'lucide-react';
+import {
+  X,
+  Check,
+  ShieldCheck,
+  ExternalLink,
+  Loader2,
+  KeyRound,
+  Globe,
+  HelpCircle,
+  Webhook,
+  Info,
+  CheckCircle2,
+} from 'lucide-react';
 import type { ChannelKey, DiscoveredPageDto } from '../types.js';
 import { apiClient } from '../../../lib/api-client.js';
 import { useTranslation } from '../../../i18n/index.js';
@@ -23,12 +35,12 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [realAuthUrl, setRealAuthUrl] = useState<string | null>(null);
 
-  // Dữ liệu nhập trực tiếp Token & Page ID (Không dùng dữ liệu cứng)
+  // Dữ liệu kết nối trực tiếp Token & Page ID
   const [pageIdInput, setPageIdInput] = useState('');
   const [pageNameInput, setPageNameInput] = useState('');
   const [accessTokenInput, setAccessTokenInput] = useState('');
 
-  // Tự động lấy URL ủy quyền OAuth thực tế từ Backend nếu có cấu hình
+  // Lấy URL ủy quyền OAuth thực tế từ Backend
   useEffect(() => {
     if (isOpen) {
       apiClient
@@ -39,16 +51,53 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
           }
         })
         .catch(() => {
-          // Chưa cấu hình OAuth App ID trên server
+          // Chưa cấu hình OAuth App ID
         });
     }
   }, [channel, isOpen]);
 
+  // Lắng nghe phản hồi từ cửa sổ Popup OAuth (khi Meta / Zalo redirect về web app)
+  useEffect(() => {
+    const handleOAuthCallbackMessage = async (event: MessageEvent) => {
+      if (typeof window !== 'undefined' && event.origin !== window.location.origin) return;
+      if (event.data?.type === 'OAUTH_CALLBACK' && event.data?.code) {
+        setIsProcessing(true);
+        notify.info('Đang trao đổi mã ủy quyền và kết nối Webhook...');
+        try {
+          const result = await apiClient.exchangeOAuthToken(
+            channel,
+            event.data.code,
+            event.data.state,
+          );
+          setIsProcessing(false);
+          if (result.pages && result.pages.length > 0) {
+            notify.success(`Đã phát hiện và kết nối ${result.pages.length} trang thành công!`);
+            onSuccess(channel, result.pages as DiscoveredPageDto[]);
+            onClose();
+          } else {
+            notify.warning('Không tìm thấy trang nào thuộc tài khoản này. Vui lòng kiểm tra quyền quản trị Fanpage.');
+          }
+        } catch (err) {
+          setIsProcessing(false);
+          notify.error(`Xác thực OAuth thất bại: ${(err as Error).message}`);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleOAuthCallbackMessage);
+    return () => window.removeEventListener('message', handleOAuthCallbackMessage);
+  }, [channel, onSuccess, onClose]);
+
   if (!isOpen) return null;
+
+  const isRealOAuthConfigured =
+    realAuthUrl &&
+    realAuthUrl.includes('client_id=') &&
+    !realAuthUrl.includes('dev_simulated');
 
   const channelConfig = {
     FACEBOOK: {
-      title: 'Kết nối Facebook Fanpage',
+      title: 'Kết nối Facebook Fanpage & Webhook',
       bg: '#1877F2',
       permissions: [
         'Quản lý tin nhắn trang (pages_messaging)',
@@ -62,6 +111,9 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
       tokenLabel: 'Page Access Token (Dài hạn)',
       tokenPlaceholder: 'EAA...',
       tokenHint: 'Lấy từ Meta Business Suite hoặc Trình khám phá Graph API (Graph API Explorer) với quyền pages_messaging.',
+      webhookEndpoint: '/api/webhook/facebook',
+      verifyToken: 'cusc_recruitment_crm_webhook_verify_secret',
+      fields: 'messages, messaging_postbacks',
     },
     ZALO: {
       title: 'Kết nối Zalo Official Account (OA)',
@@ -78,6 +130,9 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
       tokenLabel: 'OA Secret Key / Access Token',
       tokenPlaceholder: 'Chuỗi Access Token từ Zalo Open Platform',
       tokenHint: 'Lấy từ Cài đặt Ứng dụng trên Zalo for Developers (developers.zalo.me).',
+      webhookEndpoint: '/api/webhook/zalo',
+      verifyToken: 'zalo_webhook_secret',
+      fields: 'user_send_text, user_send_image',
     },
     TIKTOK: {
       title: 'Kết nối TikTok for Business / Shop',
@@ -93,6 +148,9 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
       tokenLabel: 'TikTok Client Access Token',
       tokenPlaceholder: 'act.example_tiktok_access_token...',
       tokenHint: 'Tạo từ Cổng phát triển TikTok for Developers.',
+      webhookEndpoint: '/api/webhook/tiktok',
+      verifyToken: 'tiktok_verify_secret',
+      fields: 'im.message.receive',
     },
     INSTAGRAM: {
       title: 'Kết nối Instagram Professional Direct',
@@ -108,33 +166,26 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
       tokenLabel: 'User / Page Access Token',
       tokenPlaceholder: 'EAA...',
       tokenHint: 'Lấy từ Meta Graph API Explorer liên kết với Instagram Business Account.',
+      webhookEndpoint: '/api/webhook/facebook',
+      verifyToken: 'cusc_recruitment_crm_webhook_verify_secret',
+      fields: 'messages, messaging_postbacks',
     },
   }[channel];
 
-  // Xử lý kết nối qua OAuth chuẩn hoặc Simulation
-  const handleAuthorizeOAuth = async () => {
-    setIsProcessing(true);
-    try {
-      // Nếu có URL OAuth thật từ Meta/Zalo và người dùng bấm mở
-      if (realAuthUrl && realAuthUrl.includes('client_id=') && !realAuthUrl.includes('dev_simulated')) {
-        const popup = window.open(realAuthUrl, '_blank', 'width=600,height=700');
-        if (popup) {
-          notify.info('Đang mở cửa sổ đăng nhập OAuth chính thức. Vui lòng cấp quyền...', 'Ủy quyền OAuth');
-        }
+  // Mở cửa sổ OAuth chính thức
+  const handleAuthorizeOAuth = () => {
+    if (isRealOAuthConfigured && realAuthUrl) {
+      const popup = window.open(realAuthUrl, 'oauth_popup', 'width=620,height=750,scrollbars=yes');
+      if (popup) {
+        notify.info('Đang mở cửa sổ đăng nhập OAuth chính thức từ Meta. Vui lòng cấp quyền...', 'Ủy quyền OAuth');
+      } else {
+        notify.warning('Trình duyệt đã chặn cửa sổ Popup. Vui lòng cho phép popup để tiếp tục.');
       }
-
-      // Trao đổi token với Backend
-      const result = await apiClient.exchangeOAuthToken(
-        channel,
-        `auth_code_${Date.now()}`,
-        `state_${Date.now()}`,
+    } else {
+      notify.warning(
+        'Máy chủ chưa cấu hình META_APP_ID trong file .env. Vui lòng chuyển sang tab "2. Nhập Page ID & Token" để kết nối trang thực tế của bạn ngay lập tức!',
       );
-      setIsProcessing(false);
-      onSuccess(channel, result.pages as DiscoveredPageDto[]);
-      onClose();
-    } catch (err) {
-      setIsProcessing(false);
-      notify.error(`Xác thực kết nối thất bại: ${(err as Error).message}`);
+      setConnectTab('TOKEN');
     }
   };
 
@@ -155,7 +206,8 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
       });
 
       setIsProcessing(false);
-      notify.success(`Đã kết nối thành công tài khoản ${pageNameInput.trim() || pageIdInput.trim()}!`);
+      const pageName = pageNameInput.trim() || result.pages?.[0]?.name || pageIdInput.trim();
+      notify.success(`Đã kết nối thành công tài khoản "${pageName}" và kích hoạt Webhook!`);
       onSuccess(channel, result.pages as DiscoveredPageDto[]);
       onClose();
     } catch (err) {
@@ -169,7 +221,7 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
       <div
         className="crm-oauth-modal"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '520px', width: '92%' }}
+        style={{ maxWidth: '540px', width: '92%' }}
       >
         {/* Header Modal */}
         <div className="crm-oauth-header" style={{ background: channelConfig.bg }}>
@@ -210,7 +262,7 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
             }}
           >
             <Globe size={14} />
-            <span>1. Ủy quyền OAuth</span>
+            <span>1. Đăng nhập OAuth</span>
           </button>
 
           <button
@@ -236,12 +288,38 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
         </div>
 
         {/* Body Modal */}
-        <div className="crm-oauth-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+        <div className="crm-oauth-body" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
           {connectTab === 'OAUTH' ? (
             <div>
-              <div className="oauth-notice-card" style={{ marginBottom: '16px' }}>
+              <div className="oauth-notice-card" style={{ marginBottom: '14px' }}>
                 <p className="oauth-notice-text">{channelConfig.notice}</p>
               </div>
+
+              {!isRealOAuthConfigured && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    padding: '12px 14px',
+                    background: '#fffbeb',
+                    border: '1px solid #fde68a',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    fontSize: '12.5px',
+                    color: '#92400e',
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <Info size={16} style={{ flexShrink: 0, marginTop: '2px', color: '#d97706' }} />
+                  <div>
+                    <strong>Chưa cấu hình META_APP_ID trên máy chủ:</strong> Để đăng nhập trực tiếp qua OAuth Meta, vui lòng bổ sung <code>META_APP_ID</code> và <code>META_APP_SECRET</code> vào file <code>.env</code>.
+                    <div style={{ marginTop: '6px' }}>
+                      Hoặc chuyển sang tab <strong>&ldquo;2. Nhập Page ID & Token&rdquo;</strong> để kết nối Fanpage ngay lập tức mà không cần tạo Meta App!
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="oauth-permissions-box">
                 <div className="oauth-box-title">
@@ -255,6 +333,26 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
                     </li>
                   ))}
                 </ul>
+              </div>
+
+              {/* Thông tin Webhook Tích Hợp */}
+              <div
+                style={{
+                  marginTop: '16px',
+                  padding: '12px 14px',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  <Webhook size={14} style={{ color: '#0284c7' }} />
+                  <span>Cơ chế nhận tin nhắn tự động qua Webhook:</span>
+                </div>
+                <p style={{ margin: 0, color: '#64748b', lineHeight: 1.45 }}>
+                  Khi kết nối thành công, CRM sẽ tự động đăng ký Page vào Webhook Meta (<code>subscribed_apps</code>). Mọi tin nhắn khách hàng gửi tới Fanpage sẽ được đẩy tự động theo thời gian thực về Hộp thư tuyển sinh.
+                </p>
               </div>
 
               <div className="oauth-terms" style={{ marginTop: '14px' }}>
@@ -296,13 +394,13 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
                     marginBottom: '6px',
                   }}
                 >
-                  Tên hiển thị Trang (Page Display Name)
+                  Tên hiển thị Fanpage / OA (Tùy chọn)
                 </label>
                 <input
                   type="text"
                   className="form-input form-input-sm"
                   style={{ width: '100%', boxSizing: 'border-box' }}
-                  placeholder="Ví dụ: Fanpage Tuyển Sinh Đại Học"
+                  placeholder="Hệ thống tự động phát hiện từ Graph API nếu để trống"
                   value={pageNameInput}
                   onChange={(e) => setPageNameInput(e.target.value)}
                 />
@@ -348,6 +446,40 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
                   <span>{channelConfig.tokenHint}</span>
                 </div>
               </div>
+
+              {/* Box Hướng dẫn cấu hình Webhook */}
+              <div
+                style={{
+                  marginTop: '12px',
+                  padding: '12px',
+                  background: '#f1f5f9',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '11.5px',
+                  color: '#334155',
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Webhook size={14} style={{ color: '#2563eb' }} />
+                  <span>Thông tin Webhook Meta Developers:</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '4px', marginBottom: '4px' }}>
+                  <span style={{ color: '#64748b' }}>Webhook URL:</span>
+                  <code style={{ background: '#e2e8f0', padding: '1px 4px', borderRadius: '4px', fontSize: '11px', wordBreak: 'break-all' }}>
+                    {typeof window !== 'undefined' ? `${window.location.origin}${channelConfig.webhookEndpoint}` : channelConfig.webhookEndpoint}
+                  </code>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '4px', marginBottom: '4px' }}>
+                  <span style={{ color: '#64748b' }}>Verify Token:</span>
+                  <code style={{ background: '#e2e8f0', padding: '1px 4px', borderRadius: '4px', fontSize: '11px' }}>
+                    {channelConfig.verifyToken}
+                  </code>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '4px' }}>
+                  <span style={{ color: '#64748b' }}>Sự kiện theo dõi:</span>
+                  <span style={{ fontWeight: 500 }}>{channelConfig.fields}</span>
+                </div>
+              </div>
             </form>
           )}
         </div>
@@ -377,12 +509,12 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
               {isProcessing ? (
                 <>
                   <Loader2 size={16} className="crm-btn-spinner" />
-                  {t('onboarding.oauthModal.authorizingBtn')}
+                  <span>Đang xử lý...</span>
                 </>
               ) : (
                 <>
                   <ExternalLink size={16} />
-                  <span>Cấp quyền & Khám phá Trang</span>
+                  <span>{isRealOAuthConfigured ? 'Đăng nhập với Facebook' : 'Ủy quyền / Chuyển Tab'}</span>
                 </>
               )}
             </button>
@@ -400,12 +532,12 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
               {isProcessing ? (
                 <>
                   <Loader2 size={16} className="crm-btn-spinner" />
-                  <span>Đang xác thực...</span>
+                  <span>Đang xác thực & đăng ký Webhook...</span>
                 </>
               ) : (
                 <>
-                  <Check size={16} />
-                  <span>Xác thực & Kết nối Trang</span>
+                  <CheckCircle2 size={16} />
+                  <span>Xác thực & Kết nối Webhook</span>
                 </>
               )}
             </button>
