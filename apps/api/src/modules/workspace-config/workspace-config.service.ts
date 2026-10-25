@@ -91,7 +91,7 @@ export class WorkspaceConfigService {
    * để workspace_id của workspace_configurations LUÔN LUÔN được nối với workspaces.id, không bao giờ null.
    */
   async resolveWorkspaceForOwner(resolvedOwner: string, workspaceId?: string): Promise<string | null> {
-    if (!this.prisma) return isUuid(workspaceId) ? workspaceId : null;
+    if (!this.prisma) return (workspaceId && isUuid(workspaceId)) ? workspaceId : null;
 
     try {
       // 1. Nếu workspaceId truyền lên là UUID hợp lệ, kiểm tra xem có thuộc về Owner này không
