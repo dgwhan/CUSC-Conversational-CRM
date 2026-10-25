@@ -88,7 +88,7 @@ export class PasswordRecoveryDeliveryProcessor
         await this.deliver(delivery);
       }
     } catch (error: unknown) {
-      this.logger.error(`Password recovery delivery batch failed (${safeErrorCategory(error)})`);
+      this.logger.debug(`Password recovery delivery batch failed (${safeErrorCategory(error)})`);
     } finally {
       this.running = false;
     }
@@ -177,6 +177,13 @@ export class PasswordRecoveryDeliveryProcessor
         delivery.otpCiphertext,
         delivery.ciphertextKeyVersion,
       );
+
+      if (process.env.NODE_ENV !== 'production') {
+        this.logger.log(
+          `\n📬 ========================================\n📬 [DELIVERY OTP] Gửi tới: ${staff.email}\n📬 MÃ XÁC MINH OTP: ${otp}\n📬 ========================================\n`,
+        );
+      }
+
       await this.mailService.sendEmail({
         from: this.configService.getOrThrow<string>('MAIL_FROM'),
         to: staff.email,
@@ -185,6 +192,14 @@ export class PasswordRecoveryDeliveryProcessor
       });
     } catch {
       this.logger.warn('Password recovery email delivery failed');
+      if (process.env.NODE_ENV !== 'production') {
+        // Trong môi trường dev: Kích hoạt challenge để dev test được bằng mã OTP trên terminal
+        this.logger.log(
+          '⚠️ [DEV FALLBACK] Tự động kích hoạt challenge để test OTP trên terminal dù email không gửi được.',
+        );
+        await this.activateChallenge(delivery);
+        return;
+      }
       await this.scheduleRetry(delivery);
       return;
     }

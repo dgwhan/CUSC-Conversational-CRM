@@ -12,10 +12,12 @@ export type TextFieldProps = Omit<
   leadingIcon?: ReactNode;
   trailingAdornment?: ReactNode;
   errorMessage?: string;
+  successMessage?: string;
 };
 
 export function TextField({
   errorMessage,
+  successMessage,
   id,
   label,
   leadingIcon,
@@ -45,7 +47,9 @@ export function TextField({
       </label>
 
       <div
-        className={`flex min-h-[var(--control-height-lg)] min-w-0 items-center gap-2 rounded-control border px-4 transition-[border-color,box-shadow] focus-within:border-brand-primary focus-within:shadow-[0_0_0_3px_rgb(41_80_151_/_18%)] ${errorMessage ? "border-state-error" : "border-border-default"}`}
+        className={`flex min-h-[var(--control-height-lg)] min-w-0 items-center gap-2 rounded-control border px-4 transition-[border-color,box-shadow] focus-within:border-brand-primary focus-within:shadow-[0_0_0_3px_rgb(41_80_151_/_18%)] ${
+          errorMessage ? "border-state-error" : "border-border-default"
+        }`}
       >
         {leadingIcon && (
           <span className="inline-flex shrink-0 items-center text-text-secondary">
@@ -75,6 +79,15 @@ export function TextField({
           role="alert"
         >
           {errorMessage}
+        </p>
+      )}
+
+      {!errorMessage && successMessage && (
+        <p
+          className="m-0 font-sans text-body text-state-success"
+          id={`${inputId}-success`}
+        >
+          {successMessage}
         </p>
       )}
     </div>

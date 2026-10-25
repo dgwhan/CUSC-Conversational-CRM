@@ -79,6 +79,16 @@ export const envSchema = z
       .int()
       .positive()
       .default(20),
+    PASSWORD_RECOVERY_IP_RESET_LIMIT: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(10),
+    PASSWORD_RECOVERY_RESET_TOKEN_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(900),
     PASSWORD_RECOVERY_RATE_WINDOW_SECONDS: z.coerce
       .number()
       .int()

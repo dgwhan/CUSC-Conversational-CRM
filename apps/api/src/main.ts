@@ -7,7 +7,10 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ bodyLimit: 20 * 1024 * 1024 }),
-    { rawBody: true },
+    {
+      rawBody: true,
+      logger: ['error', 'warn', 'log'],
+    },
   );
 
   // Cho phép CORS cho frontend kết nối

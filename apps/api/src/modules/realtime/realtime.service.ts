@@ -87,7 +87,7 @@ export class RealtimeService {
       timestamp: new Date().toISOString(),
     };
 
-    this.logger.debug(`[SSE Emit] Event type: ${type}`);
+    // Event payload for SSE clients
     this.eventSubject.next({
       type,
       data: payload,
@@ -139,7 +139,6 @@ export class RealtimeService {
 
     this.staffPresences.set(staffId, updated);
     this.emit('presence:updated', updated);
-    this.logger.log(`Updated presence for ${updated.name} (${staffId}) -> ${status}`);
 
     return updated;
   }

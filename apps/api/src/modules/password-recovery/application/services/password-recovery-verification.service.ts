@@ -18,6 +18,7 @@ import { PasswordRecoveryRateLimitScope, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../platform/database/prisma.service.js';
 import { PasswordRecoveryCryptoService } from '../../infrastructure/crypto/password-recovery-crypto.service.js';
 import { PasswordRecoveryRateLimitService } from './password-recovery-rate-limit.service.js';
+import { PasswordRecoveryDeliveryProcessor } from './password-recovery-delivery-processor.service.js';
 
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -47,17 +48,30 @@ export class PasswordRecoveryVerificationService {
     private readonly configService: ConfigService,
     private readonly cryptoService: PasswordRecoveryCryptoService,
     private readonly rateLimitService: PasswordRecoveryRateLimitService,
+    private readonly deliveryProcessor: PasswordRecoveryDeliveryProcessor,
   ) { }
 
   async verifyOtp(
     email: string,
     otp: string,
     ipAddress: string,
-  ): Promise<{ verified: true }> {
+  ): Promise<{ verified: true; resetToken: string }> {
     const emailKey = this.cryptoService.createEmailKey(
       email.trim().toLowerCase(),
     );
     const ipKey = this.cryptoService.createIpKey(ipAddress.trim());
+
+    // Nếu challenge vừa được tạo mà outbox delivery chưa kích hoạt xong, kích hoạt ngay lập tức
+    const hasPendingDelivery = await this.prisma.passwordRecoveryChallenge.findFirst({
+      where: {
+        emailKey,
+        status: PASSWORD_RECOVERY_CHALLENGE_STATUS.PENDING_SEND,
+      },
+      select: { id: true },
+    });
+    if (hasPendingDelivery) {
+      await this.deliveryProcessor.processBatch();
+    }
     let stage = 'database_clock';
 
     try {
@@ -130,7 +144,7 @@ export class PasswordRecoveryVerificationService {
               },
             });
 
-          if (!challenge) return VERIFICATION_RESULT.INVALID satisfies VerificationResult;
+          if (!challenge) return { type: VERIFICATION_RESULT.INVALID } as const;
 
           const currentState = {
             id: challenge.id,
@@ -147,8 +161,8 @@ export class PasswordRecoveryVerificationService {
                 data: { status: PASSWORD_RECOVERY_CHALLENGE_STATUS.EXPIRED },
               });
             return expired.count === 1
-              ? (VERIFICATION_RESULT.INVALID satisfies VerificationResult)
-              : (VERIFICATION_RESULT.RETRY satisfies VerificationResult);
+              ? ({ type: VERIFICATION_RESULT.INVALID } as const)
+              : ({ type: VERIFICATION_RESULT.RETRY } as const);
           }
 
           if (
@@ -162,8 +176,8 @@ export class PasswordRecoveryVerificationService {
                 data: { status: PASSWORD_RECOVERY_CHALLENGE_STATUS.LOCKED },
               });
             return locked.count === 1
-              ? (VERIFICATION_RESULT.INVALID satisfies VerificationResult)
-              : (VERIFICATION_RESULT.RETRY satisfies VerificationResult);
+              ? ({ type: VERIFICATION_RESULT.INVALID } as const)
+              : ({ type: VERIFICATION_RESULT.RETRY } as const);
           }
 
           const verifier = challenge.deliveries[0]?.otpVerifier;
@@ -172,6 +186,21 @@ export class PasswordRecoveryVerificationService {
 
           stage = matches ? 'challenge_verify' : 'challenge_failed_attempt';
           // Compare-and-set theo số lượt sai; chỉ một request đồng thời cập nhật được.
+          let issuedResetToken: string | undefined;
+          let resetTokenHash: string | undefined;
+          let resetTokenExpiresAt: Date | undefined;
+
+          if (matches) {
+            issuedResetToken = this.cryptoService.generateResetToken();
+            resetTokenHash = this.cryptoService.hashResetToken(issuedResetToken);
+            const tokenTtlSeconds = this.configService.getOrThrow<number>(
+              'PASSWORD_RECOVERY_RESET_TOKEN_TTL_SECONDS',
+            );
+            resetTokenExpiresAt = new Date(
+              transactionNow.getTime() + tokenTtlSeconds * 1000,
+            );
+          }
+
           const updated =
             await transaction.passwordRecoveryChallenge.updateMany({
               where: {
@@ -186,6 +215,8 @@ export class PasswordRecoveryVerificationService {
                 ? {
                   status: PASSWORD_RECOVERY_CHALLENGE_STATUS.VERIFIED,
                   verifiedAt: transactionNow,
+                  resetTokenHash,
+                  resetTokenExpiresAt,
                 }
                 : {
                   failedAttempts: { increment: 1 },
@@ -198,19 +229,19 @@ export class PasswordRecoveryVerificationService {
 
           return updated.count === 1
             ? matches
-              ? (VERIFICATION_RESULT.VERIFIED satisfies VerificationResult)
-              : (VERIFICATION_RESULT.INVALID satisfies VerificationResult)
-            : (VERIFICATION_RESULT.RETRY satisfies VerificationResult);
+              ? ({ type: VERIFICATION_RESULT.VERIFIED, resetToken: issuedResetToken! } as const)
+              : ({ type: VERIFICATION_RESULT.INVALID } as const)
+            : ({ type: VERIFICATION_RESULT.RETRY } as const);
         });
 
-        if (result === 'retry') continue;
-        if (result === 'invalid') {
+        if (result.type === 'retry') continue;
+        if (result.type === 'invalid') {
           this.logger.warn('Password recovery verification rejected');
           throw new BadRequestException('Invalid or expired verification code');
         }
 
-        this.logger.log('Password recovery OTP verified');
-        return { verified: true };
+        this.logger.log('Password recovery OTP verified, reset token issued');
+        return { verified: true, resetToken: result.resetToken };
       }
 
       throw new ServiceUnavailableException('Password recovery verification is temporarily unavailable',);

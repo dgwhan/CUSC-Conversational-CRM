@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   createCipheriv,
   createDecipheriv,
+  createHash,
   createHmac,
   randomBytes,
   randomInt,
@@ -62,6 +63,14 @@ export class PasswordRecoveryCryptoService {
 
   generateOtp(): string {
     return formatRecoveryOtp(randomInt(0, OTP_VALUE_LIMIT));
+  }
+
+  generateResetToken(): string {
+    return randomBytes(32).toString('base64url');
+  }
+
+  hashResetToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
   }
 
   createOtpVerifier(challengeId: string, otp: string): string {

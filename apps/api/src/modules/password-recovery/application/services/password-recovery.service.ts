@@ -4,12 +4,14 @@ import {
 } from '../../domain/password-recovery.constants.js';
 import { STAFF_STATUS } from '../../../auth/domain/staff-status.constants.js';
 import {
+  BadRequestException,
   Injectable,
   HttpException,
   HttpStatus,
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PasswordRecoveryRateLimitScope } from '@prisma/client';
@@ -17,6 +19,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../../../platform/database/prisma.service.js';
 import { PasswordRecoveryCryptoService } from '../../infrastructure/crypto/password-recovery-crypto.service.js';
 import { PasswordRecoveryRateLimitService } from './password-recovery-rate-limit.service.js';
+import { PasswordRecoveryDeliveryProcessor } from './password-recovery-delivery-processor.service.js';
 
 const INITIAL_DELIVERY_GENERATION = 1;
 
@@ -49,6 +52,7 @@ export class PasswordRecoveryService {
     private readonly configService: ConfigService,
     private readonly cryptoService: PasswordRecoveryCryptoService,
     private readonly rateLimitService: PasswordRecoveryRateLimitService,
+    private readonly deliveryProcessor: PasswordRecoveryDeliveryProcessor,
   ) { }
 
   async requestOtp(email: string, ipAddress: string): Promise<void> {
@@ -221,6 +225,14 @@ export class PasswordRecoveryService {
       );
 
       this.logger.log('Password recovery request processed');
+      if (process.env.NODE_ENV !== 'production') {
+        this.logger.log(
+          `\n🔑 ========================================\n🔑 [TEST / DEV OTP] Email: ${normalizedEmail}\n🔑 MÃ XÁC MINH OTP: ${otp}\n🔑 ========================================\n`,
+        );
+      }
+
+      // Xử lý ngay outbox delivery mà không phải đợi timer 5s polling
+      void this.deliveryProcessor.processBatch();
     } catch (error: unknown) {
       if (
         error instanceof HttpException &&
@@ -231,6 +243,149 @@ export class PasswordRecoveryService {
 
       this.logger.error(`Password recovery request failed at ${stage} (${safeErrorCategory(error)})`);
       throw new ServiceUnavailableException('Password recovery request is temporarily unavailable');
+    }
+  }
+
+  async resetPassword(
+    resetToken: string,
+    newPassword: string,
+    ipAddress: string,
+  ): Promise<{ success: true; message: string }> {
+    const ipKey = this.cryptoService.createIpKey(ipAddress.trim());
+    let stage = 'database_clock';
+
+    try {
+      const clockRows = await this.prisma.$queryRaw<Array<{ now: Date }>>(
+        Prisma.sql`SELECT clock_timestamp() AS "now"`,
+      );
+      const now = clockRows[0]?.now;
+      if (!now) throw new Error('Database clock is unavailable');
+
+      // Rate limit IP_RESET
+      const windowSeconds = this.configService.getOrThrow<number>(
+        'PASSWORD_RECOVERY_RATE_WINDOW_SECONDS',
+      );
+      const windowMs = windowSeconds * 1000;
+      const windowStart = new Date(
+        Math.floor(now.getTime() / windowMs) * windowMs,
+      );
+      const ipAllowed = await this.rateLimitService.consume(
+        PasswordRecoveryRateLimitScope.IP_RESET,
+        ipKey,
+        windowStart,
+        new Date(windowStart.getTime() + windowMs),
+        this.configService.getOrThrow<number>(
+          'PASSWORD_RECOVERY_IP_RESET_LIMIT',
+        ),
+        now,
+      );
+
+      if (!ipAllowed) {
+        this.logger.warn('Password reset rate-limited');
+        throw new HttpException(
+          'Too many password reset attempts. Please try again later.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
+      stage = 'token_verification';
+      const tokenHash = this.cryptoService.hashResetToken(resetToken.trim());
+
+      // Tìm challenge có resetTokenHash khớp
+      const challenge = await this.prisma.passwordRecoveryChallenge.findFirst({
+        where: {
+          resetTokenHash: tokenHash,
+        },
+        include: { staff: true },
+      });
+
+      if (
+        !challenge ||
+        challenge.status !== PASSWORD_RECOVERY_CHALLENGE_STATUS.VERIFIED ||
+        challenge.consumedAt !== null ||
+        !challenge.resetTokenExpiresAt ||
+        challenge.resetTokenExpiresAt <= now ||
+        !challenge.staffId ||
+        !challenge.staff ||
+        challenge.staff.status !== STAFF_STATUS.ACTIVE
+      ) {
+        this.logger.warn('Password reset attempt rejected: invalid or expired token');
+        throw new BadRequestException('Mã xác minh đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.');
+      }
+
+      stage = 'password_hashing';
+      const passwordHash = await argon2.hash(newPassword);
+
+      stage = 'reset_transaction';
+      await this.prisma.$transaction(
+        async (tx) => {
+          // Bảo đảm tính nguyên tử & Chống Replay Attack: Chỉ cập nhật nếu token chưa bị ai dùng trước đó
+          const updateResult = await tx.passwordRecoveryChallenge.updateMany({
+            where: {
+              id: challenge.id,
+              status: PASSWORD_RECOVERY_CHALLENGE_STATUS.VERIFIED,
+              consumedAt: null,
+              resetTokenExpiresAt: { gt: now },
+            },
+            data: {
+              status: PASSWORD_RECOVERY_CHALLENGE_STATUS.COMPLETED,
+              consumedAt: now,
+              resetTokenHash: null, // Xóa hash để triệt tiêu hoàn toàn khả năng replay
+            },
+          });
+
+          if (updateResult.count !== 1) {
+            throw new BadRequestException('Mã xác minh đã được sử dụng hoặc đã hết hạn.');
+          }
+
+          // Cập nhật mật khẩu mới cho staff và reset số lần đăng nhập sai
+          await tx.staff.update({
+            where: { id: challenge.staffId! },
+            data: {
+              passwordHash,
+              failedLoginAttempts: 0,
+              lockedUntil: null,
+            },
+          });
+
+          // Thu hồi (revoke) toàn bộ refresh token / phiên đăng nhập cũ của nhân viên
+          await tx.refreshToken.updateMany({
+            where: {
+              staffId: challenge.staffId!,
+              revokedAt: null,
+            },
+            data: {
+              revokedAt: now,
+            },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+      );
+
+      this.logger.log('Password reset successfully completed and active sessions revoked');
+      return {
+        success: true,
+        message: 'Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập bằng mật khẩu mới.',
+      };
+    } catch (error: unknown) {
+      if (
+        error instanceof HttpException &&
+        [HttpStatus.BAD_REQUEST, HttpStatus.TOO_MANY_REQUESTS].includes(
+          error.getStatus(),
+        )
+      ) {
+        throw error;
+      }
+
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2034'
+      ) {
+        throw new BadRequestException('Mã xác minh đã được sử dụng hoặc đã hết hạn.');
+      }
+
+      this.logger.error(`Password reset failed at ${stage} (${safeErrorCategory(error)})`);
+      throw new ServiceUnavailableException('Dịch vụ đặt lại mật khẩu tạm thời gián đoạn');
     }
   }
 }

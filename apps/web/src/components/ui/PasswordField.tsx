@@ -8,18 +8,28 @@ import { TextField } from "./TextField.js";
 
 type PasswordFieldProps = {
   id?: string;
+  label?: string;
+  name?: string;
+  autoComplete?: string;
   value: string;
   onChange: (value: string) => void;
+  onBlur?: () => void;
   errorMessage?: string;
+  successMessage?: string;
   placeholder?: string;
   disabled?: boolean;
 };
 
 export function PasswordField({
   id,
+  label = "Mật khẩu",
+  name = "password",
+  autoComplete = "current-password",
   value,
   onChange,
+  onBlur,
   errorMessage,
+  successMessage,
   placeholder = "Nhập mật khẩu",
   disabled,
 }: PasswordFieldProps) {
@@ -28,13 +38,14 @@ export function PasswordField({
   return (
     <TextField
       id={id}
-      label="Mật khẩu"
-      name="password"
+      label={label}
+      name={name}
       type={visible ? "text" : "password"}
-      autoComplete="current-password"
+      autoComplete={autoComplete}
       placeholder={placeholder}
       value={value}
       onChange={(event) => onChange(event.target.value)}
+      onBlur={onBlur}
       leadingIcon={<LockIcon />}
       trailingAdornment={
         <button
@@ -49,6 +60,7 @@ export function PasswordField({
         </button>
       }
       errorMessage={errorMessage}
+      successMessage={successMessage}
       disabled={disabled}
       required
     />
