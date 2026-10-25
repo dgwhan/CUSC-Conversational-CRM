@@ -15,11 +15,19 @@ export interface AuthorizeUrlResult {
   channel: ChannelType;
 }
 
-export const ExchangeTokenBodySchema = z.object({
-  code: z.string().min(1, 'Authorization code is required'),
-  state: z.string().min(1, 'State is required'),
-  redirectUri: z.string().url().optional(),
-});
+export const ExchangeTokenBodySchema = z
+  .object({
+    code: z.string().optional(),
+    state: z.string().optional(),
+    redirectUri: z.string().url().optional(),
+    pageId: z.string().optional(),
+    pageName: z.string().optional(),
+    accessToken: z.string().optional(),
+  })
+  .refine(
+    (data) => !!(data.code || data.accessToken || data.pageId),
+    'Yêu cầu Authorization code hoặc Page ID / Access Token để xác thực kết nối',
+  );
 export type ExchangeTokenBody = z.infer<typeof ExchangeTokenBodySchema>;
 
 export interface OAuthDiscoveredPage {

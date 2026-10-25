@@ -8,6 +8,7 @@ import {
   Users,
   AlertCircle,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import type { ChannelKey, FanpageItem, DiscoveredPageDto } from '../types.js';
 import { OAuthSimulationModal } from './OAuthSimulationModal.js';
@@ -18,6 +19,7 @@ export interface Step2ChannelConnectProps {
   pages: FanpageItem[];
   onConnectChannel: (channel: ChannelKey, pages?: DiscoveredPageDto[]) => void;
   onTogglePage: (pageId: string) => void;
+  onDisconnectPage?: (pageId: string) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -27,6 +29,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
   pages,
   onConnectChannel,
   onTogglePage,
+  onDisconnectPage,
   onNext,
   onBack,
 }) => {
@@ -82,13 +85,13 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
 
   return (
     <div className="onboarding-step-form">
-      {/* Modal Giả lập OAuth Cấp Quyền */}
+      {/* Modal Kết nối Kênh Chuẩn hóa (OAuth + Nhập trực tiếp Page Token) */}
       {activeOAuthChannel && (
         <OAuthSimulationModal
           channel={activeOAuthChannel}
           isOpen={!!activeOAuthChannel}
           onClose={() => setActiveOAuthChannel(null)}
-          onSuccess={(ch, pages) => onConnectChannel(ch, pages)}
+          onSuccess={(ch, discoveredPages) => onConnectChannel(ch, discoveredPages)}
         />
       )}
 
@@ -169,7 +172,7 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
         })}
       </div>
 
-      {/* Checklist Danh Sách Fanpage Đã Cấp Quyền */}
+      {/* Checklist Danh Sách Fanpage / Kênh Đã Kết Nối */}
       <div className="onboarding-fanpages-section">
         <div className="fanpages-header">
           <div>
@@ -186,10 +189,10 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
         </div>
 
         {pages.length === 0 ? (
-          <div className="empty-fanpages-box">
-            <AlertCircle size={24} className="empty-alert-icon" />
-            <p className="empty-text">
-              {t('onboarding.step2.noPagesYet')}
+          <div className="empty-fanpages-box" style={{ padding: '36px 20px', textAlign: 'center' }}>
+            <AlertCircle size={28} className="empty-alert-icon" style={{ margin: '0 auto 10px auto', color: '#94a3b8' }} />
+            <p className="empty-text" style={{ fontSize: '13.5px', color: '#64748b', margin: 0 }}>
+              Chưa có tài khoản mạng xã hội nào được liên kết. Vui lòng bấm <strong>&ldquo;{t('common.connectNow')}&rdquo;</strong> ở các kênh phía trên để kết nối Fanpage hoặc Zalo OA thực tế của bạn.
             </p>
           </div>
         ) : (
@@ -200,14 +203,32 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
                 className={`fanpage-row ${page.selected ? 'active' : ''}`}
                 onClick={() => onTogglePage(page.id)}
               >
-                <img
-                  src={page.avatarUrl}
-                  alt={page.name}
-                  className="fanpage-avatar"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
+                {page.avatarUrl ? (
+                  <img
+                    src={page.avatarUrl}
+                    alt={page.name}
+                    className="fanpage-avatar"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="fanpage-avatar"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: '#e0f2fe',
+                      color: '#0284c7',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                    }}
+                  >
+                    {page.channel === 'FACEBOOK' ? 'FB' : page.channel === 'ZALO' ? 'OA' : page.channel.slice(0, 2)}
+                  </div>
+                )}
+
                 <div className="fanpage-info">
                   <div className="fanpage-name-row">
                     <span className="fanpage-name">{page.name}</span>
@@ -216,25 +237,50 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
                     </span>
                   </div>
                   <div className="fanpage-meta">
-                    <span>{page.category}</span>
-                    <span>•</span>
-                    <span className="fanpage-followers">
-                      <Users size={12} />
-                      {page.followerCount.toLocaleString()} {t('onboarding.step2.followers')}
-                    </span>
+                    <span>{page.category || `Kênh ${page.channel}`}</span>
+                    {page.followerCount ? (
+                      <>
+                        <span>•</span>
+                        <span className="fanpage-followers">
+                          <Users size={12} />
+                          {page.followerCount.toLocaleString()} {t('onboarding.step2.followers')}
+                        </span>
+                      </>
+                    ) : null}
                   </div>
                 </div>
 
-                {/* Switch Toggle */}
-                <div className="fanpage-toggle-wrapper" onClick={(e) => e.stopPropagation()}>
-                  <label className="crm-switch">
-                    <input
-                      type="checkbox"
-                      checked={page.selected}
-                      onChange={() => onTogglePage(page.id)}
-                    />
-                    <span className="crm-slider round"></span>
-                  </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }} onClick={(e) => e.stopPropagation()}>
+                  {/* Switch Toggle Bật/Tắt đồng bộ tin nhắn */}
+                  <div className="fanpage-toggle-wrapper">
+                    <label className="crm-switch" title={page.selected ? 'Đang bật nhận tin nhắn' : 'Đang tạm dừng nhận tin nhắn'}>
+                      <input
+                        type="checkbox"
+                        checked={page.selected}
+                        onChange={() => onTogglePage(page.id)}
+                      />
+                      <span className="crm-slider round"></span>
+                    </label>
+                  </div>
+
+                  {/* Nút Ngắt kết nối kênh khỏi hệ thống */}
+                  {onDisconnectPage && (
+                    <button
+                      type="button"
+                      className="crm-btn crm-btn-secondary crm-btn-sm"
+                      style={{
+                        padding: '4px 8px',
+                        color: '#ef4444',
+                        borderColor: '#fecaca',
+                        background: '#fff5f5',
+                      }}
+                      title="Ngắt kết nối trang này khỏi Workspace"
+                      onClick={() => onDisconnectPage(page.id)}
+                    >
+                      <Trash2 size={13} />
+                      <span style={{ fontSize: '11px' }}>Ngắt</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
