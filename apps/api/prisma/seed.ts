@@ -17,20 +17,14 @@ const pool = new pg.Pool({ connectionString });
 
 const accounts = [
   {
-    email: 'admin@cusc.com',
-    password: 'adminCusc123!',
-    role: 'ADMIN',
-    fullName: 'Admin CUSC',
-  },
-  {
-    email: 'manager@cusc.com',
-    password: 'adminCusc123!',
-    role: 'MANAGER',
-    fullName: 'Manager CUSC',
+    email: 'owner@cusc.com',
+    password: 'ownerCusc123!',
+    role: 'OWNER',
+    fullName: 'Owner CUSC',
   },
   {
     email: 'staff@cusc.com',
-    password: 'adminCusc123!',
+    password: 'staffCusc123!',
     role: 'STAFF',
     fullName: 'Staff CUSC',
   },
@@ -58,11 +52,11 @@ try {
     );
   }
 
-  // 2. Lấy admin user để làm owner cho Default Workspace
-  const adminRes = await client.query(`SELECT id FROM staff WHERE email = 'admin@cusc.com' LIMIT 1`);
-  const adminId = adminRes.rows[0]?.id;
+  //Lấy owner user để làm owner cho Default Workspace
+  const ownerRes = await client.query(`SELECT id FROM staff WHERE email = 'owner@cusc.com' LIMIT 1`);
+  const ownerId = ownerRes.rows[0]?.id;
 
-  if (adminId) {
+  if (ownerId) {
     const workspaceId = randomUUID();
     await client.query(
       `INSERT INTO workspaces (id, name, slug, owner_id, is_active, created_at, updated_at)
@@ -71,7 +65,7 @@ try {
          name = EXCLUDED.name,
          owner_id = EXCLUDED.owner_id,
          updated_at = NOW()`,
-      [workspaceId, adminId],
+      [workspaceId, ownerId],
     );
 
     const wsRes = await client.query(`SELECT id FROM workspaces WHERE slug = 'cusc' LIMIT 1`);
@@ -79,9 +73,9 @@ try {
 
     if (actualWsId) {
       // Gán các staff vào workspace_members
-      const staffRows = await client.query(`SELECT id, email, role FROM staff WHERE email IN ('admin@cusc.com', 'manager@cusc.com', 'staff@cusc.com')`);
+      const staffRows = await client.query(`SELECT id, email, role FROM staff WHERE email IN ('owner@cusc.com', 'staff@cusc.com')`);
       for (const row of staffRows.rows) {
-        const memberRole = row.role === 'ADMIN' ? 'OWNER' : row.role === 'MANAGER' ? 'ADMIN' : 'AGENT';
+        const memberRole = row.role === 'OWNER' ? 'OWNER' : 'STAFF';
         await client.query(
           `INSERT INTO workspace_members (id, workspace_id, staff_id, role, is_active, created_at, updated_at)
            VALUES ($1, $2, $3, $4::"workspace_member_role", true, NOW(), NOW())
@@ -101,7 +95,7 @@ try {
   }
 
   await client.query('COMMIT');
-  console.log('Seeded 3 demo staff accounts and Default Workspace: CUSC with multi-tenant memberships');
+  console.log('Seeded 2 demo staff accounts (OWNER & STAFF) and Default Workspace: CUSC');
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;

@@ -7,10 +7,9 @@ import { AppModule } from '../../src/app.module.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 
 const ids = {
-  admin: '00000000-0000-4000-8000-000000000001',
+  owner: '00000000-0000-4000-8000-000000000001',
   staff: '00000000-0000-4000-8000-000000000002',
-  manager: '00000000-0000-4000-8000-000000000003',
-  invalidRole: '00000000-0000-4000-8000-000000000004',
+  invalidRole: '00000000-0000-4000-8000-000000000003',
 };
 
 describe('RBAC (e2e)', () => {
@@ -21,21 +20,15 @@ describe('RBAC (e2e)', () => {
     string,
     { id: string; role: string; status: string; tokenVersion: number }
   > = {
-    [ids.admin]: {
-      id: ids.admin,
-      role: 'ADMIN',
+    [ids.owner]: {
+      id: ids.owner,
+      role: 'OWNER',
       status: 'ACTIVE',
       tokenVersion: 0,
     },
     [ids.staff]: {
       id: ids.staff,
       role: 'STAFF',
-      status: 'ACTIVE',
-      tokenVersion: 0,
-    },
-    [ids.manager]: {
-      id: ids.manager,
-      role: 'MANAGER',
       status: 'ACTIVE',
       tokenVersion: 0,
     },
@@ -89,63 +82,58 @@ describe('RBAC (e2e)', () => {
     return app.getHttpServer();
   }
 
-  it('allows ADMIN with a valid JWT', async () => {
+  it('allows OWNER with a valid JWT', async () => {
     await request(server())
-      .get('/api/admin-only')
-      .set('Authorization', `Bearer ${await makeToken(ids.admin, 'ADMIN')}`)
+      .get('/api/owner-only')
+      .set('Authorization', `Bearer ${await makeToken(ids.owner, 'OWNER')}`)
       .expect(200, { ok: true });
   });
 
-  it('returns 404 for STAFF on the ADMIN-only endpoint', async () => {
+  it('returns 404 for STAFF on the OWNER-only endpoint', async () => {
     await request(server())
-      .get('/api/admin-only')
+      .get('/api/owner-only')
       .set('Authorization', `Bearer ${await makeToken(ids.staff, 'STAFF')}`)
       .expect(404);
   });
 
   it('returns 401 when the JWT is missing', async () => {
-    await request(server()).get('/api/admin-only').expect(401);
+    await request(server()).get('/api/owner-only').expect(401);
   });
 
   it('returns 401 when the JWT is invalid', async () => {
     await request(server())
-      .get('/api/admin-only')
+      .get('/api/owner-only')
       .set('Authorization', 'Bearer invalid.token.value')
       .expect(401);
   });
 
   it('returns 401 when the JWT is expired', async () => {
     await request(server())
-      .get('/api/admin-only')
+      .get('/api/owner-only')
       .set(
         'Authorization',
-        `Bearer ${await makeToken(ids.admin, 'ADMIN', '-1s')}`,
+        `Bearer ${await makeToken(ids.owner, 'OWNER', '-1s')}`,
       )
       .expect(401);
   });
 
-  it('denies MANAGER and rejects unknown database roles', async () => {
+  it('rejects unknown database roles', async () => {
     await request(server())
-      .get('/api/admin-only')
-      .set('Authorization', `Bearer ${await makeToken(ids.manager, 'MANAGER')}`)
-      .expect(404);
-
-    await request(server())
-      .get('/api/admin-only')
+      .get('/api/owner-only')
       .set(
         'Authorization',
-        `Bearer ${await makeToken(ids.invalidRole, 'ADMIN')}`,
+        `Bearer ${await makeToken(ids.invalidRole, 'OWNER')}`,
       )
       .expect(401);
   });
 
   it('does not allow role spoofing in headers, query, or body', async () => {
     await request(server())
-      .get('/api/admin-only')
-      .set('Authorization', `Bearer ${await makeToken(ids.staff, 'ADMIN')}`)
-      .set('role', 'ADMIN')
-      .query({ role: 'ADMIN' })
-      .send({ role: 'ADMIN', id: ids.admin })
+      .get('/api/owner-only')
+      .set('Authorization', `Bearer ${await makeToken(ids.staff, 'OWNER')}`)
+      .set('role', 'OWNER')
+      .query({ role: 'OWNER' })
+      .send({ role: 'OWNER', id: ids.owner })
       .expect(404);
   });
 

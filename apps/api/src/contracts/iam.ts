@@ -1,6 +1,6 @@
 import { email, z } from 'zod';
 
-export const StaffRoleSchema = z.enum(['ADMIN', 'MANAGER', 'STAFF']);
+export const StaffRoleSchema = z.enum(['OWNER', 'STAFF']);
 
 export const LoginSchema = z.object({
   email: z.string().email().toLowerCase(),

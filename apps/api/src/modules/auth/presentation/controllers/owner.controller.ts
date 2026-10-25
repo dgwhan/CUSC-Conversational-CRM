@@ -4,11 +4,11 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard.js';
 import { RolesGuard } from '../guards/roles.guard.js';
 
 @Controller()
-export class AdminController {
-  @Get('admin-only')
-  @Roles('ADMIN')
+export class OwnerController {
+  @Get('owner-only')
+  @Roles('OWNER')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  getAdminOnly(): { ok: true } {
+  getOwnerOnly(): { ok: true } {
     return { ok: true };
   }
 }

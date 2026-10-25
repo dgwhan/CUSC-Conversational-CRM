@@ -313,8 +313,12 @@ docker compose down -v
 docker compose up -d
 ```
 
-
 ### How to work with Prisma
+
+Reset database và nạp lại dữ liệu mẫu (Seed)
+```bash
+pnpm db:reset
+```
 
 Khởi tạo Prisma Client (TypeScript Types)
 ```bash

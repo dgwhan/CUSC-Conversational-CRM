@@ -2,13 +2,14 @@ import React, { createContext, useContext, useState } from 'react';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import type { LoginResponse } from '../../features/auth/types/auth.types.js';
 
-export type UserRole = 'OWNER' | 'AGENT';
+export type UserRole = 'OWNER' | 'STAFF' | 'AGENT';
 
 const SESSION_STORAGE_KEY = 'cusc_crm_auth_session';
 
 export interface UserRoleContextValue {
   role: UserRole;
   isOwner: boolean;
+  isStaff: boolean;
   isAgent: boolean;
   staffId: string;
   staffName: string;
@@ -36,7 +37,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [role, setRoleState] = useState<UserRole>(() => {
     try {
       const saved = localStorage.getItem('cusc_crm_user_role');
-      if (saved === 'OWNER' || saved === 'AGENT') return saved;
+      if (saved === 'OWNER' || saved === 'STAFF' || saved === 'AGENT') return saved as UserRole;
     } catch {}
     return 'OWNER';
   });
@@ -52,9 +53,8 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(newSession));
     } catch {}
 
-    // Tự động map role từ backend sang role RBAC của CRM giao diện
-    const mappedRole: UserRole =
-      newSession.staff.role === 'STAFF' ? 'AGENT' : 'OWNER';
+    // Map role từ backend sang role RBAC của CRM giao diện
+    const mappedRole: UserRole = newSession.staff.role === 'OWNER' ? 'OWNER' : 'STAFF';
     setRoleState(mappedRole);
     try {
       localStorage.setItem('cusc_crm_user_role', mappedRole);
@@ -94,15 +94,19 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const toggleRole = () => {
-    setRole(role === 'OWNER' ? 'AGENT' : 'OWNER');
+    setRole(role === 'OWNER' ? 'STAFF' : 'OWNER');
   };
+
+  const isOwner = role === 'OWNER';
+  const isStaff = role === 'STAFF' || role === 'AGENT';
 
   return (
     <UserRoleContext.Provider
       value={{
         role,
-        isOwner: role === 'OWNER',
-        isAgent: role === 'AGENT',
+        isOwner,
+        isStaff,
+        isAgent: isStaff,
         staffId,
         staffName,
         staffEmail,
