@@ -295,12 +295,28 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     };
 
+    const safeCloseWebSocket = (ws: WebSocket | null) => {
+      if (!ws) return;
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onerror = null;
+      ws.onclose = null;
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      } else if (ws.readyState === WebSocket.CONNECTING) {
+        ws.onopen = () => {
+          try { ws.close(); } catch {}
+        };
+      }
+    };
+
     const connectWebSocket = () => {
       if (typeof window === 'undefined' || !isMounted) return;
 
       try {
         if (webSocketRef.current) {
-          webSocketRef.current.close();
+          safeCloseWebSocket(webSocketRef.current);
+          webSocketRef.current = null;
         }
 
         const baseUrl = apiClient.getBaseUrl();
@@ -363,7 +379,8 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isMounted = false;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (webSocketRef.current) {
-        webSocketRef.current.close();
+        safeCloseWebSocket(webSocketRef.current);
+        webSocketRef.current = null;
       }
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
