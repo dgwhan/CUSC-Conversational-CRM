@@ -213,7 +213,7 @@ export class OAuthService {
       case 'FACEBOOK':
         return {
           channel: 'FACEBOOK',
-          userName: 'Nguyễn Văn Minh (Admin Fanpage)',
+          userName: 'Quản trị viên Fanpage',
           userId: 'fb_usr_99182749',
           pages: [
             {

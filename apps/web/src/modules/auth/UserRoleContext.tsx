@@ -14,6 +14,7 @@ export interface UserRoleContextValue {
   staffId: string;
   staffName: string;
   staffEmail: string;
+  ownerId: string;
   session: LoginResponse | null;
   isAuthenticated: boolean;
   login: (newSession: LoginResponse) => void;
@@ -45,6 +46,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const staffId = session?.staff.id || '';
   const staffName = session?.staff.fullName || '';
   const staffEmail = session?.staff.email || '';
+  const ownerId = (session?.staff as any)?.ownerId || (role === 'OWNER' ? staffId : '');
   const isAuthenticated = session !== null;
 
   const login = (newSession: LoginResponse) => {
@@ -110,6 +112,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         staffId,
         staffName,
         staffEmail,
+        ownerId,
         session,
         isAuthenticated,
         login,

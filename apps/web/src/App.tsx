@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AppLayout } from './app/AppLayout.js';
+import { MainLayout } from './layouts/index.js';
 import type { ActiveNavTab } from './app/Sidebar.js';
 import { ErrorBoundary } from './app/ErrorBoundary.js';
 import { I18nProvider } from './i18n/I18nContext.js';
@@ -88,7 +88,7 @@ function CRMMainContent() {
 
     // Giao diện chính điều hướng theo Tab
     return (
-      <AppLayout currentTab={activeTab} onTabChange={setActiveTab}>
+      <MainLayout currentTab={activeTab} onTabChange={setActiveTab}>
         {activeTab === 'inbox' && (
           <UnifiedInboxPage
             onNavigateToKanban={() => setActiveTab('kanban')}
@@ -109,7 +109,7 @@ function CRMMainContent() {
           />
         )}
         {activeTab === 'import' && <MessagingImportPage />}
-      </AppLayout>
+      </MainLayout>
     );
   };
 

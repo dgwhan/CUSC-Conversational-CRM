@@ -44,13 +44,21 @@ export class ReceiveInboundMessage {
                 const event = events[i];
                 const item = created[i];
                 if (event && item) {
+                    const isOutbound = event.direction === 'OUTBOUND';
+                    // Tạo conversationId theo ngữ cảnh tài khoản và người gửi thực tế thay vì gán cứng
+                    const conversationId = event.externalAccountId && event.senderExternalId
+                        ? `${event.channel}_${event.externalAccountId}_${event.senderExternalId}`
+                        : `conv_${item.id}`;
+
                     this.realtime.broadcastNewMessage({
                         id: item.id,
-                        conversationId: 'conv-1',
+                        conversationId,
                         channel: event.channel as any,
-                        direction: 'INBOUND',
-                        content: event.content || 'Tin nhắn mới',
-                        senderName: `Khách hàng (${event.channel})`,
+                        direction: (event.direction as any) || 'INBOUND',
+                        content: event.content || (isOutbound ? 'Tin nhắn gửi đi từ Page' : 'Tin nhắn mới'),
+                        senderName: isOutbound
+                            ? 'Trang (Page Meta)'
+                            : `Khách hàng (${event.senderExternalId || event.channel})`,
                         sentAt: new Date(event.sentAt).toLocaleTimeString(),
                     });
                 }

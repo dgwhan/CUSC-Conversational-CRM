@@ -29,7 +29,7 @@ import {
   type ChannelAccountDto,
 } from '../../../contracts/channel-connection.js';
 
-@Controller('api')
+@Controller()
 @UseGuards(WorkspaceRolesGuard)
 export class ChannelConnectorController {
   constructor(

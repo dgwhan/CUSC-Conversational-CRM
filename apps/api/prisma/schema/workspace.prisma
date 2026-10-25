@@ -19,9 +19,30 @@ model Workspace {
     channelAccounts ChannelAccount[]
     customers       Customer[]
     conversations   Conversation[]
+    configuration   WorkspaceConfiguration?
 
     @@index([ownerId])
     @@map("workspaces")
+}
+
+model WorkspaceConfiguration {
+    id              String    @id @default(uuid()) @db.Uuid
+    workspaceId     String?   @unique @map("workspace_id") @db.Uuid
+    ownerId         String    @map("owner_id") @db.Uuid
+    domain          String    @default("EDUCATION") @db.VarChar(50)
+    workspaceName   String?   @map("workspace_name") @db.VarChar(255)
+    terminology     Json      @default("{}") @db.JsonB
+    pipelineStages  Json      @default("[]") @map("pipeline_stages") @db.JsonB
+    productCatalog  Json      @default("[]") @map("product_catalog") @db.JsonB
+    criteria        Json      @default("[]") @db.JsonB
+    createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+    updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+    workspace       Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+    owner           Staff      @relation("StaffWorkspaceConfig", fields: [ownerId], references: [id], onDelete: Cascade)
+
+    @@index([ownerId])
+    @@map("workspace_configurations")
 }
 
 model WorkspaceMember {
