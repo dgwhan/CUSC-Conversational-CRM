@@ -2,7 +2,7 @@ export type ChannelType = 'FACEBOOK' | 'ZALO' | 'ZALO_PERSONAL' | 'TIKTOK' | 'IN
 
 export type LeadStatus = 'NEW' | 'POTENTIAL' | 'CONVERTED' | 'UNQUALIFIED';
 
-// Các giai đoạn phễu tuyển sinh / Sales Pipeline theo chuẩn đào tạo CUSC
+// Các giai đoạn phễu tuyển sinh / Sales Pipeline theo chuẩn đào tạo CUSC hoặc tùy biến Workspace
 export type LeadStage =
   | 'NEW'          // 1. Tiếp nhận mới (Chưa liên hệ)
   | 'CONTACTED'    // 2. Đã liên hệ / Tư vấn thông tin
@@ -10,7 +10,8 @@ export type LeadStage =
   | 'APPOINTMENT'  // 4. Hẹn nộp hồ sơ / Đăng ký trực tiếp
   | 'SUBMITTED'    // 5. Đã nộp hồ sơ / Chờ xét duyệt
   | 'ENROLLED'     // 6. Trúng tuyển / Đã nhập học (Đã chốt)
-  | 'LOST';        // 7. Thất bại / Hủy hồ sơ
+  | 'LOST'         // 7. Thất bại / Hủy hồ sơ
+  | (string & {});
 
 export type StaffPresenceStatus = 'ONLINE' | 'AWAY' | 'BUSY';
 

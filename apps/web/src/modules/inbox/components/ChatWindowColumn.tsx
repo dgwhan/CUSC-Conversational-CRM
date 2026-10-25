@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Smile,
   Radio,
+  ArrowLeft,
+  User,
 } from 'lucide-react';
 import type { ConversationItem, AssignedStaff, QuickReplyItem, MessageAttachment } from '../types.js';
 import { QuickReplyBar } from './QuickReplyBar.js';
@@ -27,6 +29,8 @@ export interface ChatWindowColumnProps {
   onSendMessage: (text: string, attachments?: MessageAttachment[]) => void;
   onAssignStaff: (staffId: string) => void;
   onToggleStatus: () => void;
+  onBackToList?: () => void;
+  onToggleProfile?: () => void;
 }
 
 export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
@@ -36,6 +40,8 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
   onSendMessage,
   onAssignStaff,
   onToggleStatus,
+  onBackToList,
+  onToggleProfile,
 }) => {
   const { t } = useTranslation();
   const { isOwner, staffId } = useUserRole();
@@ -49,24 +55,18 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation.messages]);
 
-  // Kiểm tra cửa sổ 24 giờ của Meta
-  const lastCustomerTime = new Date(conversation.lastCustomerMessageAt).getTime();
-  const hoursSinceCustomer = (currentTimestamp - lastCustomerTime) / (1000 * 60 * 60);
-  const isWithin24Hours = hoursSinceCustomer <= 24;
-  const hoursRemaining = Math.max(0, Math.floor(24 - hoursSinceCustomer));
+  // Kiểm tra thời hạn 24 giờ của Meta (Facebook Messenger)
+  const lastCustomerMessageTime = conversation.lastCustomerMessageAt
+    ? new Date(conversation.lastCustomerMessageAt).getTime()
+    : new Date(conversation.lastMessageAt).getTime();
+
+  const hoursDiff = (currentTimestamp - lastCustomerMessageTime) / (1000 * 60 * 60);
+  const isWithin24Hours = hoursDiff <= 24;
+  const hoursRemaining = Math.max(0, Math.floor(24 - hoursDiff));
 
   const handleSend = () => {
-    const trimmed = inputText.trim();
-    if (!trimmed) return;
-
-    if (!isWithin24Hours && conversation.channel === 'FACEBOOK') {
-      notify.warning(
-        'Đã quá 24h từ tin nhắn cuối của khách hàng. Tin nhắn sẽ được gửi kèm Message Tag: CONFIRMED_EVENT_UPDATE theo chính sách Meta.',
-        'Chính sách Cửa sổ 24h Meta'
-      );
-    }
-
-    onSendMessage(trimmed);
+    if (!inputText.trim()) return;
+    onSendMessage(inputText);
     setInputText('');
   };
 
@@ -77,55 +77,26 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
     }
   };
 
-  const handleSelectQuickReply = (content: string) => {
+  const handleQuickReplySelect = (content: string) => {
     setInputText((prev) => (prev ? `${prev} ${content}` : content));
   };
 
-  // Giả lập gửi file ảnh mẫu
-  const handleSimulateAttachImage = () => {
-    onSendMessage('Em gửi thêm hình ảnh bằng tốt nghiệp để trường đối chiếu hồ sơ ạ:', [
-      {
-        id: `att-${Date.now()}`,
-        type: 'IMAGE',
-        url: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&auto=format&fit=crop&q=80',
-        name: 'bang_tot_nghiep_thpt.jpg',
-        size: '1.8 MB',
-      },
-    ]);
-    notify.info('Đã đính kèm ảnh mẫu vào cuộc hội thoại.');
-  };
-
-  // Giả lập gửi file tài liệu
-  const handleSimulateAttachFile = () => {
-    onSendMessage('Gửi bạn đề án tuyển sinh và chương trình học chi tiết:', [
-      {
-        id: `att-${Date.now()}`,
-        type: 'FILE',
-        url: '#',
-        name: 'De_An_Tuyen_Sinh_CUSC_2026.pdf',
-        size: '3.5 MB',
-      },
-    ]);
-  };
-
-  // Giả lập ghi âm
-  const handleToggleRecord = () => {
-    if (isRecording) {
+  const handleSimulateVoice = () => {
+    setIsRecording(true);
+    notify.info(t('inbox.chatInput.voiceRecordingNotice'));
+    setTimeout(() => {
       setIsRecording(false);
-      onSendMessage('Đã gửi tin nhắn thoại (0:18)', [
+      onSendMessage('Tin nhắn thoại (Ghi âm từ nhân viên tư vấn CUSC)', [
         {
-          id: `att-${Date.now()}`,
+          id: `att-voice-${Date.now()}`,
           type: 'AUDIO',
-          url: '#',
-          duration: '0:18',
-          name: 'Tin nhắn thoại tư vấn.mp3',
+          url: 'https://example.com/audio/voice-sample.mp3',
+          name: 'tuvan_khoahoc_cusc.mp3',
+          duration: '0:35',
         },
       ]);
-      notify.success('Đã gửi tin nhắn thoại thành công.');
-    } else {
-      setIsRecording(true);
-      notify.info('Đang mô phỏng ghi âm... Nhấn lại vào micro để gửi.');
-    }
+      notify.success(t('inbox.chatInput.voiceSentSuccess'));
+    }, 2000);
   };
 
   return (
@@ -133,6 +104,18 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
       {/* 1. Header Cửa Sổ Chat */}
       <div className="chat-window-header">
         <div className="chat-header-user">
+          {onBackToList && (
+            <button
+              type="button"
+              className="chat-mobile-back-btn"
+              onClick={onBackToList}
+              title="Quay lại danh sách hội thoại"
+            >
+              <ArrowLeft size={16} />
+              <span>Danh sách</span>
+            </button>
+          )}
+
           <div className="chat-avatar-box">
             <img
               src={conversation.customer.avatarUrl}
@@ -262,6 +245,19 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
               </>
             )}
           </button>
+
+          {/* Nút Xem Hồ Sơ trên Mobile */}
+          {onToggleProfile && (
+            <button
+              type="button"
+              className="chat-mobile-info-btn"
+              onClick={onToggleProfile}
+              title="Xem thông tin chi tiết hồ sơ khách hàng"
+            >
+              <User size={14} />
+              <span>Hồ sơ</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -299,62 +295,47 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
                   {/* Tệp đính kèm */}
                   {msg.attachments && msg.attachments.length > 0 && (
                     <div className="bubble-attachments-container">
-                      {msg.attachments.map((att) => {
-                        if (att.type === 'IMAGE') {
-                          return (
-                            <div key={att.id} className="attachment-image-card">
-                              <img
-                                src={att.url}
-                                alt={att.name || 'Hình ảnh đính kèm'}
-                                className="attachment-img-preview"
-                              />
-                              {att.name && <span className="att-file-name">{att.name}</span>}
-                            </div>
-                          );
-                        }
+                      {msg.attachments.map((att) => (
+                        <div key={att.id} className="attachment-item">
+                          {att.type === 'IMAGE' && (
+                            <img src={att.url} alt={att.name || 'Ảnh đính kèm'} className="att-preview-img" />
+                          )}
 
-                        if (att.type === 'AUDIO') {
-                          return (
-                            <div key={att.id} className="attachment-audio-player">
-                              <div className="audio-play-circle">
-                                <Volume2 size={16} />
-                              </div>
-                              <div className="audio-waveform-bar">
-                                <div className="waveform-line active" />
-                                <div className="waveform-line active" />
-                                <div className="waveform-line" />
-                                <div className="waveform-line" />
-                              </div>
-                              <span className="audio-duration">{att.duration || '0:18'}</span>
-                            </div>
-                          );
-                        }
-
-                        if (att.type === 'FILE') {
-                          return (
-                            <div key={att.id} className="attachment-file-card">
-                              <FileText size={20} className="file-type-icon" />
-                              <div className="file-info-text">
-                                <span className="file-title">{att.name}</span>
-                                <span className="file-size">{att.size}</span>
+                          {att.type === 'AUDIO' && (
+                            <div className="att-audio-pill">
+                              <Volume2 size={16} />
+                              <div className="att-audio-info">
+                                <span className="att-audio-name">{att.name}</span>
+                                <span className="att-audio-duration">{att.duration}</span>
                               </div>
                             </div>
-                          );
-                        }
+                          )}
 
-                        return null;
-                      })}
+                          {att.type === 'FILE' && (
+                            <div className="att-file-pill">
+                              <FileText size={16} />
+                              <div className="att-file-info">
+                                <span className="att-file-name">{att.name}</span>
+                                <span className="att-file-size">{att.size}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
 
-                  <div className="bubble-time-row">
+                  {/* Thời gian và Trạng thái đã gửi / đã xem */}
+                  <div className="bubble-meta-row">
                     <span className="bubble-time">{msg.sentAt}</span>
                     {isOutbound && (
-                      <span className="bubble-status">
+                      <span className="bubble-status-icon">
                         {msg.status === 'SEEN' ? (
-                          <CheckCheck size={14} className="seen-blue" />
+                          <CheckCheck size={14} className="status-seen" />
+                        ) : msg.status === 'DELIVERED' ? (
+                          <CheckCheck size={14} className="status-delivered" />
                         ) : (
-                          <Check size={14} />
+                          <Check size={14} className="status-sent" />
                         )}
                       </span>
                     )}
@@ -367,70 +348,83 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 3. Thanh Tin Nhắn Mẫu Trả Lời Nhanh (Quick Replies) */}
+      {/* 3. Thanh Mẫu Phản Hồi Nhanh (Quick Replies) */}
       <QuickReplyBar
         replies={quickReplies}
-        onSelect={handleSelectQuickReply}
+        onSelect={handleQuickReplySelect}
       />
 
-      {/* 4. Khung Soạn Thảo & Gửi Tin Nhắn */}
-      <div className="chat-input-area">
-        <div className="chat-input-toolbar">
+      {/* 4. Khung Soạn Thảo & Gửi Tin Nhắn (Composer) */}
+      <div className="chat-composer-area">
+        {/* Thanh công cụ đính kèm */}
+        <div className="composer-toolbar">
           <button
             type="button"
-            className="input-tool-btn"
-            onClick={handleSimulateAttachImage}
-            title={t('inbox.input.tooltipPhoto')}
+            className="composer-tool-btn"
+            title={t('inbox.chatInput.attachFile')}
+            onClick={() => notify.info(t('inbox.chatInput.attachSimulated'))}
           >
-            <ImageIcon size={18} />
+            <Paperclip size={16} />
           </button>
           <button
             type="button"
-            className="input-tool-btn"
-            onClick={handleSimulateAttachFile}
-            title={t('inbox.input.tooltipFile')}
+            className="composer-tool-btn"
+            title={t('inbox.chatInput.attachImage')}
+            onClick={() => {
+              onSendMessage('Đã gửi tài liệu / hình ảnh minh họa', [
+                {
+                  id: `att-img-${Date.now()}`,
+                  type: 'IMAGE',
+                  url: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&auto=format&fit=crop&q=60',
+                  name: 'chung_chi_cusc.jpg',
+                },
+              ]);
+            }}
           >
-            <Paperclip size={18} />
+            <ImageIcon size={16} />
           </button>
           <button
             type="button"
-            className={`input-tool-btn ${isRecording ? 'recording' : ''}`}
-            onClick={handleToggleRecord}
-            title={t('inbox.input.tooltipMic')}
+            className={`composer-tool-btn ${isRecording ? 'recording' : ''}`}
+            title={t('inbox.chatInput.voiceMessage')}
+            onClick={handleSimulateVoice}
           >
-            <Mic size={18} />
+            <Mic size={16} />
           </button>
           <button
             type="button"
-            className="input-tool-btn"
-            onClick={() => handleSelectQuickReply('Dạ vâng ạ! ')}
-            title={t('inbox.input.tooltipEmoji')}
+            className="composer-tool-btn"
+            title={t('inbox.chatInput.insertEmoji')}
+            onClick={() => setInputText((prev) => `${prev} 😊 `)}
           >
-            <Smile size={18} />
+            <Smile size={16} />
           </button>
-
-          <span className="input-shortcut-hint">
-            {t('inbox.input.shortcutHint')}
-          </span>
         </div>
 
-        <div className="chat-textarea-row">
+        {/* Ô nhập tin nhắn */}
+        <div className="composer-input-row">
           <textarea
-            className="chat-textarea"
-            rows={2}
-            placeholder={`${t('inbox.input.placeholder')} ${conversation.customer.fullName}...`}
+            className="composer-textarea"
+            placeholder={
+              !isWithin24Hours && conversation.channel === 'FACEBOOK'
+                ? 'Đã quá 24h Meta. Cần gắn Message Tag để phản hồi...'
+                : `Nhập tin nhắn phản hồi cho ${conversation.customer.fullName}... (Enter để gửi)`
+            }
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
+            rows={2}
           />
+
           <button
             type="button"
             className="crm-btn crm-btn-primary crm-btn-gradient-primary send-msg-btn"
             onClick={handleSend}
             disabled={!inputText.trim()}
+            title="Gửi tin nhắn (Enter)"
           >
-            <Send size={16} />
-            <span>{t('inbox.input.sendBtn')}</span>
+            <Send size={15} />
+            <span>Gửi</span>
           </button>
         </div>
       </div>

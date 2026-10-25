@@ -1,0 +1,619 @@
+/* ==========================================================================
+   CUSC RECRUITMENT CRM - COMPREHENSIVE RESPONSIVE STYLESHEET
+   Hỗ trợ tối ưu đa kích thước màn hình: Desktop, Tablet và Điện Thoại Di Động
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. MOBILE NAVBAR & SIDEBAR DRAWER OVERLAY
+   -------------------------------------------------------------------------- */
+
+.navbar-mobile-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 6px;
+  color: var(--color-text-main);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  transition: all 0.15s ease;
+}
+
+.navbar-mobile-toggle:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-primary);
+}
+
+.crm-sidebar-overlay {
+  display: none;
+}
+
+/* Nút quay lại danh sách tin nhắn trên Mobile Chat */
+.chat-mobile-back-btn,
+.chat-mobile-info-btn {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--color-text-main);
+  cursor: pointer;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.chat-mobile-back-btn:hover,
+.chat-mobile-info-btn:hover {
+  background: #f1f5f9;
+  color: var(--color-primary);
+}
+
+/* --------------------------------------------------------------------------
+   2. TABLET STYLES (Screen width <= 1024px)
+   -------------------------------------------------------------------------- */
+@media screen and (max-width: 1024px) {
+  /* Thu nhỏ sidebar một chút */
+  .crm-sidebar {
+    width: 220px;
+    min-width: 220px;
+  }
+
+  /* Inbox Tablet: Ưu tiên khung chat rộng rãi, ẩn Profile bên phải (cho phép bật dạng Drawer) */
+  .pancake-col-left {
+    width: 280px !important;
+    min-width: 260px !important;
+    max-width: 300px !important;
+    display: flex !important;
+  }
+
+  .pancake-col-center,
+  .pancake-col-middle {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+  }
+
+  .pancake-col-right {
+    display: none !important;
+  }
+
+  .pancake-col-right.mobile-visible {
+    display: flex !important;
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 350px !important;
+    max-width: 85vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    z-index: 1060 !important;
+    background: #ffffff !important;
+    box-shadow: -5px 0 25px rgba(0, 0, 0, 0.2) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    animation: slideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .chat-mobile-info-btn {
+    display: inline-flex !important;
+  }
+
+  .chat-mobile-back-btn {
+    display: none !important;
+  }
+
+  /* Kanban: 4 metrics chuyển thành 2 hàng x 2 cột */
+  .kanban-kpi-banner {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  /* Settings Workspace: Form chuyển xuống dưới */
+  .crm-workspace-settings-container div[style*="gridTemplateColumns: '1fr 340px'"],
+  .crm-workspace-settings-container div[style*="grid-template-columns: 1fr 340px"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. MOBILE & SMALL TABLET STYLES (Screen width <= 768px)
+   -------------------------------------------------------------------------- */
+@media screen and (max-width: 768px) {
+  /* Hiện nút Toggle Hamburger trên Navbar */
+  .navbar-mobile-toggle {
+    display: inline-flex !important;
+  }
+
+  /* Sidebar chuyển thành Drawer trượt ra từ bên trái */
+  .crm-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 280px !important;
+    max-width: 82vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    z-index: 1050 !important;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: none !important;
+  }
+
+  .crm-sidebar.mobile-open {
+    transform: translateX(0) !important;
+    box-shadow: 0 0 35px rgba(15, 23, 42, 0.4) !important;
+  }
+
+  /* Overlay mờ phủ toàn màn hình khi mở menu mobile */
+  .crm-sidebar-overlay {
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(15, 23, 42, 0.55) !important;
+    backdrop-filter: blur(3px) !important;
+    z-index: 1040 !important;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0.25s ease !important;
+  }
+
+  .crm-sidebar-overlay.active {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* Viewport chính chiếm trọn 100% */
+  .crm-main-viewport {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Navbar thu gọn */
+  .crm-navbar {
+    padding: 8px 12px !important;
+    height: auto !important;
+    min-height: 52px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .crm-breadcrumb {
+    font-size: 12px !important;
+  }
+
+  .crm-breadcrumb .crumb-root,
+  .crm-breadcrumb .crumb-module,
+  .crm-breadcrumb .crumb-separator:nth-of-type(1),
+  .crm-breadcrumb .crumb-separator:nth-of-type(2) {
+    display: none !important;
+  }
+
+  .crm-navbar-actions {
+    width: 100% !important;
+    justify-content: space-between !important;
+    overflow-x: auto !important;
+    padding-top: 4px !important;
+  }
+
+  .navbar-quick-tabs {
+    flex-shrink: 0 !important;
+  }
+
+  /* INBOX TRÊN MOBILE: 1 CỘT TẠI MỘT THỜI ĐIỂM (CHUẨN UX ZALO/MESSENGER/PANCAKE) */
+  .pancake-inbox-container {
+    height: calc(100vh - 54px) !important;
+    height: calc(100dvh - 54px) !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  /* Khi có hội thoại đang chọn: Ẩn cột danh sách trái, hiện khung chat giữa 100% */
+  .pancake-inbox-container.has-active-chat .pancake-col-left {
+    display: none !important;
+  }
+
+  .pancake-inbox-container.has-active-chat .pancake-col-center,
+  .pancake-inbox-container.has-active-chat .pancake-col-middle {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    flex: 1 !important;
+    height: 100% !important;
+    border-right: none !important;
+  }
+
+  /* Khi chưa chọn hội thoại: Hiện danh sách trái 100%, ẩn khung chat giữa */
+  .pancake-inbox-container:not(.has-active-chat) .pancake-col-left {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 !important;
+    height: 100% !important;
+    border-right: none !important;
+  }
+
+  .pancake-inbox-container:not(.has-active-chat) .pancake-col-center,
+  .pancake-inbox-container:not(.has-active-chat) .pancake-col-middle {
+    display: none !important;
+  }
+
+  /* Cột hồ sơ bên phải trên mobile: Ẩn mặc định, hiển thị dạng Full-screen Sheet khi bấm 'Hồ sơ' */
+  .pancake-col-right {
+    display: none !important;
+  }
+
+  .pancake-col-right.mobile-visible {
+    display: flex !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    z-index: 1060 !important;
+    background: #ffffff !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    animation: slideInUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Nút Back và nút Info trong khung chat trên Mobile */
+  .chat-mobile-back-btn,
+  .chat-mobile-info-btn {
+    display: inline-flex !important;
+  }
+
+  /* Tối ưu Header khung Chat trên Mobile */
+  .chat-window-header {
+    height: auto !important;
+    min-height: 52px !important;
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+
+  .chat-header-user {
+    gap: 8px !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .chat-header-avatar {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+  }
+
+  .chat-user-details {
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .chat-user-name {
+    font-size: 13.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 120px !important;
+  }
+
+  .chat-user-sub {
+    display: none !important;
+  }
+
+  .chat-header-actions {
+    gap: 5px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .meta-24h-pill {
+    padding: 3px 6px !important;
+    font-size: 10px !important;
+  }
+
+  .meta-24h-pill span {
+    display: none !important;
+  }
+
+  .meta-24h-pill::after {
+    content: "24h";
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .assign-staff-dropdown-wrapper {
+    max-width: 105px !important;
+  }
+
+  .assign-staff-select {
+    font-size: 11px !important;
+    padding: 4px 6px 4px 20px !important;
+    width: 100% !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Tối ưu Bong bóng chat & Tin nhắn */
+  .chat-messages-scroll {
+    padding: 10px 8px !important;
+    gap: 10px !important;
+  }
+
+  .chat-msg-row {
+    max-width: 90% !important;
+    gap: 6px !important;
+  }
+
+  .chat-bubble {
+    font-size: 13.5px !important;
+    padding: 8px 12px !important;
+    line-height: 1.4 !important;
+    border-radius: 12px !important;
+  }
+
+  .chat-msg-avatar {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+  }
+
+  /* Tối ưu Thanh trả lời nhanh Quick Reply */
+  .quick-reply-bar {
+    padding: 6px 10px !important;
+    gap: 6px !important;
+  }
+
+  .quick-reply-label span {
+    display: none !important;
+  }
+
+  .quick-reply-chip {
+    padding: 3px 8px !important;
+    font-size: 11px !important;
+  }
+
+  /* Tối ưu Khung soạn thảo tin nhắn Composer */
+  .chat-composer-area,
+  .chat-input-area {
+    padding: 8px 10px 10px !important;
+    gap: 6px !important;
+  }
+
+  .composer-toolbar,
+  .chat-input-toolbar {
+    gap: 6px !important;
+  }
+
+  .composer-tool-btn,
+  .input-tool-btn {
+    padding: 5px !important;
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .input-shortcut-hint {
+    display: none !important;
+  }
+
+  .composer-input-row,
+  .chat-textarea-row {
+    gap: 8px !important;
+    align-items: flex-end !important;
+    width: 100% !important;
+  }
+
+  .composer-textarea,
+  .chat-textarea {
+    font-size: 14px !important;
+    padding: 8px 12px !important;
+    min-height: 44px !important;
+    max-height: 100px !important;
+    border-radius: 8px !important;
+    line-height: 1.35 !important;
+  }
+
+  .send-msg-btn {
+    height: 38px !important;
+    padding: 0 12px !important;
+    font-size: 12px !important;
+  }
+
+  /* KANBAN TRÊN MOBILE: KÉO CUỘN NGANG VỚI SNAP MƯỢT MÀ */
+  .kanban-pipeline-wrapper {
+    padding: 12px !important;
+  }
+
+  .kanban-kpi-banner {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    padding: 10px !important;
+  }
+
+  .kpi-metric-card {
+    padding: 8px !important;
+    gap: 8px !important;
+  }
+
+  .kpi-metric-info .kpi-label {
+    font-size: 10px !important;
+  }
+
+  .kpi-metric-info .kpi-value {
+    font-size: 15px !important;
+  }
+
+  .kanban-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .toolbar-left-group {
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  .kanban-search-box {
+    width: 100% !important;
+  }
+
+  .kanban-filter-select {
+    width: 100% !important;
+  }
+
+  .toolbar-right-group {
+    width: 100% !important;
+    justify-content: stretch !important;
+  }
+
+  .toolbar-right-group .btn {
+    flex: 1 !important;
+    justify-content: center !important;
+  }
+
+  .kanban-columns-container {
+    display: flex !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 12px !important;
+    padding-bottom: 16px !important;
+  }
+
+  .kanban-column {
+    min-width: 275px !important;
+    width: 82vw !important;
+    max-width: 320px !important;
+    scroll-snap-align: start !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* ONBOARDING & KẾT NỐI KÊNH TRÊN MOBILE */
+  .onboarding-page-container {
+    padding: 14px 10px !important;
+  }
+
+  .onboarding-wizard-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .onboarding-card-footer.split-footer {
+    flex-direction: column-reverse !important;
+    gap: 10px !important;
+    align-items: stretch !important;
+  }
+
+  .onboarding-card-footer.split-footer .crm-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .channel-cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* MODAL DIALOGS TRÊN MOBILE */
+  .crm-modal-dialog {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 92vh !important;
+    margin: 10px !important;
+  }
+
+  .form-group-row {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  /* WORKSPACE SETTINGS TRÊN MOBILE */
+  .crm-workspace-settings-container {
+    padding: 14px 10px !important;
+  }
+
+  .crm-workspace-settings-container div[style*="display: 'grid'"],
+  .crm-workspace-settings-container div[style*="display: grid"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. EXTRA SMALL PHONES (Screen width <= 480px)
+   -------------------------------------------------------------------------- */
+@media screen and (max-width: 480px) {
+  .crm-btn {
+    font-size: 12px !important;
+    padding: 6px 10px !important;
+  }
+
+  /* Inbox trên điện thoại nhỏ */
+  .chat-mobile-back-btn span,
+  .chat-mobile-info-btn span {
+    display: none !important;
+  }
+
+  .chat-mobile-back-btn,
+  .chat-mobile-info-btn {
+    padding: 5px 7px !important;
+  }
+
+  .chat-user-name {
+    max-width: 95px !important;
+  }
+
+  .channel-indicator-badge {
+    font-size: 9px !important;
+    padding: 1px 4px !important;
+  }
+
+  .kanban-kpi-banner {
+    grid-template-columns: 1fr !important;
+  }
+
+  .kanban-column {
+    min-width: 250px !important;
+    width: 88vw !important;
+  }
+
+  .wizard-headline {
+    font-size: 20px !important;
+  }
+}

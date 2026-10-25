@@ -7,6 +7,7 @@ import { ToastProvider } from './components/feedback/ToastContext.js';
 import { ToastContainer } from './components/feedback/ToastContainer.js';
 import { UserRoleProvider, useUserRole } from './modules/auth/index.js';
 import { RealtimeProvider } from './modules/realtime/RealtimeContext.js';
+import { WorkspaceConfigProvider, WorkspaceSettingsPage } from './modules/workspace/index.js';
 import { UnifiedInboxPage } from './modules/inbox/pages/UnifiedInboxPage.js';
 import { AdmissionKanbanBoard } from './modules/kanban/index.js';
 import { OnboardingWizardPage } from './modules/onboarding/pages/OnboardingWizardPage.js';
@@ -95,8 +96,12 @@ function CRMMainContent() {
           />
         )}
         {activeTab === 'kanban' && (
-          <AdmissionKanbanBoard onOpenChat={handleOpenChatFromKanban} />
+          <AdmissionKanbanBoard
+            onOpenChat={handleOpenChatFromKanban}
+            onNavigateToSettings={() => setActiveTab('workspace-settings')}
+          />
         )}
+        {activeTab === 'workspace-settings' && <WorkspaceSettingsPage />}
         {activeTab === 'onboarding' && (
           <OnboardingWizardPage
             onComplete={() => setActiveTab('inbox')}
@@ -109,7 +114,7 @@ function CRMMainContent() {
   };
 
   return (
-    <RealtimeProvider>
+    <>
       {/* Khung hiển thị Toast Thông Báo */}
       <ToastContainer />
 
@@ -122,7 +127,7 @@ function CRMMainContent() {
 
       {/* Màn hình chính hoặc màn hình lỗi */}
       {renderCurrentView()}
-    </RealtimeProvider>
+    </>
   );
 }
 
@@ -132,7 +137,11 @@ export default function App() {
       <I18nProvider>
         <ToastProvider>
           <UserRoleProvider>
-            <CRMMainContent />
+            <RealtimeProvider>
+              <WorkspaceConfigProvider>
+                <CRMMainContent />
+              </WorkspaceConfigProvider>
+            </RealtimeProvider>
           </UserRoleProvider>
         </ToastProvider>
       </I18nProvider>

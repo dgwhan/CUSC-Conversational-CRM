@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Sidebar, type ActiveNavTab } from './Sidebar.js';
 import { Navbar } from './Navbar.js';
 
@@ -15,14 +15,32 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   onTabChange,
   onApiUrlChange,
 }) => {
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
   return (
     <div className="crm-app-container">
-      <Sidebar currentTab={currentTab} onTabChange={onTabChange} />
+      {/* Overlay mờ khi mở menu trên mobile */}
+      <div
+        className={`crm-sidebar-overlay ${isMobileSidebarOpen ? 'active' : ''}`}
+        onClick={() => setIsMobileSidebarOpen(false)}
+      />
+
+      <Sidebar
+        currentTab={currentTab}
+        onTabChange={(tab) => {
+          onTabChange(tab);
+          setIsMobileSidebarOpen(false);
+        }}
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+      />
+
       <div className="crm-main-viewport">
         <Navbar
           currentTab={currentTab}
           onTabChange={onTabChange}
           onApiUrlChange={onApiUrlChange}
+          onToggleMobileMenu={() => setIsMobileSidebarOpen((prev) => !prev)}
         />
         <main className={`crm-content-area ${currentTab === 'inbox' ? 'pancake-fullscreen' : ''}`}>
           {children}

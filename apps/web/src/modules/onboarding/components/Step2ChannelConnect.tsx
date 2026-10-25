@@ -249,19 +249,30 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
           className="crm-btn crm-btn-secondary"
           onClick={onBack}
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} />
           <span>{t('onboarding.step2.backBtn')}</span>
         </button>
 
-        <button
-          type="button"
-          className="crm-btn crm-btn-primary crm-btn-gradient-primary"
-          style={{ minWidth: '220px' }}
-          onClick={onNext}
-        >
-          <span>{t('onboarding.step2.continueBtn')}</span>
-          <ArrowRight size={18} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            className="crm-btn crm-btn-secondary skip-btn"
+            onClick={onNext}
+            title="Bỏ qua bước kết nối và thiết lập sau"
+          >
+            <span>Bỏ qua (Skip)</span>
+          </button>
+
+          <button
+            type="button"
+            className="crm-btn crm-btn-primary crm-btn-gradient-primary continue-btn"
+            style={{ minWidth: '180px' }}
+            onClick={onNext}
+          >
+            <span>{t('onboarding.step2.continueBtn')}</span>
+            <ArrowRight size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );

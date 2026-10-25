@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { KanbanCandidate } from './kanban.types.js';
-import { KANBAN_COLUMNS } from './kanban.config.js';
 import type { ChannelType, LeadStage } from '../inbox/types.js';
 import { X, UserPlus } from 'lucide-react';
 import { notify } from '../../components/feedback/toastEmitter.js';
+import { useWorkspaceConfig } from '../workspace/WorkspaceConfigContext.js';
 import { useUserRole } from '../auth/UserRoleContext.js';
 
 interface NewCandidateModalProps {
@@ -17,23 +17,45 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
   onClose,
   onAddCandidate,
 }) => {
+const { config } = useWorkspaceConfig();
   const { staffName } = useUserRole();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [channel, setChannel] = useState<ChannelType>('FACEBOOK');
-  const [stage, setStage] = useState<LeadStage>('NEW');
-  const [course, setCourse] = useState('Lập trình Fullstack Web (React & NestJS)');
-  const [estimatedTuition, setEstimatedTuition] = useState('26500000');
+  const [stage, setStage] = useState<LeadStage>(config.pipelineStages[0]?.id || 'NEW');
+  const [course, setCourse] = useState(config.productCatalog[0]?.name || '');
+  const [estimatedTuition, setEstimatedTuition] = useState(
+    String(config.productCatalog[0]?.defaultPrice || 20000000)
+  );
   const [assignedStaff, setAssignedStaff] = useState('staff-1');
   const [notes, setNotes] = useState('');
+
+  // Cập nhật giá mặc định khi đổi sản phẩm / khóa học
+  const handleProductChange = (selectedName: string) => {
+    setCourse(selectedName);
+    const found = config.productCatalog.find((p) => p.name === selectedName);
+    if (found && found.defaultPrice) {
+      setEstimatedTuition(String(found.defaultPrice));
+    }
+  };
+
+  useEffect(() => {
+    if (config.pipelineStages.length > 0 && !config.pipelineStages.some((s) => s.id === stage)) {
+      setStage(config.pipelineStages[0].id);
+    }
+    if (config.productCatalog.length > 0 && !config.productCatalog.some((p) => p.name === course)) {
+      setCourse(config.productCatalog[0].name);
+      setEstimatedTuition(String(config.productCatalog[0].defaultPrice || 20000000));
+    }
+  }, [config, stage, course]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) {
-      notify.warning('Vui lòng nhập họ và tên thí sinh/khách hàng.');
+      notify.warning(`Vui lòng nhập họ và tên ${config.terminology.entityName.toLowerCase()}.`);
       return;
     }
 
@@ -55,25 +77,27 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
       channel,
       channelAccountName:
         channel === 'FACEBOOK'
-          ? 'Fanpage Tuyển Sinh CUSC'
+          ? 'Fanpage Tiếp Nhận'
           : channel === 'ZALO'
-          ? 'Zalo OA CUSC Can Tho'
-          : 'Tuyển sinh trực tiếp',
+          ? 'Zalo OA Doanh Nghiệp'
+          : channel === 'ZALO_PERSONAL'
+          ? 'Zalo Cá Nhân Tư Vấn'
+          : 'Tiếp nhận trực tiếp',
       stage,
       estimatedTuition: Number(estimatedTuition) || 20000000,
       priority: 'HIGH',
-      interestCourses: [course],
+      interestCourses: [course || 'Gói dịch vụ mặc định'],
       assignedStaffId: assignedStaff,
       assignedStaffName: staffMap[assignedStaff]?.name || staffName || 'Bạn',
       assignedStaffAvatar: staffMap[assignedStaff]?.avatar || 'MV',
       assignedStaffPresence: 'ONLINE',
       lastActivityAt: 'Vừa xong',
       notesCount: notes.trim() ? 1 : 0,
-      tags: ['Thêm thủ công', 'Ưu tiên xét tuyển'],
+      tags: ['Thêm thủ công', 'Ưu tiên chăm sóc'],
     };
 
     onAddCandidate(newCandidate);
-    notify.success(`Đã thêm thí sinh "${newCandidate.fullName}" vào phễu tuyển sinh!`);
+    notify.success(`Đã thêm "${newCandidate.fullName}" vào ${config.terminology.pipelineName.toLowerCase()}!`);
     onClose();
   };
 
@@ -83,7 +107,9 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
         <div className="crm-modal-header">
           <div className="modal-title-row">
             <UserPlus size={18} className="modal-title-icon" />
-            <h3 className="modal-title">Thêm Thí sinh / Khách hàng vào Phễu Tuyển sinh</h3>
+            <h3 className="modal-title">
+              Thêm {config.terminology.entityName} vào {config.terminology.pipelineName}
+            </h3>
           </div>
           <button type="button" className="modal-close-btn" onClick={onClose}>
             <X size={18} />
@@ -93,11 +119,11 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
         <form onSubmit={handleSubmit} className="crm-modal-body">
           <div className="form-group-row">
             <div className="form-group">
-              <label className="form-label">Họ và tên thí sinh *</label>
+              <label className="form-label">Họ và tên {config.terminology.entityName} *</label>
               <input
                 type="text"
                 className="crm-form-input"
-                placeholder="VD: Lê Hoàng Nam"
+                placeholder={`VD: Nguyễn Văn A (${config.terminology.entityName})`}
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 autoFocus
@@ -122,7 +148,7 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
 
           <div className="form-group-row">
             <div className="form-group">
-              <label className="form-label">Số điện thoại</label>
+              <label className="form-label">Số điện thoại liên hệ</label>
               <input
                 type="tel"
                 className="crm-form-input"
@@ -136,7 +162,7 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
               <input
                 type="email"
                 className="crm-form-input"
-                placeholder="VD: hoangnam@gmail.com"
+                placeholder="VD: customer@gmail.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -151,9 +177,9 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
                 value={stage}
                 onChange={(e) => setStage(e.target.value as LeadStage)}
               >
-                {KANBAN_COLUMNS.map((col) => (
+                {config.pipelineStages.map((col) => (
                   <option key={col.id} value={col.id}>
-                    {col.title}
+                    {col.name}
                   </option>
                 ))}
               </select>
@@ -174,28 +200,21 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
 
           <div className="form-group-row">
             <div className="form-group">
-              <label className="form-label">Chương trình / Khóa học quan tâm</label>
+              <label className="form-label">{config.terminology.productLabel} quan tâm</label>
               <select
                 className="crm-form-select"
                 value={course}
-                onChange={(e) => setCourse(e.target.value)}
+                onChange={(e) => handleProductChange(e.target.value)}
               >
-                <option value="Lập trình Fullstack Web (React & NestJS)">
-                  Lập trình Fullstack Web (React & NestJS)
-                </option>
-                <option value="Lập trình viên Quốc tế Aptech ADSE">
-                  Lập trình viên Quốc tế Aptech ADSE
-                </option>
-                <option value="Thiết kế Đồ họa Đa phương tiện Arena">
-                  Thiết kế Đồ họa Đa phương tiện Arena
-                </option>
-                <option value="Lập trình Python & Trí tuệ Nhân tạo AI">
-                  Lập trình Python & Trí tuệ Nhân tạo AI
-                </option>
+                {config.productCatalog.map((prod) => (
+                  <option key={prod.id} value={prod.name}>
+                    {prod.name} ({new Intl.NumberFormat('vi-VN').format(prod.defaultPrice)} đ)
+                  </option>
+                ))}
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Học phí dự kiến (VNĐ)</label>
+              <label className="form-label">{config.terminology.valueLabel}</label>
               <input
                 type="number"
                 step="500000"
@@ -207,11 +226,11 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
           </div>
 
           <div className="form-group">
-            <label className="form-label">Ghi chú ban đầu (Nhu cầu tuyển sinh)</label>
+            <label className="form-label">Ghi chú ban đầu (Nhu cầu trao đổi)</label>
             <textarea
               className="crm-form-textarea"
               rows={2}
-              placeholder="VD: Đã tốt nghiệp THPT năm 2026, hỏi học bổng 20% và lịch học buổi tối..."
+              placeholder="VD: Cần tư vấn chi tiết chính sách, đã trao đổi qua tin nhắn..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />

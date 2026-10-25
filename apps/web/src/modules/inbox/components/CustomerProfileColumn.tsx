@@ -13,11 +13,13 @@ import {
   TrendingUp,
   LayoutGrid,
   Smartphone,
+  X,
 } from 'lucide-react';
 import type { CustomerProfile, LeadStatus, LeadStage } from '../types.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useTranslation } from '../../../i18n/index.js';
 import { LogPersonalZaloModal } from './LogPersonalZaloModal.js';
+import { useWorkspaceConfig } from '../../workspace/WorkspaceConfigContext.js';
 
 export interface CustomerProfileColumnProps {
   customer: CustomerProfile;
@@ -28,6 +30,8 @@ export interface CustomerProfileColumnProps {
   onRemoveTag: (tag: string) => void;
   onAddNote: (content: string) => void;
   onRemoveNote: (noteId: string) => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
@@ -39,41 +43,38 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   onRemoveTag,
   onAddNote,
   onRemoveNote,
+  isMobileOpen = false,
+  onCloseMobile,
 }) => {
   const { t } = useTranslation();
+  const { config } = useWorkspaceConfig();
   const [newTagInput, setNewTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newNoteInput, setNewNoteInput] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLogZaloModalOpen, setIsLogZaloModalOpen] = useState(false);
 
-  // 7 Giai đoạn phễu tuyển sinh chuẩn CUSC
-  const admissionStagesConfig: { key: LeadStage; label: string; color: string; bg: string; legacyStatus: LeadStatus }[] = [
-    { key: 'NEW', label: '1. Tiếp nhận mới', color: '#0284c7', bg: '#f0f9ff', legacyStatus: 'NEW' },
-    { key: 'CONTACTED', label: '2. Đã liên hệ', color: '#6366f1', bg: '#eef2ff', legacyStatus: 'NEW' },
-    { key: 'QUALIFIED', label: '3. Tiềm năng cao', color: '#d97706', bg: '#fffbeb', legacyStatus: 'POTENTIAL' },
-    { key: 'APPOINTMENT', label: '4. Hẹn nộp hồ sơ', color: '#ea580c', bg: '#fff7ed', legacyStatus: 'POTENTIAL' },
-    { key: 'SUBMITTED', label: '5. Đã nộp hồ sơ', color: '#0d9488', bg: '#f0fdfa', legacyStatus: 'POTENTIAL' },
-    { key: 'ENROLLED', label: '6. Trúng tuyển / Nhập học', color: '#16a34a', bg: '#f0fdf4', legacyStatus: 'CONVERTED' },
-    { key: 'LOST', label: '7. Hủy / Thất bại', color: '#64748b', bg: '#f8fafc', legacyStatus: 'UNQUALIFIED' },
-  ];
-
-  const currentStageKey: LeadStage =
+  const currentStageKey =
     customer.leadStage ||
     (customer.leadStatus === 'CONVERTED'
-      ? 'ENROLLED'
+      ? 'STAGE_ENROLLED'
       : customer.leadStatus === 'POTENTIAL'
-      ? 'QUALIFIED'
+      ? 'STAGE_QUALIFIED'
       : customer.leadStatus === 'UNQUALIFIED'
-      ? 'LOST'
-      : 'NEW');
+      ? 'STAGE_LOST'
+      : 'STAGE_NEW');
 
-  const handleStageSelect = (stageItem: typeof admissionStagesConfig[0]) => {
-    onUpdateLeadStatus(stageItem.legacyStatus);
+  const handleStageSelect = (stageItem: { id: string; name: string; isWon?: boolean; isLost?: boolean }) => {
+    let legacyStatus: LeadStatus = 'NEW';
+    if (stageItem.isWon) legacyStatus = 'CONVERTED';
+    else if (stageItem.isLost) legacyStatus = 'UNQUALIFIED';
+    else legacyStatus = 'POTENTIAL';
+
+    onUpdateLeadStatus(legacyStatus);
     if (onUpdateLeadStage) {
-      onUpdateLeadStage(stageItem.key);
+      onUpdateLeadStage(stageItem.id);
     }
-    notify.success(`Đã cập nhật giai đoạn tuyển sinh: "${stageItem.label}".`);
+    notify.success(`Đã cập nhật giai đoạn: "${stageItem.name}".`);
   };
 
   const handleCopy = (text: string, fieldName: string) => {
@@ -101,7 +102,22 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   };
 
   return (
-    <aside className="pancake-col-right">
+    <aside className={`pancake-col-right ${isMobileOpen ? 'mobile-visible' : ''}`}>
+      {/* Nút đóng dành cho mobile view */}
+      {onCloseMobile && isMobileOpen && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
+          <button
+            type="button"
+            className="crm-btn crm-btn-secondary crm-btn-sm"
+            onClick={onCloseMobile}
+            title="Đóng hồ sơ"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <X size={14} />
+            <span>Đóng Hồ Sơ</span>
+          </button>
+        </div>
+      )}
       {/* 1. Header Hồ Sơ Khách Hàng */}
       <div className="profile-header-card">
         <div className="profile-avatar-large-wrapper">
@@ -159,19 +175,19 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
       </div>
 
       <div className="profile-scroll-body">
-        {/* 2. Phễu Khách Hàng (Admission Pipeline Stages) */}
+        {/* 2. Phễu Khách Hàng (Workspace Pipeline Stages) */}
         <div className="profile-section-card">
           <div className="section-title-row" style={{ justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <TrendingUp size={15} className="section-title-icon" />
-              <h4 className="section-title">Phễu Tuyển Sinh</h4>
+              <h4 className="section-title">{config.terminology.pipelineName}</h4>
             </div>
             {onNavigateToKanban && (
               <button
                 type="button"
                 className="btn-link-kanban"
                 onClick={onNavigateToKanban}
-                title="Mở Bảng Phễu Chăm Sóc Tuyển Sinh dạng Kanban"
+                title="Mở Bảng Phễu Chăm Sóc dạng Kanban"
               >
                 <LayoutGrid size={12} />
                 <span>Bảng Kanban</span>
@@ -180,22 +196,26 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           </div>
 
           <div className="lead-pipeline-stepper">
-            {admissionStagesConfig.map((item) => {
-              const isCurrent = currentStageKey === item.key;
+            {config.pipelineStages.map((item) => {
+              const isCurrent =
+                currentStageKey === item.id ||
+                `STAGE_${currentStageKey}` === item.id ||
+                item.id.replace('STAGE_', '') === currentStageKey;
+
               return (
                 <button
-                  key={item.key}
+                  key={item.id}
                   type="button"
                   className={`pipeline-stage-pill ${isCurrent ? 'active' : ''}`}
                   style={{
-                    backgroundColor: isCurrent ? item.bg : undefined,
+                    backgroundColor: isCurrent ? item.bgColor : undefined,
                     color: isCurrent ? item.color : undefined,
                     borderColor: isCurrent ? item.color : undefined,
                   }}
                   onClick={() => handleStageSelect(item)}
                 >
                   <span className="pipeline-dot" style={{ backgroundColor: item.color }} />
-                  <span className="pipeline-label">{item.label}</span>
+                  <span className="pipeline-label">{item.name}</span>
                   {isCurrent && <span className="pipeline-check">✓</span>}
                 </button>
               );
@@ -308,11 +328,11 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           </div>
         </div>
 
-        {/* 5. Khóa Học / Đơn Hàng Quan Tâm */}
+        {/* 5. Khóa Học / Đơn Hàng / Sản Phẩm Quan Tâm */}
         <div className="profile-section-card">
           <div className="section-title-row">
             <BookOpen size={15} className="section-title-icon" />
-            <h4 className="section-title">{t('inbox.profile.interestedCoursesTitle')}</h4>
+            <h4 className="section-title">{config.terminology.productLabel} ({customer.interestCourses.length})</h4>
           </div>
 
           {customer.interestCourses.length === 0 ? (

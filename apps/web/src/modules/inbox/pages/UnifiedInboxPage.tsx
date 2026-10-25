@@ -20,9 +20,14 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   const { onNewMessage } = useRealtime();
   const { staffName } = useUserRole();
   const [conversations, setConversations] = useState<ConversationItem[]>(INITIAL_CONVERSATIONS);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    initialConversationId || INITIAL_CONVERSATIONS[0]?.id || null
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    if (initialConversationId) return initialConversationId;
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return null;
+    }
+    return INITIAL_CONVERSATIONS[0]?.id || null;
+  });
+  const [isProfileMobileOpen, setIsProfileMobileOpen] = useState(false);
 
   // Cập nhật selectedId nếu initialConversationId thay đổi từ bên ngoài (ví dụ bấm Chat từ Kanban)
   useEffect(() => {
@@ -278,7 +283,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   };
 
   return (
-    <div className="pancake-inbox-container">
+    <div className={`pancake-inbox-container ${selectedId ? 'has-active-chat' : ''}`}>
       {/* CỘT 1 (Trái): Danh sách Hội thoại */}
       <ConversationListColumn
         conversations={conversations}
@@ -295,6 +300,8 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           onSendMessage={handleSendMessage}
           onAssignStaff={handleAssignStaff}
           onToggleStatus={handleToggleStatus}
+          onBackToList={() => setSelectedId(null)}
+          onToggleProfile={() => setIsProfileMobileOpen((prev) => !prev)}
         />
       )}
 
@@ -309,6 +316,8 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           onRemoveTag={handleRemoveTag}
           onAddNote={handleAddNote}
           onRemoveNote={handleRemoveNote}
+          isMobileOpen={isProfileMobileOpen}
+          onCloseMobile={() => setIsProfileMobileOpen(false)}
         />
       )}
     </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Server, ChevronRight, SlidersHorizontal, Check, LogOut, User } from 'lucide-react';
+import { Server, ChevronRight, SlidersHorizontal, Check, LogOut, User, Menu } from 'lucide-react';
 import { apiClient } from '../lib/api-client.js';
 import type { ActiveNavTab } from './Sidebar.js';
 import { useTranslation } from '../i18n/index.js';
@@ -11,9 +11,15 @@ interface NavbarProps {
   currentTab: ActiveNavTab;
   onTabChange?: (tab: ActiveNavTab) => void;
   onApiUrlChange?: (newUrl: string) => void;
+  onToggleMobileMenu?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUrlChange }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  currentTab,
+  onTabChange,
+  onApiUrlChange,
+  onToggleMobileMenu,
+}) => {
   const { t } = useTranslation();
   const { isOwner, staffName, logout } = useUserRole();
   const [showConfig, setShowConfig] = useState(false);
@@ -42,7 +48,17 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onTabChange, onApiUr
 
   return (
     <header className="crm-navbar">
-      <div className="crm-breadcrumb">
+      <div className="crm-breadcrumb" style={{ display: 'flex', alignItems: 'center' }}>
+        {onToggleMobileMenu && (
+          <button
+            type="button"
+            className="navbar-mobile-toggle"
+            onClick={onToggleMobileMenu}
+            title="Mở thanh điều hướng"
+          >
+            <Menu size={18} />
+          </button>
+        )}
         <span className="crumb-root">{t('nav.crmSystem')}</span>
         <ChevronRight size={14} className="crumb-separator" />
         <span className="crumb-module">{t('nav.socialComm')}</span>
