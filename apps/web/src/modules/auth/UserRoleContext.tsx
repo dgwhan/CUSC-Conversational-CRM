@@ -11,6 +11,7 @@ export interface UserRoleContextValue {
   isOwner: boolean;
   isStaff: boolean;
   isAgent: boolean;
+  isRoleLocked: boolean;
   staffId: string;
   staffName: string;
   staffEmail: string;
@@ -35,7 +36,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return null;
   });
 
-  const [role, setRoleState] = useState<UserRole>(() => {
+  const [roleState, setRoleState] = useState<UserRole>(() => {
     try {
       const saved = localStorage.getItem('cusc_crm_user_role');
       if (saved === 'OWNER' || saved === 'STAFF' || saved === 'AGENT') return saved as UserRole;
@@ -43,6 +44,14 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return 'OWNER';
   });
 
+  // KHÓA VAI TRÒ: Nếu đã có phiên đăng nhập, vai trò được xác định cố định theo tài khoản DB
+  const role: UserRole = session
+    ? session.staff.role === 'OWNER'
+      ? 'OWNER'
+      : 'STAFF'
+    : roleState;
+
+  const isRoleLocked = true; // Khóa chuyển đổi vai trò tùy tiện để đảm bảo an toàn phân quyền RBAC
   const staffId = session?.staff.id || '';
   const staffName = session?.staff.fullName || '';
   const staffEmail = session?.staff.email || '';
@@ -77,6 +86,14 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const setRole = (newRole: UserRole) => {
+    if (session) {
+      notify.warning(
+        'Vai trò đã được khóa cố định theo tài khoản đăng nhập (Bảo mật RBAC).',
+        'Không thể chuyển đổi vai trò'
+      );
+      return;
+    }
+
     setRoleState(newRole);
     try {
       localStorage.setItem('cusc_crm_user_role', newRole);
@@ -96,6 +113,13 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const toggleRole = () => {
+    if (session) {
+      notify.warning(
+        'Vai trò đã được khóa cố định theo tài khoản đăng nhập (Bảo mật RBAC).',
+        'Không thể chuyển đổi vai trò'
+      );
+      return;
+    }
     setRole(role === 'OWNER' ? 'STAFF' : 'OWNER');
   };
 
@@ -109,6 +133,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isOwner,
         isStaff,
         isAgent: isStaff,
+        isRoleLocked,
         staffId,
         staffName,
         staffEmail,

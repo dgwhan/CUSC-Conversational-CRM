@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import '../App.css';
 import { Sidebar, type ActiveNavTab } from '../app/Sidebar.js';
 import { HeaderLayout } from './HeaderLayout.js';
 
