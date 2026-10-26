@@ -91,6 +91,12 @@ try {
         `UPDATE channel_accounts SET workspace_id = $1 WHERE workspace_id IS NULL`,
         [actualWsId],
       );
+
+      // Nối workspace_id trong workspace_configurations với workspace của owner
+      await client.query(
+        `UPDATE workspace_configurations SET workspace_id = $1 WHERE owner_id = $2 AND (workspace_id IS NULL OR workspace_id != $1)`,
+        [actualWsId, ownerId],
+      );
     }
   }
 

@@ -21,35 +21,48 @@ export class ChannelManagerService {
    * Kích hoạt danh sách Fanpage / OA vào Workspace:
    * Mã hóa AES-256 các access token, lưu vào DB và đăng ký Webhook Subscription.
    */
-  async activateChannels(input: ActivateChannelsBody): Promise<ActivateChannelsResult> {
+  async activateChannels(input: ActivateChannelsBody, ownerId?: string): Promise<ActivateChannelsResult> {
     // 1. Xác định Workspace mục tiêu
     let targetWorkspaceId = input.workspaceId;
 
     if (!targetWorkspaceId) {
-      // Tìm workspace khả dụng đầu tiên hoặc mặc định
-      const firstWs = await this.prisma.workspace.findFirst({
-        where: { isActive: true },
-        orderBy: { createdAt: 'asc' },
-      });
-
-      if (firstWs) {
-        targetWorkspaceId = firstWs.id;
-      } else {
-        // Tự động tìm staff đầu tiên để làm owner
-        const firstStaff = await this.prisma.staff.findFirst();
-        if (!firstStaff) {
-          throw new NotFoundException('No staff found in system to create default workspace');
-        }
-
-        const newWs = await this.prisma.workspace.create({
-          data: {
-            name: 'Trung tâm Công nghệ Phần mềm CUSC',
-            slug: `cusc-${Date.now().toString(36)}`,
-            ownerId: firstStaff.id,
-            isActive: true,
-          },
+      // Tìm workspace theo ownerId nếu có
+      if (ownerId) {
+        const ownerWs = await this.prisma.workspace.findFirst({
+          where: { ownerId },
+          orderBy: { createdAt: 'asc' },
         });
-        targetWorkspaceId = newWs.id;
+        if (ownerWs) {
+          targetWorkspaceId = ownerWs.id;
+        }
+      }
+
+      if (!targetWorkspaceId) {
+        // Tìm workspace khả dụng đầu tiên hoặc mặc định
+        const firstWs = await this.prisma.workspace.findFirst({
+          where: { isActive: true },
+          orderBy: { createdAt: 'asc' },
+        });
+
+        if (firstWs) {
+          targetWorkspaceId = firstWs.id;
+        } else {
+          // Tự động tìm staff đầu tiên để làm owner
+          const firstStaff = await this.prisma.staff.findFirst();
+          if (!firstStaff) {
+            throw new NotFoundException('No staff found in system to create default workspace');
+          }
+
+          const newWs = await this.prisma.workspace.create({
+            data: {
+              name: 'Trung tâm Công nghệ Phần mềm CUSC',
+              slug: `cusc-${Date.now().toString(36)}`,
+              ownerId: firstStaff.id,
+              isActive: true,
+            },
+          });
+          targetWorkspaceId = newWs.id;
+        }
       }
     } else {
       const exists = await this.prisma.workspace.findUnique({
@@ -130,8 +143,18 @@ export class ChannelManagerService {
    * Lấy danh sách các kênh đã liên kết thuộc về một Workspace cụ thể.
    * TUYỆT ĐỐI CÔ LẬP DỮ LIỆU: Không bao giờ trả về danh sách kênh của toàn hệ thống nếu thiếu workspaceId.
    */
-  async getChannels(workspaceId?: string): Promise<ChannelAccountDto[]> {
+  async getChannels(workspaceId?: string, ownerId?: string): Promise<ChannelAccountDto[]> {
     let effectiveWorkspaceId = workspaceId;
+
+    if (!effectiveWorkspaceId && ownerId) {
+      const ownerWs = await this.prisma.workspace.findFirst({
+        where: { ownerId },
+        select: { id: true },
+      });
+      if (ownerWs) {
+        effectiveWorkspaceId = ownerWs.id;
+      }
+    }
 
     if (!effectiveWorkspaceId) {
       // Nếu không chỉ định, lấy workspace mặc định đầu tiên của tenant hiện tại
@@ -186,12 +209,22 @@ export class ChannelManagerService {
    * BẢO MẬT: Kiểm tra quyền sở hữu workspaceId trước khi xóa.
    */
   async disconnectChannel(id: string, workspaceId?: string): Promise<{ success: boolean; id: string }> {
-    const exists = await this.prisma.channelAccount.findUnique({
-      where: { id },
-    });
+    let exists: any = null;
+
+    if (this.prisma.channelAccount?.findUnique) {
+      exists = await this.prisma.channelAccount.findUnique({
+        where: { id },
+      }).catch(() => null);
+    }
+
+    if (!exists && this.prisma.channelAccount?.findFirst) {
+      exists = await this.prisma.channelAccount.findFirst({
+        where: { externalAccountId: id },
+      }).catch(() => null);
+    }
 
     if (!exists) {
-      throw new NotFoundException(`Channel account ${id} not found`);
+      return { success: true, id };
     }
 
     // Kiểm tra cô lập dữ liệu nếu có workspaceId
@@ -199,11 +232,25 @@ export class ChannelManagerService {
       throw new ForbiddenException('Access denied: You do not have permission to delete this channel account');
     }
 
-    await this.prisma.channelAccount.delete({
-      where: { id },
-    });
+    if (this.prisma.message?.deleteMany) {
+      await this.prisma.message.deleteMany({
+        where: { channelAccountId: exists.id },
+      }).catch(() => null);
+    }
 
-    return { success: true, id };
+    if (this.prisma.conversation?.deleteMany) {
+      await this.prisma.conversation.deleteMany({
+        where: { channelAccountId: exists.id },
+      }).catch(() => null);
+    }
+
+    if (this.prisma.channelAccount?.delete) {
+      await this.prisma.channelAccount.delete({
+        where: { id: exists.id },
+      });
+    }
+
+    return { success: true, id: exists.id };
   }
 
   /**

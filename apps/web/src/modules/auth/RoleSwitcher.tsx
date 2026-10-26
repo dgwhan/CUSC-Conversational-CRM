@@ -1,29 +1,33 @@
 import React from 'react';
 import { useUserRole } from './UserRoleContext.js';
-import { Headphones, Crown } from 'lucide-react';
+import { Headphones, Crown, Lock } from 'lucide-react';
 
+/**
+ * Hiển thị huy hiệu vai trò RBAC của tài khoản hiện tại.
+ * Đã khóa chuyển đổi vai trò tùy tiện để đảm bảo tuân thủ phân quyền và bảo mật hệ thống.
+ */
 export const RoleSwitcher: React.FC = () => {
-  const { setRole, isOwner } = useUserRole();
+  const { isOwner, role } = useUserRole();
 
   return (
-    <div className="role-switcher-container" title="Chuyển đổi vai trò để kiểm tra phân quyền (RBAC)">
-      <button
-        type="button"
-        className={`role-switcher-btn ${isOwner ? 'active-owner' : ''}`}
-        onClick={() => setRole('OWNER')}
-      >
-        <Crown size={13} className="role-btn-icon" />
-        <span>Chủ DN (Owner)</span>
-      </button>
-
-      <button
-        type="button"
-        className={`role-switcher-btn ${!isOwner ? 'active-agent' : ''}`}
-        onClick={() => setRole('AGENT')}
-      >
-        <Headphones size={13} className="role-btn-icon" />
-        <span>Tư vấn viên (Agent)</span>
-      </button>
+    <div
+      className="role-switcher-container role-switcher-locked"
+      title={`Vai trò bảo mật RBAC: ${isOwner ? 'Chủ doanh nghiệp (Owner)' : 'Tư vấn viên (Staff)'} - Cố định theo tài khoản đăng nhập`}
+    >
+      <div className={`role-switcher-badge ${isOwner ? 'active-owner' : 'active-agent'}`}>
+        {isOwner ? (
+          <>
+            <Crown size={13} className="role-btn-icon" />
+            <span className="role-text">Chủ DN (Owner)</span>
+          </>
+        ) : (
+          <>
+            <Headphones size={13} className="role-btn-icon" />
+            <span className="role-text">Tư vấn viên ({role})</span>
+          </>
+        )}
+        <Lock size={11} className="role-lock-icon" title="Vai trò đã khóa bảo mật" />
+      </div>
     </div>
   );
 };

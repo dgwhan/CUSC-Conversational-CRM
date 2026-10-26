@@ -4,10 +4,23 @@ import type {
   BusinessDomain,
   PipelineStageConfig,
   ProductItemConfig,
+  LeadQualificationCriteria,
 } from './workspaceConfig.types.js';
 import { CLIENT_INDUSTRY_PRESETS } from './workspacePresets.js';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import { useUserRole } from '../auth/UserRoleContext.js';
+
+export interface ManagedStaffItem {
+  id: string;
+  email: string;
+  fullName: string;
+  role: string;
+  status: 'ACTIVE' | 'LOCKED';
+  ownerId: string | null;
+  lockedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface WorkspaceConfigContextType {
   config: WorkspaceConfig;
@@ -21,6 +34,16 @@ interface WorkspaceConfigContextType {
   addProduct: (product: Omit<ProductItemConfig, 'id'>) => Promise<void>;
   updateProduct: (productId: string, patch: Partial<ProductItemConfig>) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
+  addCriteria: (criteria: Omit<LeadQualificationCriteria, 'id'>) => Promise<void>;
+  updateCriteria: (criteriaId: string, patch: Partial<LeadQualificationCriteria>) => Promise<void>;
+  deleteCriteria: (criteriaId: string) => Promise<void>;
+  // Quản lý nhân sự Staff theo ownerId
+  staffMembers: ManagedStaffItem[];
+  fetchStaffList: () => Promise<ManagedStaffItem[]>;
+  createStaffMember: (data: { email: string; fullName: string; password?: string; role?: 'STAFF' | 'OWNER' }) => Promise<void>;
+  updateStaffMember: (staffId: string, data: { fullName?: string; password?: string; role?: 'STAFF' | 'OWNER' }) => Promise<void>;
+  toggleLockStaffMember: (staffId: string, lock: boolean) => Promise<void>;
+  deleteStaffMember: (staffId: string) => Promise<void>;
   resetToDefault: () => void;
 }
 
@@ -40,12 +63,17 @@ const initialDefaultConfig: WorkspaceConfig = {
 const WorkspaceConfigContext = createContext<WorkspaceConfigContextType | undefined>(undefined);
 
 export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isOwner, isAuthenticated } = useUserRole();
+  const { isOwner, staffId, ownerId, isAuthenticated } = useUserRole();
   const [isLoading, setIsLoading] = useState(false);
+  const [staffMembers, setStaffMembers] = useState<ManagedStaffItem[]>([]);
+
+  const effectiveOwnerId = ownerId || (isOwner ? staffId : '');
+
   const [config, setConfig] = useState<WorkspaceConfig>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem(STORAGE_KEY);
+        const ownerStorageKey = effectiveOwnerId ? `${STORAGE_KEY}_${effectiveOwnerId}` : STORAGE_KEY;
+        const stored = localStorage.getItem(ownerStorageKey) || localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed && parsed.pipelineStages && parsed.pipelineStages.length >= 2) {
@@ -59,31 +87,41 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
     return initialDefaultConfig;
   });
 
-  // Đồng bộ cấu hình từ Backend API
+  // Đồng bộ cấu hình từ Backend API theo ownerId
   const syncFromBackend = useCallback(async () => {
     try {
-      const res = await fetch('/api/workspaces/current/config');
+      const res = await fetch('/api/workspaces/current/config', {
+        headers: {
+          'x-owner-id': effectiveOwnerId,
+          'x-staff-id': staffId || '',
+          'x-user-role': isOwner ? 'OWNER' : 'STAFF',
+          'x-workspace-id': config.workspaceId || '',
+        },
+      });
       if (res.ok) {
         const remoteConfig: WorkspaceConfig = await res.json();
         if (remoteConfig && remoteConfig.pipelineStages?.length >= 2) {
           setConfig(remoteConfig);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteConfig));
+          const ownerStorageKey = effectiveOwnerId ? `${STORAGE_KEY}_${effectiveOwnerId}` : STORAGE_KEY;
+          localStorage.setItem(ownerStorageKey, JSON.stringify(remoteConfig));
         }
       }
     } catch {
       // Backend có thể chưa chạy, dùng local cache
     }
-  }, []);
+  }, [effectiveOwnerId, staffId, isOwner, config.workspaceId]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
     syncFromBackend();
   }, [syncFromBackend, isAuthenticated]);
 
-  // Lưu state ra localStorage mỗi khi config thay đổi
+  // Lưu state ra localStorage theo ownerId mỗi khi config thay đổi
   const saveConfig = (newConfig: WorkspaceConfig) => {
     setConfig(newConfig);
     try {
+      const ownerStorageKey = effectiveOwnerId ? `${STORAGE_KEY}_${effectiveOwnerId}` : STORAGE_KEY;
+      localStorage.setItem(ownerStorageKey, JSON.stringify(newConfig));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfig));
     } catch (e) {
       console.warn('LocalStorage save failed:', e);
@@ -91,7 +129,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
   };
 
   /**
-   * Cập nhật toàn bộ hoặc một phần cấu hình
+   * Cập nhật toàn bộ hoặc một phần cấu hình và lưu DB theo ownerId
    */
   const updateConfig = async (patch: Partial<WorkspaceConfig>) => {
     if (!isOwner) {
@@ -112,17 +150,31 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
     saveConfig(updated);
 
     try {
-      await fetch('/api/workspaces/current/config', {
+      const res = await fetch('/api/workspaces/current/config', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'x-user-role': 'OWNER',
+          'x-owner-id': effectiveOwnerId,
+          'x-staff-id': staffId || '',
+          'x-workspace-id': config.workspaceId || '',
         },
         body: JSON.stringify(patch),
       });
-      notify.success('Đã lưu cấu hình Workspace thành công!');
-    } catch {
-      notify.info('Đã lưu cấu hình vào bộ nhớ máy tính (Offline Mode).');
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Lỗi máy chủ (${res.status})`);
+      }
+
+      const remoteConfig: WorkspaceConfig = await res.json();
+      if (remoteConfig && remoteConfig.pipelineStages?.length >= 2) {
+        saveConfig(remoteConfig);
+      }
+      notify.success('Đã lưu cấu hình Workspace thành công vào cơ sở dữ liệu!');
+    } catch (err) {
+      console.error('Update config failed:', err);
+      notify.info(`Đã lưu cấu hình cục bộ (${(err as Error).message}).`);
     } finally {
       setIsLoading(false);
     }
@@ -154,17 +206,27 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
     saveConfig(newConfig);
 
     try {
-      await fetch('/api/workspaces/current/config/apply-preset', {
+      const res = await fetch('/api/workspaces/current/config/apply-preset', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-user-role': 'OWNER',
+          'x-owner-id': effectiveOwnerId,
+          'x-staff-id': staffId || '',
         },
         body: JSON.stringify({ presetKey: domain, workspaceName: customName }),
       });
-      notify.success(`Đã áp dụng mẫu "${preset.terminology.pipelineName}" cho Workspace!`);
-    } catch {
-      notify.success(`Đã chuyển đổi sang mô hình "${preset.terminology.pipelineName}" (Offline).`);
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Lỗi máy chủ (${res.status})`);
+      }
+
+      const remoteConfig: WorkspaceConfig = await res.json();
+      if (remoteConfig) saveConfig(remoteConfig);
+      notify.success(`Đã áp dụng mẫu "${preset.terminology.pipelineName}" vào Database!`);
+    } catch (err) {
+      notify.info(`Đã chuyển đổi sang mô hình "${preset.terminology.pipelineName}" (${(err as Error).message}).`);
     } finally {
       setIsLoading(false);
     }
@@ -182,7 +244,6 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
 
     const newStages = [...config.pipelineStages, newStage];
     await updateConfig({ pipelineStages: newStages });
-    notify.success(`Đã thêm giai đoạn "${stage.name}" vào phễu!`);
   };
 
   /**
@@ -204,7 +265,6 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
 
     const stageToDelete = config.pipelineStages.find((s) => s.id === stageId);
     const newStages = config.pipelineStages.filter((s) => s.id !== stageId);
-    // Cập nhật lại order
     newStages.forEach((s, idx) => {
       s.order = idx + 1;
     });
@@ -222,7 +282,6 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
     const [moved] = stages.splice(sourceIndex, 1);
     stages.splice(destIndex, 0, moved);
 
-    // Cập nhật order
     stages.forEach((s, idx) => {
       s.order = idx + 1;
     });
@@ -231,7 +290,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
   };
 
   /**
-   * Thêm sản phẩm / khóa học mới
+   * Thêm sản phẩm / khóa học / ngành đào tạo mới
    */
   const addProduct = async (product: Omit<ProductItemConfig, 'id'>) => {
     const newProduct: ProductItemConfig = {
@@ -245,7 +304,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
   };
 
   /**
-   * Cập nhật sản phẩm
+   * Cập nhật sản phẩm / khóa học
    */
   const updateProduct = async (productId: string, patch: Partial<ProductItemConfig>) => {
     const newCatalog = config.productCatalog.map((p) => (p.id === productId ? { ...p, ...patch } : p));
@@ -253,7 +312,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
   };
 
   /**
-   * Xóa sản phẩm
+   * Xóa sản phẩm / khóa học
    */
   const deleteProduct = async (productId: string) => {
     if (config.productCatalog.length <= 1) {
@@ -264,6 +323,174 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
     const newCatalog = config.productCatalog.filter((p) => p.id !== productId);
     await updateConfig({ productCatalog: newCatalog });
     notify.info('Đã xóa mục khỏi danh mục.');
+  };
+
+  /**
+   * Thêm tiêu chí đánh giá / phân loại mới
+   */
+  const addCriteria = async (criteria: Omit<LeadQualificationCriteria, 'id'>) => {
+    const newCrit: LeadQualificationCriteria = {
+      ...criteria,
+      id: `CRIT_${Date.now()}`,
+    };
+    const newCriteriaList = [...config.criteria, newCrit];
+    await updateConfig({ criteria: newCriteriaList });
+    notify.success(`Đã thêm tiêu chí "${criteria.name}" vào Workspace!`);
+  };
+
+  /**
+   * Cập nhật tiêu chí
+   */
+  const updateCriteria = async (criteriaId: string, patch: Partial<LeadQualificationCriteria>) => {
+    const newCriteriaList = config.criteria.map((c) => (c.id === criteriaId ? { ...c, ...patch } : c));
+    await updateConfig({ criteria: newCriteriaList });
+  };
+
+  /**
+   * Xóa tiêu chí
+   */
+  const deleteCriteria = async (criteriaId: string) => {
+    const newCriteriaList = config.criteria.filter((c) => c.id !== criteriaId);
+    await updateConfig({ criteria: newCriteriaList });
+    notify.info('Đã xóa tiêu chí đánh giá.');
+  };
+
+  // ==========================================
+  // QUẢN LÝ NHÂN SỰ STAFF THUỘC OWNER
+  // ==========================================
+
+  const fetchStaffList = useCallback(async (): Promise<ManagedStaffItem[]> => {
+    try {
+      const res = await fetch('/api/workspaces/current/staff', {
+        headers: {
+          'x-owner-id': effectiveOwnerId,
+          'x-staff-id': staffId || '',
+          'x-user-role': isOwner ? 'OWNER' : 'STAFF',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStaffMembers(data);
+        return data;
+      }
+    } catch (err) {
+      console.warn('Could not fetch staff from backend:', err);
+    }
+    return [];
+  }, [effectiveOwnerId, staffId, isOwner]);
+
+  useEffect(() => {
+    if (isOwner) {
+      fetchStaffList();
+    }
+  }, [isOwner, fetchStaffList]);
+
+  const createStaffMember = async (data: { email: string; fullName: string; password?: string; role?: 'STAFF' | 'OWNER' }) => {
+    try {
+      const res = await fetch('/api/workspaces/current/staff', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-owner-id': effectiveOwnerId,
+          'x-staff-id': staffId || '',
+          'x-user-role': 'OWNER',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Lỗi khi tạo tài khoản nhân viên');
+      }
+
+      const created = await res.json();
+      setStaffMembers((prev) => [created, ...prev]);
+      notify.success(`Đã tạo tài khoản cho nhân viên "${created.fullName}"!`);
+    } catch (err) {
+      notify.error((err as Error).message, 'Tạo Nhân Viên Thất Bại');
+      throw err;
+    }
+  };
+
+  const updateStaffMember = async (targetId: string, data: { fullName?: string; password?: string; role?: 'STAFF' | 'OWNER' }) => {
+    try {
+      const res = await fetch(`/api/workspaces/current/staff/${targetId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-owner-id': effectiveOwnerId,
+          'x-staff-id': staffId || '',
+          'x-user-role': 'OWNER',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Lỗi khi cập nhật tài khoản');
+      }
+
+      const updated = await res.json();
+      setStaffMembers((prev) => prev.map((s) => (s.id === targetId ? updated : s)));
+      notify.success(`Đã cập nhật thông tin nhân viên "${updated.fullName}"!`);
+    } catch (err) {
+      notify.error((err as Error).message, 'Cập Nhật Thất Bại');
+      throw err;
+    }
+  };
+
+  const toggleLockStaffMember = async (targetId: string, lock: boolean) => {
+    try {
+      const res = await fetch(`/api/workspaces/current/staff/${targetId}/lock`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-owner-id': effectiveOwnerId,
+          'x-staff-id': staffId || '',
+          'x-user-role': 'OWNER',
+        },
+        body: JSON.stringify({ lock }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Lỗi khi thay đổi trạng thái khóa');
+      }
+
+      const updated = await res.json();
+      setStaffMembers((prev) => prev.map((s) => (s.id === targetId ? updated : s)));
+      notify.info(
+        lock ? `Đã khóa tài khoản "${updated.fullName}".` : `Đã mở khóa tài khoản "${updated.fullName}".`,
+        'Trạng Thái Nhân Viên'
+      );
+    } catch (err) {
+      notify.error((err as Error).message, 'Thao Tác Thất Bại');
+      throw err;
+    }
+  };
+
+  const deleteStaffMember = async (targetId: string) => {
+    try {
+      const res = await fetch(`/api/workspaces/current/staff/${targetId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-owner-id': effectiveOwnerId,
+          'x-staff-id': staffId || '',
+          'x-user-role': 'OWNER',
+        },
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Lỗi khi xóa nhân viên');
+      }
+
+      setStaffMembers((prev) => prev.filter((s) => s.id !== targetId));
+      notify.success('Đã xóa nhân viên khỏi hệ thống!');
+    } catch (err) {
+      notify.error((err as Error).message, 'Xóa Thất Bại');
+      throw err;
+    }
   };
 
   /**
@@ -289,6 +516,15 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
         addProduct,
         updateProduct,
         deleteProduct,
+        addCriteria,
+        updateCriteria,
+        deleteCriteria,
+        staffMembers,
+        fetchStaffList,
+        createStaffMember,
+        updateStaffMember,
+        toggleLockStaffMember,
+        deleteStaffMember,
         resetToDefault,
       }}
     >

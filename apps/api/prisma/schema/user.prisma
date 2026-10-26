@@ -16,6 +16,7 @@ model Staff {
   passwordHash       String       @map("password_hash")
   role               StaffRole    @default(STAFF)
   status             StaffStatus  @default(ACTIVE)
+  ownerId            String?      @map("owner_id") @db.Uuid
   telegramChatId     String?      @unique @map("telegram_chat_id")
   tokenVersion       Int          @default(0) @map("token_version")
   mustChangePassword Boolean      @default(false) @map("must_change_password")
@@ -25,12 +26,16 @@ model Staff {
   createdAt          DateTime     @default(now()) @map("created_at")
   updatedAt          DateTime     @updatedAt @map("updated_at")
 
+  owner              Staff?       @relation("OwnerStaffMembers", fields: [ownerId], references: [id], onDelete: Cascade)
+  managedStaff       Staff[]      @relation("OwnerStaffMembers")
   refreshTokens RefreshToken[]
   passwordRecoveryChallenges PasswordRecoveryChallenge[]
   ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
   memberships     WorkspaceMember[]
+  workspaceConfigurations WorkspaceConfiguration[] @relation("StaffWorkspaceConfig")
   auditLogs       AuditLog[]
 
+  @@index([ownerId])
   @@map("staff")
 }
 

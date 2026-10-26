@@ -19,6 +19,11 @@ import {
   BookOpen,
   Tag,
   Palette,
+  Users,
+  Lock,
+  Unlock,
+  UserCheck,
+  ShieldCheck,
 } from 'lucide-react';
 import { useWorkspaceConfig } from '../WorkspaceConfigContext.js';
 import { useUserRole } from '../../auth/UserRoleContext.js';
@@ -49,12 +54,37 @@ export const WorkspaceSettingsPage: React.FC = () => {
     reorderStages,
     addProduct,
     deleteProduct,
+    addCriteria,
+    deleteCriteria,
+    staffMembers,
+    createStaffMember,
+    updateStaffMember,
+    toggleLockStaffMember,
+    deleteStaffMember,
     resetToDefault,
   } = useWorkspaceConfig();
 
-  const { isOwner } = useUserRole();
+  const { isOwner, staffId } = useUserRole();
 
-  const [activeTab, setActiveTab] = useState<'stages' | 'catalog' | 'terminology'>('stages');
+  const [activeTab, setActiveTab] = useState<'stages' | 'catalog' | 'terminology' | 'criteria' | 'staff'>('stages');
+
+  // Form nhân sự mới
+  const [newStaffEmail, setNewStaffEmail] = useState('');
+  const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffPassword, setNewStaffPassword] = useState('');
+  const [newStaffRole, setNewStaffRole] = useState<'STAFF' | 'OWNER'>('STAFF');
+
+  // Form sửa nhân sự
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [editStaffFullName, setEditStaffFullName] = useState('');
+  const [editStaffPassword, setEditStaffPassword] = useState('');
+  const [editStaffRole, setEditStaffRole] = useState<'STAFF' | 'OWNER'>('STAFF');
+
+  // Form thêm tiêu chí mới
+  const [newCritName, setNewCritName] = useState('');
+  const [newCritType, setNewCritType] = useState<'TEXT' | 'SELECT' | 'NUMBER' | 'BOOLEAN'>('TEXT');
+  const [newCritOptions, setNewCritOptions] = useState('');
+  const [newCritRequired, setNewCritRequired] = useState(false);
 
   // Form thêm stage mới
   const [newStageName, setNewStageName] = useState('');
@@ -200,6 +230,73 @@ export const WorkspaceSettingsPage: React.FC = () => {
         valueLabel: valueLabelInput.trim() || config.terminology.valueLabel,
       },
     });
+  };
+
+  const handleCreateCriteria = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCritName.trim()) {
+      notify.warning('Vui lòng nhập tên tiêu chí đánh giá.');
+      return;
+    }
+
+    const opts = newCritType === 'SELECT'
+      ? newCritOptions.split(',').map((o) => o.trim()).filter(Boolean)
+      : undefined;
+
+    addCriteria({
+      name: newCritName.trim(),
+      type: newCritType,
+      options: opts,
+      isRequired: newCritRequired,
+    });
+
+    setNewCritName('');
+    setNewCritOptions('');
+    setNewCritRequired(false);
+  };
+
+  const handleCreateStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStaffEmail.trim() || !newStaffName.trim()) {
+      notify.warning('Vui lòng nhập Email và Họ tên nhân viên.');
+      return;
+    }
+
+    try {
+      await createStaffMember({
+        email: newStaffEmail.trim(),
+        fullName: newStaffName.trim(),
+        password: newStaffPassword.trim() || undefined,
+        role: newStaffRole,
+      });
+
+      setNewStaffEmail('');
+      setNewStaffName('');
+      setNewStaffPassword('');
+      setNewStaffRole('STAFF');
+    } catch {}
+  };
+
+  const startEditStaff = (staff: any) => {
+    setEditingStaffId(staff.id);
+    setEditStaffFullName(staff.fullName);
+    setEditStaffPassword('');
+    setEditStaffRole(staff.role as any);
+  };
+
+  const handleUpdateStaffSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStaffId) return;
+
+    try {
+      await updateStaffMember(editingStaffId, {
+        fullName: editStaffFullName.trim(),
+        password: editStaffPassword.trim() || undefined,
+        role: editStaffRole,
+      });
+
+      setEditingStaffId(null);
+    } catch {}
   };
 
   return (
@@ -401,8 +498,54 @@ export const WorkspaceSettingsPage: React.FC = () => {
           }}
         >
           <Tag size={16} />
-          <span>Thuật Ngữ & Tiêu Chí</span>
+          <span>Thuật Ngữ Hệ Thống</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('criteria')}
+          style={{
+            padding: '10px 18px',
+            fontSize: '14px',
+            fontWeight: 600,
+            border: 'none',
+            borderBottom: activeTab === 'criteria' ? '2px solid #0284c7' : '2px solid transparent',
+            marginBottom: '-2px',
+            backgroundColor: 'transparent',
+            color: activeTab === 'criteria' ? '#0284c7' : '#64748b',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <Sliders size={16} />
+          <span>Tiêu Chí Phân Loại ({config.criteria.length})</span>
+        </button>
+
+        {isOwner && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('staff')}
+            style={{
+              padding: '10px 18px',
+              fontSize: '14px',
+              fontWeight: 600,
+              border: 'none',
+              borderBottom: activeTab === 'staff' ? '2px solid #0284c7' : '2px solid transparent',
+              marginBottom: '-2px',
+              backgroundColor: 'transparent',
+              color: activeTab === 'staff' ? '#0284c7' : '#64748b',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <Users size={16} />
+            <span>Quản Lý Nhân Viên ({staffMembers.length})</span>
+          </button>
+        )}
       </div>
 
       {/* 4. Nội Dung Tab 1: Cấu hình Giai đoạn Phễu */}
@@ -1051,6 +1194,526 @@ export const WorkspaceSettingsPage: React.FC = () => {
                 </button>
               )}
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Tab Tiêu Chí Đánh Giá / Phân Loại */}
+      {activeTab === 'criteria' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: '24px' }}>
+          {/* Cột trái: Danh sách tiêu chí */}
+          <div>
+            <div style={{ marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 4px', color: '#0f172a' }}>
+                Tiêu Chí Đánh Giá & Phân Loại ({config.criteria.length})
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+                Các câu hỏi, tiêu chuẩn sàng lọc ứng viên/khách hàng được lưu vào cơ sở dữ liệu theo tài khoản Chủ doanh nghiệp.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {config.criteria.length === 0 ? (
+                <div
+                  style={{
+                    padding: '32px',
+                    textAlign: 'center',
+                    background: '#f8fafc',
+                    borderRadius: '8px',
+                    border: '1px dashed #cbd5e1',
+                    color: '#64748b',
+                    fontSize: '13px',
+                  }}
+                >
+                  Chưa có tiêu chí đánh giá nào. Hãy thêm tiêu chí mới ở biểu mẫu bên phải.
+                </div>
+              ) : (
+                config.criteria.map((crit) => (
+                  <div
+                    key={crit.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 18px',
+                      background: '#ffffff',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>
+                          {crit.name}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: '#eff6ff',
+                            color: '#1d4ed8',
+                          }}
+                        >
+                          {crit.type}
+                        </span>
+                        {crit.isRequired && (
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              backgroundColor: '#fef2f2',
+                              color: '#dc2626',
+                            }}
+                          >
+                            Bắt buộc
+                          </span>
+                        )}
+                      </div>
+                      {crit.options && crit.options.length > 0 && (
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>
+                          Tùy chọn: {crit.options.join(', ')}
+                        </div>
+                      )}
+                    </div>
+
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => deleteCriteria(crit.id)}
+                        className="crm-btn-icon danger"
+                        title="Xóa tiêu chí"
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#ef4444' }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Cột phải: Form thêm tiêu chí */}
+          <div>
+            <div
+              style={{
+                background: '#ffffff',
+                borderRadius: '10px',
+                border: '1px solid #e2e8f0',
+                padding: '20px',
+              }}
+            >
+              <h4 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 14px', color: '#0f172a' }}>
+                Thêm Tiêu Chí Mới
+              </h4>
+              <form onSubmit={handleCreateCriteria}>
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                    Tên tiêu chí *
+                  </label>
+                  <input
+                    type="text"
+                    className="crm-form-input"
+                    placeholder="VD: Trình độ học vấn, Tầm tài chính..."
+                    value={newCritName}
+                    onChange={(e) => setNewCritName(e.target.value)}
+                    disabled={!isOwner}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                    Kiểu dữ liệu
+                  </label>
+                  <select
+                    className="crm-form-select"
+                    value={newCritType}
+                    onChange={(e) => setNewCritType(e.target.value as any)}
+                    disabled={!isOwner}
+                  >
+                    <option value="TEXT">Văn bản (Text)</option>
+                    <option value="SELECT">Chọn một (Dropdown Select)</option>
+                    <option value="NUMBER">Số liệu (Number)</option>
+                    <option value="BOOLEAN">Có / Không (Boolean)</option>
+                  </select>
+                </div>
+
+                {newCritType === 'SELECT' && (
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                      Các tùy chọn (phân cách bằng dấu phẩy)
+                    </label>
+                    <input
+                      type="text"
+                      className="crm-form-input"
+                      placeholder="VD: THPT, Trung cấp, Đại học, Đi làm"
+                      value={newCritOptions}
+                      onChange={(e) => setNewCritOptions(e.target.value)}
+                      disabled={!isOwner}
+                    />
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    id="critRequired"
+                    checked={newCritRequired}
+                    onChange={(e) => setNewCritRequired(e.target.checked)}
+                    disabled={!isOwner}
+                  />
+                  <label htmlFor="critRequired" style={{ fontSize: '13px', cursor: 'pointer' }}>
+                    Tiêu chuẩn bắt buộc phải thu thập
+                  </label>
+                </div>
+
+                {isOwner && (
+                  <button
+                    type="submit"
+                    className="crm-btn crm-btn-primary"
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    disabled={isLoading}
+                  >
+                    <Plus size={16} />
+                    <span>Thêm Tiêu Chí</span>
+                  </button>
+                )}
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Tab Quản Lý Nhân Sự (Staff Management) */}
+      {activeTab === 'staff' && isOwner && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: '24px' }}>
+          {/* Cột trái: Danh sách nhân viên */}
+          <div>
+            <div style={{ marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 4px', color: '#0f172a' }}>
+                Danh Sách Nhân Viên & Tư Vấn Viên ({staffMembers.length})
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+                Ràng buộc đa người dùng: Nhân viên tạo bởi Owner này sẽ chỉ xem được dữ liệu phễu và khách hàng của Workspace này. Chủ doanh nghiệp có quyền sửa thông tin, đặt lại mật khẩu, khóa hoặc xóa tài khoản.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {staffMembers.length === 0 ? (
+                <div
+                  style={{
+                    padding: '32px',
+                    textAlign: 'center',
+                    background: '#f8fafc',
+                    borderRadius: '8px',
+                    border: '1px dashed #cbd5e1',
+                    color: '#64748b',
+                    fontSize: '13px',
+                  }}
+                >
+                  Chưa có nhân viên nào trực thuộc. Hãy thêm nhân viên mới ở biểu mẫu bên phải.
+                </div>
+              ) : (
+                staffMembers.map((st) => {
+                  const isCurrentOwnerSelf = st.id === staffId;
+                  const isLocked = st.status === 'LOCKED';
+                  return (
+                    <div
+                      key={st.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '14px 18px',
+                        background: '#ffffff',
+                        borderRadius: '8px',
+                        border: isLocked ? '1px solid #fecaca' : '1px solid #e2e8f0',
+                        backgroundColor: isLocked ? '#fff5f5' : '#ffffff',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            backgroundColor: st.role === 'OWNER' ? '#eff6ff' : '#f1f5f9',
+                            color: st.role === 'OWNER' ? '#1d4ed8' : '#475569',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 700,
+                            fontSize: '14px',
+                          }}
+                        >
+                          {st.fullName.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>
+                              {st.fullName} {isCurrentOwnerSelf ? '(Bạn)' : ''}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                backgroundColor: st.role === 'OWNER' ? '#eff6ff' : '#f8fafc',
+                                color: st.role === 'OWNER' ? '#1d4ed8' : '#64748b',
+                                border: '1px solid #cbd5e1',
+                              }}
+                            >
+                              {st.role === 'OWNER' ? 'Chủ doanh nghiệp' : 'Tư vấn viên'}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                backgroundColor: isLocked ? '#fef2f2' : '#f0fdf4',
+                                color: isLocked ? '#dc2626' : '#16a34a',
+                                border: `1px solid ${isLocked ? '#fca5a5' : '#bbf7d0'}`,
+                              }}
+                            >
+                              {isLocked ? 'Đã khóa' : 'Đang hoạt động'}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748b' }}>
+                            {st.email}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Các nút hành động: Khóa / Sửa / Xóa */}
+                      {!isCurrentOwnerSelf && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => toggleLockStaffMember(st.id, !isLocked)}
+                            title={isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản nhân viên này'}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '6px 10px',
+                              fontSize: '12px',
+                              borderRadius: '6px',
+                              border: '1px solid #cbd5e1',
+                              background: isLocked ? '#f0fdf4' : '#fff1f2',
+                              color: isLocked ? '#16a34a' : '#e11d48',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {isLocked ? <Unlock size={14} /> : <Lock size={14} />}
+                            <span>{isLocked ? 'Mở khóa' : 'Khóa'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => startEditStaff(st)}
+                            title="Sửa thông tin hoặc đặt lại mật khẩu"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '6px 10px',
+                              fontSize: '12px',
+                              borderRadius: '6px',
+                              border: '1px solid #cbd5e1',
+                              background: '#ffffff',
+                              color: '#334155',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <Edit2 size={14} />
+                            <span>Sửa</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Bạn có chắc muốn xóa nhân viên "${st.fullName}" khỏi hệ thống?`)) {
+                                deleteStaffMember(st.id);
+                              }
+                            }}
+                            title="Xóa nhân viên"
+                            style={{
+                              padding: '6px 8px',
+                              borderRadius: '6px',
+                              border: '1px solid #fee2e2',
+                              background: '#fff',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Cột phải: Form thêm / sửa nhân viên */}
+          <div>
+            <div
+              style={{
+                background: '#ffffff',
+                borderRadius: '10px',
+                border: '1px solid #e2e8f0',
+                padding: '20px',
+              }}
+            >
+              {editingStaffId ? (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <h4 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: '#0f172a' }}>
+                      Cập Nhật Nhân Viên
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setEditingStaffId(null)}
+                      style={{ border: 'none', background: 'transparent', fontSize: '12px', color: '#64748b', cursor: 'pointer' }}
+                    >
+                      Hủy bỏ
+                    </button>
+                  </div>
+                  <form onSubmit={handleUpdateStaffSubmit}>
+                    <div style={{ marginBottom: '14px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                        Họ và tên *
+                      </label>
+                      <input
+                        type="text"
+                        className="crm-form-input"
+                        value={editStaffFullName}
+                        onChange={(e) => setEditStaffFullName(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '14px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                        Đặt lại mật khẩu mới (Bỏ trống nếu giữ nguyên)
+                      </label>
+                      <input
+                        type="password"
+                        className="crm-form-input"
+                        placeholder="Nhập mật khẩu mới..."
+                        value={editStaffPassword}
+                        onChange={(e) => setEditStaffPassword(e.target.value)}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '18px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                        Vai trò
+                      </label>
+                      <select
+                        className="crm-form-select"
+                        value={editStaffRole}
+                        onChange={(e) => setEditStaffRole(e.target.value as any)}
+                      >
+                        <option value="STAFF">Tư vấn viên (Staff/Agent)</option>
+                        <option value="OWNER">Đồng sở hữu (Owner)</option>
+                      </select>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="crm-btn crm-btn-primary"
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    >
+                      <Check size={16} />
+                      <span>Lưu Thay Đổi</span>
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <div>
+                  <h4 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 14px', color: '#0f172a' }}>
+                    Thêm Nhân Viên Tư Vấn
+                  </h4>
+                  <form onSubmit={handleCreateStaff}>
+                    <div style={{ marginBottom: '14px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                        Email đăng nhập *
+                      </label>
+                      <input
+                        type="email"
+                        className="crm-form-input"
+                        placeholder="VD: tuvanvien1@cusc.com"
+                        value={newStaffEmail}
+                        onChange={(e) => setNewStaffEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '14px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                        Họ và tên *
+                      </label>
+                      <input
+                        type="text"
+                        className="crm-form-input"
+                        placeholder="VD: Nguyễn Văn Nam"
+                        value={newStaffName}
+                        onChange={(e) => setNewStaffName(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '14px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                        Mật khẩu khởi tạo
+                      </label>
+                      <input
+                        type="password"
+                        className="crm-form-input"
+                        placeholder="Mặc định: Cusc123456!"
+                        value={newStaffPassword}
+                        onChange={(e) => setNewStaffPassword(e.target.value)}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '18px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                        Vai trò phân quyền
+                      </label>
+                      <select
+                        className="crm-form-select"
+                        value={newStaffRole}
+                        onChange={(e) => setNewStaffRole(e.target.value as any)}
+                      >
+                        <option value="STAFF">Tư vấn viên (Staff/Agent)</option>
+                        <option value="OWNER">Đồng quản lý (Owner)</option>
+                      </select>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="crm-btn crm-btn-primary"
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                      disabled={isLoading}
+                    >
+                      <Plus size={16} />
+                      <span>Tạo Tài Khoản Nhân Viên</span>
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

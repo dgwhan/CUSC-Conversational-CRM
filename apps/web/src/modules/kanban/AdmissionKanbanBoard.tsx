@@ -20,6 +20,7 @@ import {
   Sparkles,
   Lock,
   Sliders,
+  Trash2,
 } from 'lucide-react';
 
 interface AdmissionKanbanBoardProps {
@@ -38,7 +39,25 @@ const { isOwner, isAgent, staffId, staffName } = useUserRole();
   const [candidates, setCandidates] = useState<KanbanCandidate[]>(() => {
     try {
       const saved = localStorage.getItem('cusc_crm_kanban_candidates');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: KanbanCandidate[] = JSON.parse(saved);
+        // Tự động lọc sạch các ứng viên mẫu gán cứng cũ lưu trong localStorage của trình duyệt
+        const cleanList = parsed.filter(
+          (c) =>
+            !c.id.startsWith('cand-1') &&
+            !c.id.startsWith('cand-2') &&
+            !c.id.startsWith('cand-3') &&
+            !c.id.startsWith('cand-4') &&
+            !c.id.startsWith('cand-5') &&
+            !c.id.startsWith('cand-6') &&
+            !['Nguyễn Văn An', 'Trần Thị Thu Hà', 'Lê Hoàng Nam', 'Phạm Minh Đức', 'Đoàn Gia Huy', 'Võ Thị Mai Anh'].includes(c.fullName) &&
+            !['Lê Thị Thu Lan', 'Trần Hoàng Nam', 'Nguyễn Văn Minh (Bạn)'].includes(c.assignedStaffName || '')
+        );
+        if (cleanList.length !== parsed.length) {
+          localStorage.setItem('cusc_crm_kanban_candidates', JSON.stringify(cleanList));
+        }
+        return cleanList;
+      }
     } catch {}
     return INITIAL_KANBAN_CANDIDATES;
   });
@@ -74,6 +93,17 @@ const { isOwner, isAgent, staffId, staffName } = useUserRole();
     });
     return unsubscribe;
   }, [onPipelineChange, config.terminology.entityName]);
+
+  
+  const handleClearAllCandidates = () => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa toàn bộ dữ liệu ứng viên trên phễu Kanban để làm sạch dữ liệu?')) {
+      setCandidates([]);
+      try {
+        localStorage.removeItem('cusc_crm_kanban_candidates');
+      } catch {}
+      notify.info('Đã xóa sạch toàn bộ ứng viên trên phễu Kanban.');
+    }
+  };
 
   // Format tiền tệ VNĐ
   const formatCurrency = (val: number) => {
@@ -300,9 +330,11 @@ const { isOwner, isAgent, staffId, staffName } = useUserRole();
             onChange={(e) => setStaffFilter(e.target.value)}
           >
 <option value="ALL">Tất cả nhân viên tư vấn</option>
-            <option value="staff-1">{staffName ? `${staffName} (Bạn)` : 'Nguyễn Văn Minh (Bạn)'}</option>
-            <option value="staff-2">Lê Thị Thu Lan</option>
-            <option value="staff-3">Trần Hoàng Nam</option>
+            {Object.values(staffPresences).map((staff) => (
+              <option key={staff.staffId} value={staff.staffId}>
+                {staff.name}
+              </option>
+            ))}
           </select>
 
           {/* Lọc Sản phẩm / Khóa học theo catalog của workspace */}

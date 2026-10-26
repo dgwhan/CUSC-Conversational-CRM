@@ -7,6 +7,7 @@ const apiProxy = {
     target: 'http://localhost:3000',
     changeOrigin: true,
     secure: false,
+    ws: true,
     configure: (proxy: any) => {
       proxy.on('error', (err: any, _req: any, res: any) => {
         const isConnectionRefused =

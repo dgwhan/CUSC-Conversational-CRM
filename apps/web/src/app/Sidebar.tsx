@@ -35,7 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
 }) => {
   const { t } = useTranslation();
-  const { myPresence } = useRealtime();
+  const { myPresence, unreadCount } = useRealtime();
   const { config } = useWorkspaceConfig();
   const { isOwner, isAgent, staffName, logout } = useUserRole();
 
@@ -46,7 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: t('nav.liveInbox'),
       icon: <MessageSquare size={18} />,
       tag: '',
-      badgeCount: 3,
+      badgeCount: unreadCount > 0 ? unreadCount : undefined,
     },
     {
       id: 'kanban' as ActiveNavTab,
@@ -58,7 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'workspace-settings' as ActiveNavTab,
       label: 'Cấu Hình Phễu & Multi-tenant',
       icon: <Sliders size={18} />,
-      tag: isAgent ? 'Chỉ Owner' : 'Tùy biến',
+      tag: isAgent ? 'Chỉ Owner' : '',
       restricted: isAgent,
     },
     {
@@ -189,11 +189,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="crm-user-role"
               style={{
                 fontSize: '11px',
-                fontWeight: 600,
+                fontWeight: 400,
                 color: isOwner ? '#0284c7' : '#ea580c',
               }}
             >
-              {isOwner ? '👑 Chủ doanh nghiệp (Full)' : '🎧 Tư vấn viên (Agent)'}
+              {isOwner ? 'Chủ doanh nghiệp ' : 'Tư vấn viên'}
             </span>
           </div>
           <button

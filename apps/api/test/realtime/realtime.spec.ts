@@ -1,14 +1,24 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { RealtimeService } from '../../src/modules/realtime/realtime.service.js';
 import { RealtimeController } from '../../src/modules/realtime/realtime.controller.js';
 import { firstValueFrom, take } from 'rxjs';
 
 describe('RealtimeService & SSE Engine', () => {
-  it('should initialize with default staff presences', () => {
+  it('should initialize with dynamic staff presences and register staff dynamically', () => {
     const service = new RealtimeService();
+    // Không gán cứng danh sách nhân viên ban đầu
+    expect(service.getAllStaffPresences()).toHaveLength(0);
+
+    // Đăng ký nhân viên động khi kết nối
+    service.updateStaffPresence('staff-1', 'ONLINE', {
+      name: 'Tư vấn viên chính',
+      role: 'Tư vấn viên',
+    });
+
     const presences = service.getAllStaffPresences();
-    expect(presences.length).toBeGreaterThanOrEqual(3);
-    expect(presences.find((p) => p.staffId === 'staff-1')?.status).toBe('ONLINE');
+    expect(presences).toHaveLength(1);
+    expect(presences[0]?.staffId).toBe('staff-1');
+    expect(presences[0]?.status).toBe('ONLINE');
   });
 
   it('should update staff presence and emit presence:updated event', async () => {
@@ -32,7 +42,7 @@ describe('RealtimeService & SSE Engine', () => {
 
     service.broadcastNewMessage({
       id: 'msg-realtime-1',
-      conversationId: 'conv-1',
+      conversationId: 'conv-realtime-1',
       channel: 'FACEBOOK',
       direction: 'INBOUND',
       content: 'Tư vấn Fullstack React',
@@ -52,7 +62,7 @@ describe('RealtimeService & SSE Engine', () => {
 
     const presencesResult = controller.getPresences();
     expect(presencesResult.status).toBe('ok');
-    expect(presencesResult.data.length).toBeGreaterThanOrEqual(3);
+    expect(Array.isArray(presencesResult.data)).toBe(true);
 
     const simResult = controller.simulateInboundMessage({
       channel: 'ZALO',

@@ -190,36 +190,7 @@
     overflow-x: hidden !important;
   }
 
-  /* Navbar thu gọn */
-  .crm-navbar {
-    padding: 8px 12px !important;
-    height: auto !important;
-    min-height: 52px !important;
-    flex-wrap: wrap !important;
-    gap: 8px !important;
-  }
-
-  .crm-breadcrumb {
-    font-size: 12px !important;
-  }
-
-  .crm-breadcrumb .crumb-root,
-  .crm-breadcrumb .crumb-module,
-  .crm-breadcrumb .crumb-separator:nth-of-type(1),
-  .crm-breadcrumb .crumb-separator:nth-of-type(2) {
-    display: none !important;
-  }
-
-  .crm-navbar-actions {
-    width: 100% !important;
-    justify-content: space-between !important;
-    overflow-x: auto !important;
-    padding-top: 4px !important;
-  }
-
-  .navbar-quick-tabs {
-    flex-shrink: 0 !important;
-  }
+  /* Navbar & Header layout được quản lý tập trung và chi tiết trong header-layout.css */
 
   /* INBOX TRÊN MOBILE: 1 CỘT TẠI MỘT THỜI ĐIỂM (CHUẨN UX ZALO/MESSENGER/PANCAKE) */
   .pancake-inbox-container {

@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { NestFastifyApplication, FastifyAdapter } from '@nestjs/platform-fastify';
 import { ConfigService } from '@nestjs/config';
+import { RealtimeService } from './modules/realtime/realtime.service.js';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -31,6 +32,10 @@ async function bootstrap(): Promise<void> {
       done(null, body);
     },
   );
+
+  // Khởi tạo và gắn kết nối WebSocket Server trên Fastify HTTP Server
+  const realtimeService = app.get(RealtimeService);
+  realtimeService.attachHttpServer(fastify.server);
 
   // Allow API endpoints will start with /api/ 
   app.setGlobalPrefix('api');

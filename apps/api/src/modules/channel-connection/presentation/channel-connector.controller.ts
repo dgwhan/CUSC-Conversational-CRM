@@ -29,7 +29,7 @@ import {
   type ChannelAccountDto,
 } from '../../../contracts/channel-connection.js';
 
-@Controller('api')
+@Controller()
 @UseGuards(WorkspaceRolesGuard)
 export class ChannelConnectorController {
   constructor(
@@ -94,6 +94,11 @@ export class ChannelConnectorController {
       bodyResult.data.code,
       bodyResult.data.state,
       bodyResult.data.redirectUri,
+      {
+        pageId: bodyResult.data.pageId,
+        pageName: bodyResult.data.pageName,
+        accessToken: bodyResult.data.accessToken,
+      },
     );
   }
 
@@ -107,6 +112,7 @@ export class ChannelConnectorController {
   async activateChannels(
     @Body() rawBody: unknown,
     @Headers('x-workspace-id') headerWorkspaceId?: string,
+    @Headers('x-owner-id') headerOwnerId?: string,
   ): Promise<ActivateChannelsResult> {
     const bodyResult = ActivateChannelsBodySchema.safeParse(rawBody);
     if (!bodyResult.success) {
@@ -118,7 +124,7 @@ export class ChannelConnectorController {
       payload.workspaceId = headerWorkspaceId;
     }
 
-    return this.channelManager.activateChannels(payload);
+    return this.channelManager.activateChannels(payload, headerOwnerId);
   }
 
   /**
@@ -129,9 +135,10 @@ export class ChannelConnectorController {
   async getChannels(
     @Query('workspaceId') queryWorkspaceId?: string,
     @Headers('x-workspace-id') headerWorkspaceId?: string,
+    @Headers('x-owner-id') headerOwnerId?: string,
   ): Promise<ChannelAccountDto[]> {
     const effectiveWorkspaceId = queryWorkspaceId || headerWorkspaceId;
-    return this.channelManager.getChannels(effectiveWorkspaceId);
+    return this.channelManager.getChannels(effectiveWorkspaceId, headerOwnerId);
   }
 
   /**

@@ -5,6 +5,7 @@ import { X, UserPlus } from 'lucide-react';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import { useWorkspaceConfig } from '../workspace/WorkspaceConfigContext.js';
 import { useUserRole } from '../auth/UserRoleContext.js';
+import { useRealtime } from '../realtime/RealtimeContext.js';
 
 interface NewCandidateModalProps {
   isOpen: boolean;
@@ -17,8 +18,9 @@ export const NewCandidateModal: React.FC<NewCandidateModalProps> = ({
   onClose,
   onAddCandidate,
 }) => {
-const { config } = useWorkspaceConfig();
+  const { config } = useWorkspaceConfig();
   const { staffName } = useUserRole();
+  const { staffPresences } = useRealtime();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -28,7 +30,7 @@ const { config } = useWorkspaceConfig();
   const [estimatedTuition, setEstimatedTuition] = useState(
     String(config.productCatalog[0]?.defaultPrice || 20000000)
   );
-  const [assignedStaff, setAssignedStaff] = useState('staff-1');
+  const [assignedStaff, setAssignedStaff] = useState('staff-me');
   const [notes, setNotes] = useState('');
 
   // Cập nhật giá mặc định khi đổi sản phẩm / khóa học
@@ -59,14 +61,18 @@ const { config } = useWorkspaceConfig();
       return;
     }
 
-    const staffMap: Record<string, { name: string; avatar: string }> = {
-      'staff-1': {
-        name: staffName ? `${staffName} (Bạn)` : 'Bạn',
-        avatar: staffName ? staffName.slice(0, 2).toUpperCase() : 'ME',
-      },
-      'staff-2': { name: 'Lê Thị Thu Lan', avatar: 'TL' },
-      'staff-3': { name: 'Trần Hoàng Nam', avatar: 'HN' },
-    };
+    const staffList = Object.values(staffPresences);
+    const selectedStaffObj = staffList.find((s) => s.staffId === assignedStaff);
+    const assignedName = selectedStaffObj
+      ? selectedStaffObj.name
+      : staffName
+      ? `${staffName} (Bạn)`
+      : 'Bạn';
+    const assignedAvatar = selectedStaffObj
+      ? selectedStaffObj.avatar
+      : staffName
+      ? staffName.slice(0, 2).toUpperCase()
+      : 'ME';
 
     const newCandidate: KanbanCandidate = {
       id: `cand-${Date.now()}`,
@@ -88,8 +94,8 @@ const { config } = useWorkspaceConfig();
       priority: 'HIGH',
       interestCourses: [course || 'Gói dịch vụ mặc định'],
       assignedStaffId: assignedStaff,
-      assignedStaffName: staffMap[assignedStaff]?.name || staffName || 'Bạn',
-      assignedStaffAvatar: staffMap[assignedStaff]?.avatar || 'MV',
+      assignedStaffName: assignedName,
+      assignedStaffAvatar: assignedAvatar,
       assignedStaffPresence: 'ONLINE',
       lastActivityAt: 'Vừa xong',
       notesCount: notes.trim() ? 1 : 0,
@@ -191,9 +197,17 @@ const { config } = useWorkspaceConfig();
                 value={assignedStaff}
                 onChange={(e) => setAssignedStaff(e.target.value)}
               >
-                <option value="staff-1">{staffName ? `${staffName} (Bạn) - Online` : 'Bạn - Online'}</option>
-                <option value="staff-2">Lê Thị Thu Lan - Away</option>
-                <option value="staff-3">Trần Hoàng Nam - Busy</option>
+                {Object.values(staffPresences).length > 0 ? (
+                  Object.values(staffPresences).map((staff) => (
+                    <option key={staff.staffId} value={staff.staffId}>
+                      {staff.name} - {staff.status}
+                    </option>
+                  ))
+                ) : (
+                  <option value="staff-me">
+                    {staffName ? `${staffName} (Bạn) - Online` : 'Bạn - Online'}
+                  </option>
+                )}
               </select>
             </div>
           </div>
@@ -235,6 +249,22 @@ const { config } = useWorkspaceConfig();
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
+
+          {config.criteria.length > 0 && (
+            <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '14px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>
+                Tiêu chí đánh giá & phân loại ({config.criteria.length})
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
+                {config.criteria.map((crit) => (
+                  <div key={crit.id} style={{ fontSize: '12px', color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontWeight: 600 }}>• {crit.name}:</span>
+                    <span style={{ color: '#64748b' }}>{crit.type} {crit.isRequired ? '(Bắt buộc)' : ''}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="crm-modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>

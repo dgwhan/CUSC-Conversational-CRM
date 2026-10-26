@@ -65,7 +65,7 @@ class ApiClient {
       response = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json',
+          ...(restOptions.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...headers,
         },
         ...restOptions,
@@ -169,7 +169,26 @@ class ApiClient {
     );
   }
 
-  exchangeOAuthToken(channel: string, code: string, state: string, redirectUri?: string) {
+  exchangeOAuthToken(
+    channel: string,
+    codeOrPayload:
+      | string
+      | {
+          code?: string;
+          state?: string;
+          redirectUri?: string;
+          pageId?: string;
+          pageName?: string;
+          accessToken?: string;
+        },
+    state?: string,
+    redirectUri?: string,
+  ) {
+    const body =
+      typeof codeOrPayload === 'string'
+        ? { code: codeOrPayload, state: state || `st_${Date.now()}`, redirectUri }
+        : codeOrPayload;
+
     return this.post<{
       channel: string;
       userName?: string;
@@ -184,26 +203,46 @@ class ApiClient {
         channel: string;
         accessToken: string;
       }>;
-    }>(`/oauth/${channel.toLowerCase()}/exchange-token`, { code, state, redirectUri });
+    }>(`/oauth/${channel.toLowerCase()}/exchange-token`, body);
   }
 
-  activateChannels(pages: Record<string, unknown>[], workspaceId?: string) {
+  activateChannels(pages: Record<string, unknown>[], workspaceId?: string, ownerId?: string) {
     return this.post<{ activatedCount: number; workspaceId: string; channels: Record<string, unknown>[] }>(
       '/channels/activate',
       { pages, workspaceId },
+      {
+        headers: {
+          ...(workspaceId ? { 'x-workspace-id': workspaceId } : {}),
+          ...(ownerId ? { 'x-owner-id': ownerId } : {}),
+        },
+      },
     );
   }
 
-  getChannels(workspaceId?: string) {
-    return this.get<Record<string, unknown>[]>('/channels', { params: { workspaceId } });
+  getChannels(workspaceId?: string, ownerId?: string) {
+    return this.get<Record<string, unknown>[]>('/channels', {
+      params: { workspaceId },
+      headers: {
+        ...(workspaceId ? { 'x-workspace-id': workspaceId } : {}),
+        ...(ownerId ? { 'x-owner-id': ownerId } : {}),
+      },
+    });
   }
 
-  toggleChannel(id: string, isActive?: boolean) {
-    return this.patch<Record<string, unknown>>(`/channels/${id}/toggle`, { isActive });
+  toggleChannel(id: string, isActive?: boolean, workspaceId?: string) {
+    return this.patch<Record<string, unknown>>(
+      `/channels/${id}/toggle`,
+      { isActive },
+      {
+        headers: workspaceId ? { 'x-workspace-id': workspaceId } : {},
+      },
+    );
   }
 
-  disconnectChannel(id: string) {
-    return this.delete<{ success: boolean; id: string }>(`/channels/${id}`);
+  disconnectChannel(id: string, workspaceId?: string) {
+    return this.delete<{ success: boolean; id: string }>(`/channels/${id}`, {
+      headers: workspaceId ? { 'x-workspace-id': workspaceId } : {},
+    });
   }
 }
 
