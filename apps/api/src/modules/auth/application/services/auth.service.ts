@@ -6,11 +6,12 @@ import {
     UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Prisma } from "@prisma/client";
+import { AuditAction, Prisma } from "@prisma/client";
 import argon2 from "argon2";
 import bcrypt from "bcryptjs";
 import { PrismaService } from "../../../../platform/database/prisma.service.js";
 import { JwtTokenService } from "../../../../platform/config/jwt.config.js";
+import { AuditService } from "../../../audit/audit.service.js";
 import type { AuthUser } from "../../domain/types/auth-user.js";
 import type { StaffRole } from "../../../../contracts/iam.js";
 import { AUTH_VALIDATION } from "../../presentation/dto/auth.constants.js";
@@ -62,6 +63,7 @@ export class AuthService {
         private readonly prisma: PrismaService,
         private readonly jwtTokenService: JwtTokenService,
         private readonly configService: ConfigService,
+        private readonly auditService: AuditService,
     ) {}
 
     async login(
@@ -92,8 +94,12 @@ export class AuthService {
                             },
                         });
 
-                        if (!staff || staff.status !== "ACTIVE") {
-                            return { kind: "denied" } as const;
+                        if (!staff) {
+                            return { kind: "denied", reason: "USER_NOT_FOUND", staffId: null } as const;
+                        }
+
+                        if (staff.status !== "ACTIVE") {
+                            return { kind: "denied", reason: "ACCOUNT_LOCKED", staffId: staff.id } as const;
                         }
 
                         const now = new Date();
@@ -102,7 +108,7 @@ export class AuthService {
 
                         // A correct password must not bypass an active temporary lock
                         if (temporaryLockActive) {
-                            return { kind: "denied" } as const;
+                            return { kind: "denied", reason: "ACCOUNT_LOCKED", staffId: staff.id } as const;
                         }
 
                         const expiredTemporaryLock =
@@ -118,6 +124,7 @@ export class AuthService {
                                 data: {
                                     failedLoginAttempts: 0,
                                     lockedUntil: null,
+                                    status: "ACTIVE",
                                 },
                             });
                         }
@@ -142,7 +149,7 @@ export class AuthService {
                                 },
                             });
 
-                            return { kind: "denied" } as const;
+                            return { kind: "denied", reason: "INVALID_PASSWORD", staffId: staff.id } as const;
                         }
 
                         // Upgrade a legacy bcrypt hash after the password is verified
@@ -214,8 +221,30 @@ export class AuthService {
                 );
 
                 if (outcome.kind === "denied") {
+                    await this.auditService.recordEvent({
+                        action: AuditAction.LOGIN_FAILURE,
+                        staffId: outcome.staffId,
+                        ip: context.ip,
+                        userAgent: context.userAgent,
+                        metadata: {
+                            identifier: normalizedIdentifier,
+                            reason: outcome.reason,
+                        },
+                    });
+
                     throw new UnauthorizedException(AUTH_VALIDATION.MESSAGES.INVALID_CREDENTIALS);
                 }
+
+                await this.auditService.recordEvent({
+                    action: AuditAction.LOGIN_SUCCESS,
+                    staffId: outcome.response.staff.id,
+                    ip: context.ip,
+                    userAgent: context.userAgent,
+                    metadata: {
+                        identifier: normalizedIdentifier,
+                        role: outcome.response.staff.role,
+                    },
+                });
 
                 return {
                     response: outcome.response,

@@ -29,6 +29,7 @@ model Staff {
   passwordRecoveryChallenges PasswordRecoveryChallenge[]
   ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
   memberships     WorkspaceMember[]
+  auditLogs       AuditLog[]
 
   @@map("staff")
 }

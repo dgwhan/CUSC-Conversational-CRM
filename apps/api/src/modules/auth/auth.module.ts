@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../../platform/database/prisma.module.js';
+import { AuditModule } from '../audit/audit.module.js';
 import { AuthController } from './presentation/controllers/auth.controller.js';
 import { OwnerController } from './presentation/controllers/owner.controller.js';
 import { AuthService } from './application/services/auth.service.js';
@@ -12,6 +13,7 @@ import { JwtTokenService } from '../../platform/config/jwt.config.js';
 @Module({
   imports: [
     PrismaModule,
+    AuditModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
