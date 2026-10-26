@@ -33,6 +33,7 @@ model Staff {
   ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
   memberships     WorkspaceMember[]
   workspaceConfigurations WorkspaceConfiguration[] @relation("StaffWorkspaceConfig")
+  auditLogs       AuditLog[]
 
   @@index([ownerId])
   @@map("staff")

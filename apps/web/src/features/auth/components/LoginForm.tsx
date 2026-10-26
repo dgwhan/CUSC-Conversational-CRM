@@ -7,10 +7,7 @@ import { PasswordField } from '../../../components/ui/PasswordField.js';
 import { TextField } from '../../../components/ui/TextField.js';
 import { AuthApiError, login } from '../api/auth.api.js';
 import type { LoginResponse } from '../types/auth.types.js';
-import {
-  validateIdentifier,
-  validatePassword,
-} from '../validation/auth.validation.js';
+import { AUTH_MESSAGES } from '../validation/auth.validation.js';
 
 const REMEMBERED_IDENTIFIER_KEY = 'cusc.rememberedIdentifier';
 
@@ -55,8 +52,10 @@ export function LoginForm({
     event.preventDefault();
     setError('');
 
-    const nextIdentifierError = validateIdentifier(identifier);
-    const nextPasswordError = validatePassword(password);
+    const nextIdentifierError = identifier.trim()
+      ? ''
+      : AUTH_MESSAGES.IDENTIFIER_REQUIRED;
+    const nextPasswordError = password ? '' : AUTH_MESSAGES.PASSWORD_REQUIRED;
     setIdentifierError(nextIdentifierError);
     setPasswordError(nextPasswordError);
 
@@ -114,11 +113,19 @@ export function LoginForm({
           onChange={(event) => {
             setIdentifier(event.target.value);
             if (identifierError) {
-              setIdentifierError(validateIdentifier(event.target.value));
+              setIdentifierError(
+                event.target.value.trim() ? '' : AUTH_MESSAGES.IDENTIFIER_REQUIRED,
+              );
             }
             if (error) setError('');
           }}
-          onBlur={() => setIdentifierError(validateIdentifier(identifier))}
+          onBlur={() => {
+            if (identifierError) {
+              setIdentifierError(
+                identifier.trim() ? '' : AUTH_MESSAGES.IDENTIFIER_REQUIRED,
+              );
+            }
+          }}
           leadingIcon={<MailIcon />}
           errorMessage={identifierError}
           required
@@ -130,7 +137,7 @@ export function LoginForm({
           onChange={(value) => {
             setPassword(value);
             if (passwordError) {
-              setPasswordError(validatePassword(value));
+              setPasswordError(value ? '' : AUTH_MESSAGES.PASSWORD_REQUIRED);
             }
             if (error) setError('');
           }}
