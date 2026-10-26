@@ -87,6 +87,23 @@ export class ChannelManagerService {
 
       const channelEnum = page.channel as Channel;
 
+      // 3. Đăng ký Webhook Subscribed Apps nếu là Facebook thật
+      let isWebhookSubscribed = true;
+      let webhookError: string | undefined;
+
+      if (
+        page.channel === 'FACEBOOK' &&
+        page.accessToken &&
+        !page.accessToken.startsWith('EAA_mock') &&
+        !page.accessToken.startsWith('mock_') &&
+        !page.accessToken.startsWith('dev_') &&
+        !page.accessToken.startsWith('raw_secret_')
+      ) {
+        const subResult = await this.subscribePageWebhook(page.externalAccountId, page.accessToken);
+        isWebhookSubscribed = subResult.success;
+        webhookError = subResult.error;
+      }
+
       const account = await this.prisma.channelAccount.upsert({
         where: {
           channel_externalAccountId: {
@@ -101,9 +118,12 @@ export class ChannelManagerService {
           encryptedAccessToken,
           refreshToken: encryptedRefreshToken,
           tokenExpiresAt: page.tokenExpiresAt ? new Date(page.tokenExpiresAt) : null,
-          isWebhookSubscribed: true,
+          isWebhookSubscribed,
           isActive: true,
-          metadata: (page.metadata || {}) as any,
+          metadata: {
+            ...(page.metadata || {}),
+            ...(webhookError ? { webhookError } : {}),
+          } as any,
         },
         create: {
           workspaceId: targetWorkspaceId,
@@ -114,18 +134,14 @@ export class ChannelManagerService {
           encryptedAccessToken,
           refreshToken: encryptedRefreshToken,
           tokenExpiresAt: page.tokenExpiresAt ? new Date(page.tokenExpiresAt) : null,
-          isWebhookSubscribed: true,
+          isWebhookSubscribed,
           isActive: true,
-          metadata: (page.metadata || {}) as any,
+          metadata: {
+            ...(page.metadata || {}),
+            ...(webhookError ? { webhookError } : {}),
+          } as any,
         },
       });
-
-      // 3. Đăng ký Webhook Subscribed Apps nếu là Facebook thật
-      if (page.channel === 'FACEBOOK' && page.accessToken && !page.accessToken.startsWith('EAA_mock') && !page.accessToken.startsWith('dev_')) {
-        this.subscribePageWebhook(page.externalAccountId, page.accessToken).catch((err) => {
-          this.logger.warn(`Could not subscribe page webhook for ${page.externalAccountId}: ${err.message}`);
-        });
-      }
 
       activatedAccounts.push(this.mapToDto(account));
     }
@@ -274,14 +290,25 @@ export class ChannelManagerService {
   /**
    * Đăng ký Page Webhook vào App trên Meta Graph API
    */
-  private async subscribePageWebhook(pageId: string, pageAccessToken: string): Promise<void> {
-    const url = `https://graph.facebook.com/v19.0/${pageId}/subscribed_apps?subscribed_fields=messages,messaging_postbacks&access_token=${pageAccessToken}`;
-    const res = await fetch(url, { method: 'POST' });
-    const json = await res.json();
-    if (!res.ok || json.success !== true) {
-      this.logger.warn(`Meta subscribed_apps returned: ${JSON.stringify(json)}`);
-    } else {
+  private async subscribePageWebhook(
+    pageId: string,
+    pageAccessToken: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const url = `https://graph.facebook.com/v19.0/${pageId}/subscribed_apps?subscribed_fields=messages,messaging_postbacks&access_token=${pageAccessToken}`;
+      const res = await fetch(url, { method: 'POST' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success !== true) {
+        const errMsg = json.error?.message || JSON.stringify(json);
+        this.logger.warn(`Meta subscribed_apps returned: ${errMsg}`);
+        return { success: false, error: errMsg };
+      }
       this.logger.log(`Successfully subscribed page ${pageId} to Meta Webhook events.`);
+      return { success: true };
+    } catch (err: unknown) {
+      const errMsg = (err as Error).message;
+      this.logger.warn(`Could not subscribe page webhook for ${pageId}: ${errMsg}`);
+      return { success: false, error: errMsg };
     }
   }
 

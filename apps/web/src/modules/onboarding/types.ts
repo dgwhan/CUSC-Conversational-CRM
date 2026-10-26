@@ -24,6 +24,30 @@ export interface StaffInvite {
   role: 'ADMIN' | 'AGENT';
 }
 
+export interface VerificationDetails {
+  tokenValid: boolean;
+  pageMatched: boolean;
+  pageName: string;
+  pageId: string;
+  hasMessagingPermission: boolean;
+  webhookSubscribed?: boolean;
+  warning?: string;
+}
+
+export interface TestResultDto {
+  success: boolean;
+  message: string;
+  details: {
+    tokenValid: boolean;
+    pageFound: boolean;
+    pageName?: string;
+    pageId?: string;
+    permissionsOk?: boolean;
+    webhookSubscribed?: boolean;
+    warning?: string;
+  };
+}
+
 export interface DiscoveredPageDto {
   id: string;
   externalAccountId: string;
@@ -33,6 +57,9 @@ export interface DiscoveredPageDto {
   followerCount?: number;
   channel: ChannelKey;
   accessToken?: string;
+  isVerified?: boolean;
+  webhookStatus?: 'SUBSCRIBED' | 'NOT_SUBSCRIBED' | 'PENDING' | 'FAILED';
+  verificationDetails?: VerificationDetails;
 }
 
 export interface ChannelAccountDto {

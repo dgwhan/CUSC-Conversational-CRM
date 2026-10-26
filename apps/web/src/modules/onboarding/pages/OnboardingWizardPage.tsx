@@ -4,6 +4,7 @@ import {
   Share2,
   Users2,
   Check,
+  Loader2,
 } from 'lucide-react';
 import type { OnboardingState, BusinessSetupData, ChannelKey, FanpageItem, DiscoveredPageDto } from '../types.js';
 import { Step1BusinessSetup } from '../components/Step1BusinessSetup.js';
@@ -30,6 +31,8 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
   const effectiveOwnerId = ownerId || (isOwner ? staffId : '');
   const effectiveWorkspaceId = workspaceConfig.workspaceId;
 
+  const [isCheckingChannels, setIsCheckingChannels] = useState(true);
+
   // Khởi tạo trạng thái ban đầu SẠCH SẼ, không gán cứng dữ liệu mẫu
   const [state, setState] = useState<OnboardingState>(() => ({
     step: 1,
@@ -46,6 +49,7 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
   }));
 
   // Tự động tải danh sách các kênh đã liên kết thực tế từ Database theo Workspace
+  // NẾU ĐÃ CÓ KẾT NỐI MẠNG XÃ HỘI TRƯỚC ĐÓ: TỰ ĐỘNG BỎ QUA BƯỚC 1 VÀ CHUYỂN THẲNG VÀO BƯỚC 2
   useEffect(() => {
     let isMounted = true;
     const loadWorkspaceChannels = async () => {
@@ -67,10 +71,16 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
             ...prev,
             connectedChannels: activeChannels,
             pages: mappedPages,
+            // Đã có kết nối mạng xã hội: Bỏ qua bước 1 và chuyển trực tiếp sang Bước 2
+            step: 2,
           }));
         }
       } catch {
         // Chưa có kênh hoặc backend đang khởi động
+      } finally {
+        if (isMounted) {
+          setIsCheckingChannels(false);
+        }
       }
     };
 
@@ -245,6 +255,17 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
     onComplete(state);
   };
 
+  if (isCheckingChannels) {
+    return (
+      <div className="onboarding-page-container" style={{ display: 'flex', minHeight: '360px', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: '#64748b' }}>
+          <Loader2 className="animate-spin" size={32} style={{ color: '#2563eb' }} />
+          <span style={{ fontSize: '13px', fontWeight: 500 }}>Đang kiểm tra trạng thái kết nối mạng xã hội...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="onboarding-page-container">
       {/* Top Banner & Stepper */}
@@ -272,7 +293,9 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
       <div className="onboarding-stepper-container">
         <div className="onboarding-stepper-bar">
           {stepsMeta.map((s) => {
-            const isCompleted = state.step > s.number;
+            const hasExistingChannels = state.pages.length > 0;
+            // Nếu đã có kênh kết nối từ trước, bước 1 hiển thị hoàn thành (Check)
+            const isCompleted = state.step > s.number || (s.number === 1 && hasExistingChannels);
             const isCurrent = state.step === s.number;
 
             return (
@@ -280,7 +303,7 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
                 key={s.number}
                 className={`step-item ${isCompleted ? 'completed' : ''} ${isCurrent ? 'current' : ''}`}
                 onClick={() => {
-                  if (s.number < state.step) {
+                  if (s.number < state.step || (s.number === 1 && hasExistingChannels)) {
                     setState((prev) => ({ ...prev, step: s.number as 1 | 2 | 3 }));
                   }
                 }}

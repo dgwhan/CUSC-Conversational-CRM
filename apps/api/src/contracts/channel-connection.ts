@@ -30,6 +30,30 @@ export const ExchangeTokenBodySchema = z
   );
 export type ExchangeTokenBody = z.infer<typeof ExchangeTokenBodySchema>;
 
+export interface VerificationDetails {
+  tokenValid: boolean;
+  pageMatched: boolean;
+  pageName: string;
+  pageId: string;
+  hasMessagingPermission: boolean;
+  webhookSubscribed?: boolean;
+  warning?: string;
+}
+
+export interface TestResultDto {
+  success: boolean;
+  message: string;
+  details: {
+    tokenValid: boolean;
+    pageFound: boolean;
+    pageName?: string;
+    pageId?: string;
+    permissionsOk?: boolean;
+    webhookSubscribed?: boolean;
+    warning?: string;
+  };
+}
+
 export interface OAuthDiscoveredPage {
   id: string;
   externalAccountId: string;
@@ -41,6 +65,9 @@ export interface OAuthDiscoveredPage {
   accessToken: string;
   refreshToken?: string;
   tokenExpiresAt?: string;
+  isVerified?: boolean;
+  webhookStatus?: 'SUBSCRIBED' | 'NOT_SUBSCRIBED' | 'PENDING' | 'FAILED';
+  verificationDetails?: VerificationDetails;
 }
 
 export interface ExchangeTokenResult {
@@ -48,6 +75,7 @@ export interface ExchangeTokenResult {
   userName?: string;
   userId?: string;
   pages: OAuthDiscoveredPage[];
+  testResult?: TestResultDto;
 }
 
 export const ActivatePageItemSchema = z.object({
