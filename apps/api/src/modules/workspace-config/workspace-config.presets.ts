@@ -2,11 +2,11 @@ import type { WorkspaceConfig, BusinessDomain } from '../../contracts/workspace-
 
 export const INDUSTRY_PRESETS: Record<BusinessDomain, Omit<WorkspaceConfig, 'workspaceId'>> = {
   EDUCATION: {
-    workspaceName: 'Trung Tâm Công Nghệ Phần Mềm CUSC',
+    workspaceName: 'Tổ hợp Công nghệ PolarisX',
     domain: 'EDUCATION',
     terminology: {
       entityName: 'Thí sinh / Học viên',
-      pipelineName: 'Phễu Tuyển Sinh & Đào Tạo CUSC',
+      pipelineName: 'Phễu Tuyển Sinh & Đào Tạo',
       productLabel: 'Khóa học / Chương trình đào tạo',
       valueLabel: 'Học phí dự kiến (VNĐ)',
     },

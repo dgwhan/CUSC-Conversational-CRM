@@ -125,7 +125,7 @@ export class StaffManagementService {
       throw new BadRequestException('Email và Họ tên nhân viên không được để trống.');
     }
 
-    const defaultPassword = dto.password || 'Cusc123456!';
+    const defaultPassword = dto.password || 'PolarisX123456!';
     const passwordHash = await argon2.hash(defaultPassword);
 
     if (this.prisma) {

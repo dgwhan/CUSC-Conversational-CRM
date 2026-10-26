@@ -2,7 +2,7 @@ import type { TranslationDictionary } from '../types.js';
 
 export const en: TranslationDictionary = {
   common: {
-    systemName: 'CUSC CRM',
+    systemName: 'PolarisX CRM',
     portalName: 'Recruitment Portal',
     save: 'Save',
     cancel: 'Cancel',
@@ -52,7 +52,7 @@ export const en: TranslationDictionary = {
   },
   onboarding: {
     badge: 'CRM SETUP PROCESS',
-    welcomeTitle: 'Welcome to CUSC Social CRM',
+    welcomeTitle: 'Welcome to PolarisX Social CRM',
     welcomeDesc: 'It takes just 2 minutes to connect your Fanpages, Zalo OA, and centralize customer inquiries.',
     skipToInbox: 'Skip & Enter Inbox →',
     steps: {
@@ -65,10 +65,10 @@ export const en: TranslationDictionary = {
       title: 'Step 1: Set Up Organization Information',
       desc: 'Initialize your organization workspace to aggregate social messaging and assign admissions staff.',
       companyName: 'Company / Organization / University Name',
-      companyPlaceholder: 'e.g. Can Tho University Software Center (CUSC)',
+      companyPlaceholder: 'e.g. PolarisX Corporation',
       companyHint: 'This name will appear on the navigation bar and in system notifications.',
       brandName: 'Brand Name / Abbreviation',
-      brandPlaceholder: 'e.g. CUSC Can Tho',
+      brandPlaceholder: 'e.g. PolarisX Academy',
       phone: 'Main Hotline / Official Zalo Phone',
       phonePlaceholder: 'e.g. +84 292.3835.581',
       industry: 'Industry / Sector',
@@ -115,7 +115,7 @@ export const en: TranslationDictionary = {
     step3: {
       title: 'Step 3: Invite Admissions Team Members',
       desc: 'Assign roles to counselors or managers to co-manage messages and care for applicants.',
-      emailPlaceholder: 'Enter staff email address (e.g. agent1@cusc.vn)...',
+      emailPlaceholder: 'Enter staff email address (e.g. agent1@polarisx.vn)...',
       agentRole: 'Counselor (Agent)',
       adminRole: 'Manager (Admin)',
       agentDesc: 'Directly chat and classify assigned prospective leads',
@@ -132,14 +132,14 @@ export const en: TranslationDictionary = {
       backBtn: 'Back',
       finishBtn: 'Complete & Enter Workspace',
       errors: {
-        invalidEmail: 'Please enter a valid email format (e.g. staff@cusc.vn).',
+        invalidEmail: 'Please enter a valid email format (e.g. staff@polarisx.vn).',
         duplicateEmail: 'This email is already in the invitation list.',
       },
     },
     oauthModal: {
       authorizingAccount: 'Authorizing Account:',
       verified: 'Verified',
-      permissionsTitle: 'Permissions granted to CUSC Recruitment CRM:',
+      permissionsTitle: 'Permissions granted to PolarisX Recruitment CRM:',
       termsNotice: 'By continuing, you agree to the platform provider Terms of Service and Privacy Policy.',
       cancelBtn: 'Cancel',
       authorizingBtn: 'Authorizing...',

@@ -28,7 +28,7 @@ export const Error404Page: React.FC<Error404PageProps> = ({
         <h1 className="error-title">Không Tìm Thấy Trang Yêu Cầu</h1>
 
         <p className="error-desc">
-          Đường dẫn <code>{path}</code> không tồn tại trên hệ thống CUSC CRM, đã bị thay đổi địa chỉ hoặc đã bị xóa.
+          Đường dẫn <code>{path}</code> không tồn tại trên hệ thống PolarisX CRM, đã bị thay đổi địa chỉ hoặc đã bị xóa.
         </p>
 
         {/* Bảng chẩn đoán vị trí */}

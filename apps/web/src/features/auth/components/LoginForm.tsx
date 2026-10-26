@@ -9,7 +9,7 @@ import { AuthApiError, login } from '../api/auth.api.js';
 import type { LoginResponse } from '../types/auth.types.js';
 import { AUTH_MESSAGES } from '../validation/auth.validation.js';
 
-const REMEMBERED_IDENTIFIER_KEY = 'cusc.rememberedIdentifier';
+const REMEMBERED_IDENTIFIER_KEY = 'polarisx.rememberedIdentifier';
 
 export type LoginFormProps = {
   onSuccess: (result: LoginResponse) => void;
@@ -98,7 +98,7 @@ export function LoginForm({
       {!hideHeading && (
         <PageHeading
           title="Chào mừng trở lại"
-          description="Đăng nhập để tiếp tục sử dụng hệ thống Conversational CRM của CUSC."
+          description="Đăng nhập để tiếp tục sử dụng hệ thống Conversational CRM của PolarisX."
         />
       )}
 

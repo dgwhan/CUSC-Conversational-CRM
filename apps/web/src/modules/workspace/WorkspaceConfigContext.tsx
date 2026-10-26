@@ -47,7 +47,7 @@ interface WorkspaceConfigContextType {
   resetToDefault: () => void;
 }
 
-const STORAGE_KEY = 'cusc_crm_workspace_config_v1';
+const STORAGE_KEY = 'polarisx_crm_workspace_config_v1';
 
 const defaultEducationPreset = CLIENT_INDUSTRY_PRESETS.EDUCATION;
 const initialDefaultConfig: WorkspaceConfig = {
@@ -494,12 +494,12 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
   };
 
   /**
-   * Khôi phục về mặc định CUSC
+   * Khôi phục về mặc định PolarisX
    */
   const resetToDefault = () => {
     if (!isOwner) return;
     saveConfig(initialDefaultConfig);
-    notify.success('Đã khôi phục cấu hình mặc định CUSC.');
+    notify.success('Đã khôi phục cấu hình mặc định CRM.');
   };
 
   return (

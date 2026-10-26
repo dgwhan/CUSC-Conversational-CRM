@@ -89,7 +89,7 @@ describe('Realtime WebSocket & Bộ Kiểm Thử Socket Hoạt Động', () => {
         const pong = mockClient.findMessageByType('pong');
         expect(pong).not.toBeNull();
         expect(pong.type).toBe('pong');
-        expect(pong.data.server).toBe('CUSC-CRM-WS');
+        expect(pong.data.server).toBe('PolarisX-CRM-WS');
     });
 
     it('nhận tin nhắn ngay khi khách vừa gửi từ Facebook mà không cần gửi request lại', () => {

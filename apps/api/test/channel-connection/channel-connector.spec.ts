@@ -101,7 +101,7 @@ describe('OAuthService & ChannelConnectorController', () => {
       const result = await oauthService.exchangeToken('FACEBOOK', 'mock_auth_code_123', 'state_test');
       expect(result.channel).toBe('FACEBOOK');
       expect(result.pages.length).toBeGreaterThan(0);
-      expect(result.pages[0].name).toContain('CUSC');
+      expect(result.pages[0].name).toContain('PolarisX');
       expect(result.pages[0].accessToken).toBeDefined();
     });
   });

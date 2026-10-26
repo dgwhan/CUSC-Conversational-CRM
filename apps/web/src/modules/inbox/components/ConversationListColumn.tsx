@@ -4,21 +4,27 @@ import {
   CheckCheck,
   Tag,
   UserCheck,
+  RefreshCw,
 } from 'lucide-react';
 import type { ConversationItem, ChannelType } from '../types.js';
 import { useTranslation } from '../../../i18n/index.js';
 import { useUserRole } from '../../auth/UserRoleContext.js';
+import { Avatar } from '../../../components/common/Avatar.js';
 
 export interface ConversationListColumnProps {
   conversations: ConversationItem[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onSyncFacebook?: () => void;
+  isSyncing?: boolean;
 }
 
 export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
   conversations,
   selectedId,
   onSelect,
+  onSyncFacebook,
+  isSyncing,
 }) => {
   const { t } = useTranslation();
   const { isAgent, staffId } = useUserRole();
@@ -100,7 +106,32 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
               <span className="unread-total-badge">{totalUnread} {t('inbox.unreadCount')}</span>
             )}
           </div>
-          <span className="total-convs-label">{conversations.length} {t('inbox.contactsCount')}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {onSyncFacebook && (
+              <button
+                type="button"
+                className="crm-btn crm-btn-secondary crm-btn-sm"
+                style={{
+                  padding: '3px 8px',
+                  fontSize: '11px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  color: '#2563eb',
+                  borderColor: '#bfdbfe',
+                  background: '#eff6ff',
+                  cursor: isSyncing ? 'not-allowed' : 'pointer',
+                }}
+                disabled={isSyncing}
+                onClick={onSyncFacebook}
+                title="Kéo các tin nhắn từ Fanpage Facebook về hộp thư"
+              >
+                <RefreshCw size={11} className={isSyncing ? 'animate-spin' : ''} />
+                <span>{isSyncing ? 'Đang kéo...' : 'Kéo tin FB'}</span>
+              </button>
+            )}
+            <span className="total-convs-label">{conversations.length} {t('inbox.contactsCount')}</span>
+          </div>
         </div>
 
         {/* Thanh tìm kiếm */}
@@ -191,12 +222,13 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
               >
                 {/* Avatar with Channel Icon */}
                 <div className="conv-avatar-wrapper">
-                  <img
+                  <Avatar
                     src={item.customer.avatarUrl}
-                    alt={item.customer.fullName}
+                    name={item.customer.fullName}
+                    size={44}
                     className="conv-avatar-img"
+                    badge={renderChannelBadge(item.channel)}
                   />
-                  {renderChannelBadge(item.channel)}
                 </div>
 
                 {/* Content Meta */}

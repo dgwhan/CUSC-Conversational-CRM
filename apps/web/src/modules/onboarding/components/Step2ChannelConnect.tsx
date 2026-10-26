@@ -9,10 +9,13 @@ import {
   AlertCircle,
   ExternalLink,
   Trash2,
+  RefreshCw,
 } from 'lucide-react';
 import type { ChannelKey, FanpageItem, DiscoveredPageDto } from '../types.js';
 import { OAuthSimulationModal } from './OAuthSimulationModal.js';
 import { useTranslation } from '../../../i18n/index.js';
+import { apiClient } from '../../../lib/api-client.js';
+import { notify } from '../../../components/feedback/toastEmitter.js';
 
 export interface Step2ChannelConnectProps {
   connectedChannels: ChannelKey[];
@@ -35,6 +38,22 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
 }) => {
   const { t } = useTranslation();
   const [activeOAuthChannel, setActiveOAuthChannel] = useState<ChannelKey | null>(null);
+  const [syncingPageId, setSyncingPageId] = useState<string | null>(null);
+
+  const handleSyncMessages = async (pageId: string) => {
+    setSyncingPageId(pageId);
+    try {
+      const res = await apiClient.syncChannel(pageId);
+      notify.success(
+        `Đã kéo thành công ${res.syncedCount} tin nhắn từ ${res.conversationsCount} cuộc hội thoại trên ${res.pageName}!`,
+        'Đồng bộ tin nhắn Facebook',
+      );
+    } catch (err) {
+      notify.error(`Không thể đồng bộ tin nhắn: ${(err as Error).message}`);
+    } finally {
+      setSyncingPageId(null);
+    }
+  };
 
   const channelsConfig: {
     key: ChannelKey;
@@ -250,7 +269,32 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                  {/* Nút Đồng bộ tin nhắn từ Facebook */}
+                  {page.channel === 'FACEBOOK' && (
+                    <button
+                      type="button"
+                      className="crm-btn crm-btn-secondary crm-btn-sm"
+                      style={{
+                        padding: '4px 8px',
+                        color: '#2563eb',
+                        borderColor: '#bfdbfe',
+                        background: '#eff6ff',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                      title="Kéo các tin nhắn và cuộc trò chuyện hiện có từ Fanpage về CRM"
+                      disabled={syncingPageId === page.id}
+                      onClick={() => handleSyncMessages(page.id)}
+                    >
+                      <RefreshCw size={13} className={syncingPageId === page.id ? 'animate-spin' : ''} />
+                      <span style={{ fontSize: '11px' }}>
+                        {syncingPageId === page.id ? 'Đang kéo...' : 'Kéo tin nhắn'}
+                      </span>
+                    </button>
+                  )}
+
                   {/* Switch Toggle Bật/Tắt đồng bộ tin nhắn */}
                   <div className="fanpage-toggle-wrapper">
                     <label className="crm-switch" title={page.selected ? 'Đang bật nhận tin nhắn' : 'Đang tạm dừng nhận tin nhắn'}>

@@ -7,6 +7,9 @@ import { useRealtime } from '../realtime/RealtimeContext.js';
 import { useUserRole } from '../auth/UserRoleContext.js';
 import { useWorkspaceConfig } from '../workspace/WorkspaceConfigContext.js';
 import { notify } from '../../components/feedback/toastEmitter.js';
+import { apiClient } from '../../lib/api-client.js';
+import { Avatar } from '../../components/common/Avatar.js';
+import { AssignProductModal } from '../../components/common/AssignProductModal.js';
 import {
   Search,
   UserPlus,
@@ -21,6 +24,8 @@ import {
   Lock,
   Sliders,
   Trash2,
+  Plus,
+  Edit2,
 } from 'lucide-react';
 
 interface AdmissionKanbanBoardProps {
@@ -32,13 +37,13 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
   onOpenChat,
   onNavigateToSettings,
 }) => {
-  const { staffPresences, onPipelineChange } = useRealtime();
+  const { staffPresences, onPipelineChange, onNewMessage } = useRealtime();
 const { isOwner, isAgent, staffId, staffName } = useUserRole();
   const { config } = useWorkspaceConfig();
 
   const [candidates, setCandidates] = useState<KanbanCandidate[]>(() => {
     try {
-      const saved = localStorage.getItem('cusc_crm_kanban_candidates');
+      const saved = localStorage.getItem('polarisx_crm_kanban_candidates') || localStorage.getItem('cusc_crm_kanban_candidates');
       if (saved) {
         const parsed: KanbanCandidate[] = JSON.parse(saved);
         // Tự động lọc sạch các ứng viên mẫu gán cứng cũ lưu trong localStorage của trình duyệt
@@ -54,7 +59,7 @@ const { isOwner, isAgent, staffId, staffName } = useUserRole();
             !['Lê Thị Thu Lan', 'Trần Hoàng Nam', 'Nguyễn Văn Minh (Bạn)'].includes(c.assignedStaffName || '')
         );
         if (cleanList.length !== parsed.length) {
-          localStorage.setItem('cusc_crm_kanban_candidates', JSON.stringify(cleanList));
+          localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(cleanList));
         }
         return cleanList;
       }
@@ -67,6 +72,7 @@ const { isOwner, isAgent, staffId, staffName } = useUserRole();
   const [staffFilter, setStaffFilter] = useState<string>('ALL');
   const [courseFilter, setCourseFilter] = useState<string>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProductCandidate, setEditingProductCandidate] = useState<KanbanCandidate | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -74,7 +80,7 @@ const { isOwner, isAgent, staffId, staffName } = useUserRole();
   // Lưu lại danh sách mỗi khi có thay đổi
   useEffect(() => {
     try {
-      localStorage.setItem('cusc_crm_kanban_candidates', JSON.stringify(candidates));
+      localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(candidates));
     } catch {}
   }, [candidates]);
 
@@ -94,15 +100,190 @@ const { isOwner, isAgent, staffId, staffName } = useUserRole();
     return unsubscribe;
   }, [onPipelineChange, config.terminology.entityName]);
 
+  // Tự động tải danh sách khách hàng từ CSDL vào Phễu Kanban
+  useEffect(() => {
+    let isMounted = true;
+    const loadDbCustomers = async () => {
+      try {
+        const data = await apiClient.getCustomers();
+        if (!isMounted || !data?.items || data.items.length === 0) return;
+
+        const firstStageId = config.pipelineStages[0]?.id || 'STAGE_NEW';
+
+        setCandidates((prev) => {
+          let updated = [...prev];
+          for (const cust of data.items) {
+            const latestConv = cust.conversations?.[0];
+            const existingIdx = updated.findIndex(
+              (c) => c.id === cust.id || (latestConv?.id && c.conversationId === latestConv.id) || c.fullName === cust.fullName
+            );
+            if (existingIdx >= 0) {
+              const existing = updated[existingIdx];
+              // Cập nhật lại các mục đã gán từ DB nếu có thay đổi
+              if (
+                cust.interestCourses &&
+                cust.interestCourses.length > 0 &&
+                (!existing.interestCourses || existing.interestCourses.length === 0 || existing.estimatedTuition === 0)
+              ) {
+                updated[existingIdx] = {
+                  ...existing,
+                  interestCourses: cust.interestCourses,
+                  estimatedTuition: cust.estimatedValue || existing.estimatedTuition,
+                };
+              }
+            } else {
+              const avatar = cust.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(cust.fullName)}&background=0284c7&color=fff&bold=true`;
+              const chType = (latestConv?.channelAccount?.channel as ChannelType) || 'FACEBOOK';
+              const chName = latestConv?.channelAccount?.displayName || `Kênh ${chType}`;
+              const timeStr = latestConv?.lastMessageAt ? new Date(latestConv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong';
+
+              updated.unshift({
+                id: cust.id,
+                fullName: cust.fullName,
+                phone: cust.phone || 'Chưa có SĐT',
+                email: cust.email || 'Chưa có Email',
+                avatarUrl: avatar,
+                channel: chType,
+                channelAccountName: chName,
+                stage: firstStageId as LeadStage,
+                estimatedTuition: cust.estimatedValue || 0,
+                priority: 'MEDIUM',
+                interestCourses: cust.interestCourses || [],
+                lastActivityAt: timeStr,
+                notesCount: 0,
+                tags: ['Khách hàng DB', 'Facebook Lead'],
+                conversationId: latestConv?.id,
+              });
+            }
+          }
+          return updated;
+        });
+      } catch {
+        // Backend có thể chưa khởi động
+      }
+    };
+
+    loadDbCustomers();
+    return () => { isMounted = false; };
+  }, [config.pipelineStages]);
+
+  // Lắng nghe tin nhắn mới để tự động đổ khách hàng vào phễu Kanban theo thời gian thực
+  useEffect(() => {
+    const unsubscribe = onNewMessage((msg) => {
+      if (msg.direction === 'INBOUND') {
+        const firstStageId = config.pipelineStages[0]?.id || 'STAGE_NEW';
+        setCandidates((prev) => {
+          const exists = prev.some(
+            (c) => (msg.conversationId && c.conversationId === msg.conversationId) || c.fullName === msg.senderName
+          );
+          if (exists) {
+            return prev.map((c) =>
+              (msg.conversationId && c.conversationId === msg.conversationId) || c.fullName === msg.senderName
+                ? { ...c, lastActivityAt: 'Vừa xong' }
+                : c
+            );
+          }
+
+          const newAvatar = msg.senderAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.senderName || 'Lead')}&background=0284c7&color=fff&bold=true`;
+          const newCand: KanbanCandidate = {
+            id: `cand-${Date.now()}`,
+            fullName: msg.senderName || 'Khách hàng mới',
+            phone: msg.customerPhone || 'Chưa có SĐT',
+            email: msg.customerEmail || 'Chưa có Email',
+            avatarUrl: newAvatar,
+            channel: (msg.channel as ChannelType) || 'FACEBOOK',
+            channelAccountName: `Kênh ${msg.channel || 'Facebook'}`,
+            stage: firstStageId as LeadStage,
+            estimatedTuition: 0,
+            priority: 'MEDIUM',
+            interestCourses: [],
+            lastActivityAt: 'Vừa xong',
+            notesCount: 0,
+            tags: ['Lead Mới', 'Facebook'],
+            conversationId: msg.conversationId,
+          };
+
+          notify.info(
+            `Ứng viên mới "${newCand.fullName}" từ Facebook đã tự động được thêm vào Phễu!`,
+            'Tự động đổ phễu'
+          );
+
+          return [newCand, ...prev];
+        });
+      }
+    });
+
+    return unsubscribe;
+  }, [onNewMessage, config.pipelineStages]);
+
   
   const handleClearAllCandidates = () => {
     if (window.confirm('Bạn có chắc chắn muốn xóa toàn bộ dữ liệu ứng viên trên phễu Kanban để làm sạch dữ liệu?')) {
       setCandidates([]);
       try {
+        localStorage.removeItem('polarisx_crm_kanban_candidates');
         localStorage.removeItem('cusc_crm_kanban_candidates');
       } catch {}
       notify.info('Đã xóa sạch toàn bộ ứng viên trên phễu Kanban.');
     }
+  };
+
+  // Gán / Cập nhật Khóa học / Dự án BĐS / Gói dịch vụ từ catalog cho Ứng viên trên Kanban
+  const handleSaveCandidateProducts = (courses: string[], tuition: number) => {
+    if (!editingProductCandidate) return;
+    const candId = editingProductCandidate.id;
+    setCandidates((prev) =>
+      prev.map((c) =>
+        c.id === candId
+          ? {
+              ...c,
+              interestCourses: courses,
+              estimatedTuition: tuition,
+            }
+          : c
+      )
+    );
+
+    // Đồng bộ sang danh sách hội thoại Inbox trong LocalStorage
+    try {
+      const inboxRaw = localStorage.getItem('crm_inbox_conversations_v1');
+      if (inboxRaw) {
+        const convList = JSON.parse(inboxRaw);
+        if (Array.isArray(convList)) {
+          const updatedInbox = convList.map((conv: any) => {
+            if (
+              conv.id === editingProductCandidate.conversationId ||
+              conv.customer?.id === editingProductCandidate.id ||
+              conv.customer?.fullName === editingProductCandidate.fullName
+            ) {
+              return {
+                ...conv,
+                customer: {
+                  ...conv.customer,
+                  interestCourses: courses,
+                  estimatedValue: tuition,
+                },
+              };
+            }
+            return conv;
+          });
+          localStorage.setItem('crm_inbox_conversations_v1', JSON.stringify(updatedInbox));
+        }
+      }
+    } catch {}
+
+    // Lưu vào Backend Database Customer
+    if (editingProductCandidate.id) {
+      apiClient.updateCustomer(editingProductCandidate.id, {
+        interestCourses: courses,
+        estimatedValue: tuition,
+      }).catch(() => {});
+    }
+
+    notify.success(
+      `Đã gán ${config.terminology.productLabel.toLowerCase()} cho "${editingProductCandidate.fullName}".`,
+      'Cập nhật thành công'
+    );
   };
 
   // Format tiền tệ VNĐ
@@ -456,9 +637,10 @@ const { isOwner, isAgent, staffId, staffName } = useUserRole();
 
                         {/* Thông tin Ứng viên / Khách hàng */}
                         <div className="card-candidate-info">
-                          <img
+                          <Avatar
                             src={candidate.avatarUrl}
-                            alt={candidate.fullName}
+                            name={candidate.fullName}
+                            size={36}
                             className="card-avatar"
                           />
                           <div className="card-name-group">
@@ -481,14 +663,72 @@ const { isOwner, isAgent, staffId, staffName } = useUserRole();
                           </div>
                         </div>
 
-                        {/* Sản phẩm / Khóa học & Giá trị */}
-                        <div className="card-course-pill">
-                          <span>{candidate.interestCourses.join(', ')}</span>
-                        </div>
+                        {/* Sản phẩm / Khóa học & Giá trị theo cấu hình Domain */}
+                        {candidate.interestCourses && candidate.interestCourses.length > 0 ? (
+                          <div
+                            className="card-course-pill"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProductCandidate(candidate);
+                            }}
+                            title={`Nhấp để gán lại hoặc chỉnh sửa ${config.terminology.productLabel.toLowerCase()}`}
+                            style={{
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '6px',
+                              background: '#f0f9ff',
+                              borderColor: '#bae6fd',
+                              color: '#0369a1',
+                            }}
+                          >
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                              {candidate.interestCourses.join(', ')}
+                            </span>
+                            <Edit2 size={11} color="#0284c7" style={{ flexShrink: 0 }} />
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProductCandidate(candidate);
+                            }}
+                            title={`Gán ${config.terminology.productLabel.toLowerCase()} cho ứng viên này`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px',
+                              fontSize: '11px',
+                              color: '#0284c7',
+                              background: '#f8fafc',
+                              border: '1px dashed #cbd5e1',
+                              borderRadius: '6px',
+                              padding: '4px 8px',
+                              cursor: 'pointer',
+                              width: '100%',
+                              fontWeight: 500,
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <Plus size={12} />
+                            <span>+ Gán {config.terminology.productLabel.split('/')[0].trim()}</span>
+                          </button>
+                        )}
 
-                        <div className="card-tuition-row">
+                        <div
+                          className="card-tuition-row"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingProductCandidate(candidate);
+                          }}
+                          title={`Nhấp để điều chỉnh ${config.terminology.valueLabel.toLowerCase()}`}
+                          style={{ cursor: 'pointer' }}
+                        >
                           <span className="tuition-label">{config.terminology.valueLabel}:</span>
-                          <span className="tuition-amount">
+                          <span className="tuition-amount" style={{ color: '#059669', fontWeight: 600 }}>
                             {formatCurrency(candidate.estimatedTuition)}
                           </span>
                         </div>
@@ -555,6 +795,21 @@ const { isOwner, isAgent, staffId, staffName } = useUserRole();
           setCandidates((prev) => [newCand, ...prev]);
         }}
       />
+
+      {/* Modal Gán Khóa học / Dự án BĐS / Gói dịch vụ từ catalog cho Ứng viên */}
+      {editingProductCandidate && (
+        <AssignProductModal
+          isOpen={!!editingProductCandidate}
+          onClose={() => setEditingProductCandidate(null)}
+          customerName={editingProductCandidate.fullName}
+          productLabel={config.terminology.productLabel}
+          valueLabel={config.terminology.valueLabel}
+          catalog={config.productCatalog}
+          initialSelected={editingProductCandidate.interestCourses || []}
+          initialValue={editingProductCandidate.estimatedTuition || 0}
+          onSave={handleSaveCandidateProducts}
+        />
+      )}
     </div>
   );
 };

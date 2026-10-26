@@ -22,7 +22,7 @@ export class WorkspaceConfigService {
   private readonly workspaceConfigs = new Map<string, WorkspaceConfig>();
 
   constructor(@Optional() private readonly prisma?: PrismaService) {
-    // Khởi tạo workspace mặc định cho CUSC (Education)
+    // Khởi tạo workspace mặc định cho PolarisX (Education)
     this.initDefaultWorkspace('ws-default-001', 'EDUCATION');
   }
 
@@ -118,12 +118,12 @@ export class WorkspaceConfigService {
 
       // 3. Nếu Owner này chưa có bất kỳ workspace nào trong bảng workspaces, tự động tạo mới
       const staff = await this.prisma.staff.findUnique({ where: { id: resolvedOwner } });
-      const ownerName = staff?.fullName || 'CUSC';
+      const ownerName = staff?.fullName || 'PolarisX';
       const cleanSlug = `ws-${resolvedOwner.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)}-${Date.now().toString(36)}`;
 
       const newWs = await this.prisma.workspace.create({
         data: {
-          name: staff?.fullName ? `Workspace của ${ownerName}` : 'Trung tâm Công nghệ Phần mềm CUSC',
+          name: staff?.fullName ? `Workspace của ${ownerName}` : 'Tổ hợp Công nghệ PolarisX',
           slug: cleanSlug,
           ownerId: resolvedOwner,
           isActive: true,
@@ -191,7 +191,7 @@ export class WorkspaceConfigService {
             const finalWsId = dbConfig.workspaceId || actualWsId || workspaceId;
             const config: WorkspaceConfig = {
               workspaceId: finalWsId,
-              workspaceName: dbConfig.workspaceName || 'Trung Tâm Công Nghệ Phần Mềm CUSC',
+              workspaceName: dbConfig.workspaceName || 'Tổ hợp Công nghệ PolarisX',
               domain: (dbConfig.domain as BusinessDomain) || 'EDUCATION',
               terminology: (dbConfig.terminology as any) || INDUSTRY_PRESETS.EDUCATION.terminology,
               pipelineStages: ((dbConfig.pipelineStages as any[]) || []).map((s) => ({ ...s })),

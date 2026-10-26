@@ -194,7 +194,7 @@ export class OAuthService {
       // Mock Mode dành cho automated test
       if (isMock) {
         const targetId = rawPageId || 'mock_fb_page_123';
-        const targetName = rawPageName || 'Fanpage Mô Phỏng Tuyển Sinh CUSC';
+        const targetName = rawPageName || 'Fanpage Mô Phỏng Tuyển Sinh PolarisX';
         return {
           channel: 'FACEBOOK',
           userName: targetName,
@@ -522,9 +522,9 @@ export class OAuthService {
           pages: [
             {
               id: 'fb-page-01',
-              externalAccountId: 'page_cusc_ctu_edu_vn',
-              name: 'CUSC - Trung Tâm Công Nghệ Phần Mềm ĐH Cần Thơ',
-              category: 'Trường Đại học & Đào tạo IT',
+              externalAccountId: 'page_polarisx_official',
+              name: 'PolarisX - Học Viện Công Nghệ & Tuyển Sinh',
+              category: 'Học viện Đào tạo CNTT',
               avatarUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100&auto=format&fit=crop&q=60',
               followerCount: 48500,
               channel: 'FACEBOOK',
@@ -532,9 +532,9 @@ export class OAuthService {
             },
             {
               id: 'fb-page-02',
-              externalAccountId: 'page_aptech_cantho',
-              name: 'Tuyển sinh Aptech Cần Thơ - CUSC',
-              category: 'Chương trình Quốc tế Aptech & Arena',
+              externalAccountId: 'page_polarisx_academy',
+              name: 'Tuyển sinh PolarisX Academy',
+              category: 'Chương trình Đào tạo Chuyên nghiệp',
               avatarUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=100&auto=format&fit=crop&q=60',
               followerCount: 21300,
               channel: 'FACEBOOK',
@@ -551,8 +551,8 @@ export class OAuthService {
           pages: [
             {
               id: 'zalo-oa-01',
-              externalAccountId: 'oa_cusc_official_tick_vang',
-              name: 'CUSC Official Account (Tick Vàng)',
+              externalAccountId: 'oa_polarisx_official_tick_vang',
+              name: 'PolarisX Official Account (Tick Vàng)',
               category: 'Zalo Doanh Nghiệp Xác Thực',
               avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60',
               followerCount: 15200,
@@ -567,13 +567,13 @@ export class OAuthService {
       case 'TIKTOK':
         return {
           channel: 'TIKTOK',
-          userName: 'CUSC Tech Creator',
+          userName: 'PolarisX Tech Creator',
           userId: 'tiktok_usr_77182',
           pages: [
             {
               id: 'tt-shop-01',
-              externalAccountId: 'tiktok_cusc_tech_life',
-              name: 'CUSC Tech Life (@cusc.tech)',
+              externalAccountId: 'tiktok_polarisx_tech_life',
+              name: 'PolarisX Tech Life (@polarisx.tech)',
               category: 'Kênh TikTok Học Lập Trình',
               avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=60',
               followerCount: 84000,
@@ -586,13 +586,13 @@ export class OAuthService {
       case 'INSTAGRAM':
         return {
           channel: 'INSTAGRAM',
-          userName: 'cusc.education',
+          userName: 'polarisx.education',
           userId: 'ig_usr_551829',
           pages: [
             {
               id: 'ig-pro-01',
-              externalAccountId: 'ig_cusc_education_direct',
-              name: 'Instagram Direct (@cusc.education)',
+              externalAccountId: 'ig_polarisx_education_direct',
+              name: 'Instagram Direct (@polarisx.education)',
               category: 'Tài khoản Chuyên nghiệp',
               avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=60',
               followerCount: 12800,

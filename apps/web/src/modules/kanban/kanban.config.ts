@@ -56,7 +56,7 @@ export const KANBAN_STAGES_CONFIG: KanbanColumnConfig[] = [
   },
   {
     id: 'TRIAL_APPOINTMENT',
-    title: '4. Hẹn học thử / Đến CUSC',
+    title: '4. Hẹn học thử / Đến trực tiếp',
     subtitle: 'Đã đặt lịch hẹn tư vấn trực tiếp',
     color: '#7c3aed',
     bgColor: '#f5f3ff',

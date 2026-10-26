@@ -4,7 +4,7 @@ import type { LoginResponse } from '../../features/auth/types/auth.types.js';
 
 export type UserRole = 'OWNER' | 'STAFF' | 'AGENT';
 
-const SESSION_STORAGE_KEY = 'cusc_crm_auth_session';
+const SESSION_STORAGE_KEY = 'polarisx_crm_auth_session';
 
 export interface UserRoleContextValue {
   role: UserRole;
@@ -30,7 +30,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Lấy session đã lưu từ localStorage nếu có
   const [session, setSession] = useState<LoginResponse | null>(() => {
     try {
-      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY) || localStorage.getItem('cusc_crm_auth_session');
       if (saved) return JSON.parse(saved) as LoginResponse;
     } catch {}
     return null;
@@ -38,7 +38,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [roleState, setRoleState] = useState<UserRole>(() => {
     try {
-      const saved = localStorage.getItem('cusc_crm_user_role');
+      const saved = localStorage.getItem('polarisx_crm_user_role') || localStorage.getItem('cusc_crm_user_role');
       if (saved === 'OWNER' || saved === 'STAFF' || saved === 'AGENT') return saved as UserRole;
     } catch {}
     return 'OWNER';
@@ -68,7 +68,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const mappedRole: UserRole = newSession.staff.role === 'OWNER' ? 'OWNER' : 'STAFF';
     setRoleState(mappedRole);
     try {
-      localStorage.setItem('cusc_crm_user_role', mappedRole);
+      localStorage.setItem('polarisx_crm_user_role', mappedRole);
     } catch {}
 
     notify.success(
@@ -96,7 +96,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     setRoleState(newRole);
     try {
-      localStorage.setItem('cusc_crm_user_role', newRole);
+      localStorage.setItem('polarisx_crm_user_role', newRole);
     } catch {}
 
     if (newRole === 'OWNER') {

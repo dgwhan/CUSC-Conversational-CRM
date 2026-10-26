@@ -50,6 +50,12 @@ export class MessageRepository {
                         select: {
                             displayName: true,
                             externalAccountId: true,
+                            avatarUrl: true,
+                        },
+                    },
+                    conversation: {
+                        include: {
+                            customer: true,
                         },
                     },
                 },
@@ -60,7 +66,40 @@ export class MessageRepository {
             this.prisma.message.count({ where }),
         ]);
 
-        return { items, total };
+        const mappedItems = items.map((m: any) => {
+            const raw = (m.rawPayload as any) || {};
+            const customer = m.conversation?.customer;
+            const senderExternalId =
+                raw.senderExternalId ||
+                raw.sender?.id ||
+                raw.from?.id ||
+                customer?.channelIdentities?.facebook ||
+                customer?.id ||
+                'unknown';
+
+            const customerName =
+                customer?.fullName ||
+                raw.customerName ||
+                raw.from?.name ||
+                raw.sender?.name ||
+                null;
+
+            const customerAvatar =
+                customer?.avatarUrl ||
+                raw.customerAvatar ||
+                null;
+
+            return {
+                ...m,
+                senderExternalId,
+                customerName,
+                customerAvatar,
+                customerPhone: customer?.phone || null,
+                customerEmail: customer?.email || null,
+            };
+        });
+
+        return { items: mappedItems, total };
     }
 
     async insertManyIgnoreDuplicate(events: InboundEvent[]): Promise<Array<{ id: string }>> {

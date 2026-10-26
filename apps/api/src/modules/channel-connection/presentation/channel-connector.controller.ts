@@ -158,6 +158,22 @@ export class ChannelConnectorController {
   }
 
   /**
+   * POST /api/channels/:id/sync
+   * Đồng bộ tin nhắn từ Fanpage Facebook về CRM (Chỉ OWNER / ADMIN)
+   */
+  @Post('channels/:id/sync')
+  @Roles('OWNER', 'ADMIN')
+  @HttpCode(HttpStatus.OK)
+  async syncChannel(
+    @Param('id') id: string,
+    @Headers('x-workspace-id') headerWorkspaceId?: string,
+    @Query('workspaceId') queryWorkspaceId?: string,
+  ) {
+    const effectiveWorkspaceId = queryWorkspaceId || headerWorkspaceId;
+    return this.channelManager.syncFacebookMessages(id, effectiveWorkspaceId);
+  }
+
+  /**
    * DELETE /api/channels/:id
    * Ngắt kết nối kênh (Chỉ OWNER / ADMIN)
    */

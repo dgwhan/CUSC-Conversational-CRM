@@ -1,12 +1,22 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Optional,
+} from '@nestjs/common';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { TokenEncryptionService } from '../infrastructure/token-encryption.service.js';
+import { MessageRepository } from '../../messaging/infrastructure/message.repository.js';
+import { RealtimeService } from '../../realtime/realtime.service.js';
+import { InboundEvent } from '../../messaging/domain/inbound-event.js';
+import { Channel, MessageDirection } from '../../messaging/domain/channel.js';
 import type {
   ActivateChannelsBody,
   ActivateChannelsResult,
   ChannelAccountDto,
 } from '../../../contracts/channel-connection.js';
-import { Channel } from '@prisma/client';
 
 @Injectable()
 export class ChannelManagerService {
@@ -15,6 +25,8 @@ export class ChannelManagerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: TokenEncryptionService,
+    @Optional() private readonly messageRepo?: MessageRepository,
+    @Optional() private readonly realtime?: RealtimeService,
   ) {}
 
   /**
@@ -55,8 +67,8 @@ export class ChannelManagerService {
 
           const newWs = await this.prisma.workspace.create({
             data: {
-              name: 'Trung tâm Công nghệ Phần mềm CUSC',
-              slug: `cusc-${Date.now().toString(36)}`,
+              name: 'Tổ hợp Công nghệ PolarisX',
+              slug: `polarisx-${Date.now().toString(36)}`,
               ownerId: firstStaff.id,
               isActive: true,
             },
@@ -310,6 +322,239 @@ export class ChannelManagerService {
       this.logger.warn(`Could not subscribe page webhook for ${pageId}: ${errMsg}`);
       return { success: false, error: errMsg };
     }
+  }
+
+  /**
+   * Đồng bộ tin nhắn từ Facebook Graph API cho một ChannelAccount đã kết nối
+   */
+  async syncFacebookMessages(
+    channelAccountId: string,
+    workspaceId?: string,
+  ): Promise<{ syncedCount: number; conversationsCount: number; pageName: string }> {
+    let account = await this.prisma.channelAccount.findUnique({
+      where: { id: channelAccountId },
+    });
+
+    if (!account) {
+      account = await this.prisma.channelAccount.findFirst({
+        where: { externalAccountId: channelAccountId },
+      });
+    }
+
+    if (!account) {
+      throw new NotFoundException(`Không tìm thấy tài khoản kênh ${channelAccountId}`);
+    }
+
+    if (!account.encryptedAccessToken) {
+      throw new BadRequestException('Kênh này chưa có Access Token để đồng bộ dữ liệu');
+    }
+
+    const pageToken = this.encryption.decrypt(account.encryptedAccessToken);
+    const pageId = account.externalAccountId;
+
+    this.logger.log(`Starting Facebook message sync for page "${account.displayName}" (${pageId})...`);
+
+    // Gọi Meta Graph API lấy danh sách cuộc hội thoại và các tin nhắn gần nhất kèm avatar profile
+    const url = `https://graph.facebook.com/v19.0/${encodeURIComponent(
+      pageId,
+    )}/conversations?fields=id,updated_time,participants{id,name,email,picture{url}},messages.limit(30){id,message,created_time,from,to}&access_token=${pageToken}`;
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      const msg = errJson.error?.message || `Lỗi HTTP ${res.status}`;
+      throw new BadRequestException(`Meta Graph API từ chối đồng bộ tin nhắn: ${msg}`);
+    }
+
+    const data = await res.json();
+    const conversations: any[] = data.data || [];
+    let totalMessagesSynced = 0;
+    const targetWsId = account.workspaceId || workspaceId;
+
+    for (const conv of conversations) {
+      const messagesList: any[] = conv.messages?.data || [];
+      const participants: any[] = conv.participants?.data || [];
+      const customer = participants.find((p) => p.id !== pageId);
+
+      // 1. Trích xuất hoặc truy vấn avatar & thông tin khách hàng thực tế từ Meta
+      let customerName = customer?.name || (customer?.id ? `Khách hàng Facebook #${customer.id.slice(-4)}` : 'Khách hàng Facebook');
+      let customerAvatar = customer?.picture?.data?.url;
+
+      if (!customerAvatar && customer?.id && pageToken) {
+        try {
+          const profileRes = await fetch(
+            `https://graph.facebook.com/v19.0/${customer.id}?fields=name,first_name,last_name,profile_pic&access_token=${pageToken}`,
+          );
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            if (profileData.profile_pic) {
+              customerAvatar = profileData.profile_pic;
+            }
+            if (profileData.name && !customer.name) {
+              customerName = profileData.name;
+            }
+          }
+        } catch {
+          // Bỏ qua nếu token không đủ quyền query profile cá nhân
+        }
+      }
+
+      // Đảm bảo luôn có avatar đẹp nếu tài khoản chưa có avatar công khai
+      if (!customerAvatar) {
+        customerAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName)}&background=0284c7&color=fff&bold=true`;
+      }
+
+      // 2. ĐỔ DỮ LIỆU KHÁCH HÀNG VÀO BẢNG "customers" TRONG DATABASE
+      let dbCustomer: any = null;
+      if (customer?.id && this.prisma.customer) {
+        try {
+          dbCustomer = await this.prisma.customer.findFirst({
+            where: {
+              OR: [
+                { channelIdentities: { path: ['facebook'], equals: customer.id } },
+                ...(customer.email ? [{ email: customer.email }] : []),
+              ],
+            },
+          });
+
+          if (!dbCustomer) {
+            dbCustomer = await this.prisma.customer.create({
+              data: {
+                workspaceId: targetWsId || null,
+                fullName: customerName,
+                email: customer.email || null,
+                avatarUrl: customerAvatar,
+                channelIdentities: { facebook: customer.id, channel: 'FACEBOOK', pageId },
+              },
+            });
+            this.logger.log(`Tự động tạo mới bản ghi Customer vào DB: "${customerName}" (${dbCustomer.id})`);
+          } else {
+            dbCustomer = await this.prisma.customer.update({
+              where: { id: dbCustomer.id },
+              data: {
+                fullName: customerName,
+                avatarUrl: customerAvatar || dbCustomer.avatarUrl,
+              },
+            });
+          }
+        } catch (err) {
+          this.logger.warn(`Could not save customer to DB: ${(err as Error).message}`);
+        }
+      }
+
+      // 3. ĐỔ DỮ LIỆU CUỘC HỘI THOẠI VÀO BẢNG "conversations" TRONG DATABASE
+      let dbConv: any = null;
+      if (this.prisma.conversation) {
+        try {
+          dbConv = await this.prisma.conversation.findFirst({
+            where: {
+              channelAccountId: account.id,
+              ...(dbCustomer ? { customerId: dbCustomer.id } : {}),
+            },
+          });
+
+          const latestMsg = messagesList.find((m: any) => m.message)?.message || 'Cuộc trò chuyện Facebook';
+          const convTime = new Date(conv.updated_time || Date.now());
+
+          if (!dbConv) {
+            dbConv = await this.prisma.conversation.create({
+              data: {
+                workspaceId: targetWsId || null,
+                channelAccountId: account.id,
+                customerId: dbCustomer?.id || null,
+                status: 'OPEN',
+                snippet: latestMsg,
+                lastMessageAt: convTime,
+                lastCustomerMessageAt: convTime,
+              },
+            });
+          } else {
+            dbConv = await this.prisma.conversation.update({
+              where: { id: dbConv.id },
+              data: {
+                snippet: latestMsg,
+                lastMessageAt: convTime,
+                ...(dbCustomer && !dbConv.customerId ? { customerId: dbCustomer.id } : {}),
+              },
+            });
+          }
+        } catch (err) {
+          this.logger.warn(`Could not save conversation to DB: ${(err as Error).message}`);
+        }
+      }
+
+      const events: InboundEvent[] = [];
+      for (const m of messagesList) {
+        if (!m.message) continue;
+        const isOutbound = m.from?.id === pageId;
+        events.push({
+          channel: Channel.FACEBOOK,
+          externalMessageId: m.id,
+          externalAccountId: pageId,
+          senderExternalId: m.from?.id || customer?.id || 'unknown',
+          content: m.message,
+          sentAt: new Date(m.created_time),
+          direction: isOutbound ? MessageDirection.OUTBOUND : MessageDirection.INBOUND,
+          rawPayload: {
+            ...m,
+            customerName,
+            customerAvatar,
+            customerId: dbCustomer?.id,
+            conversationId: dbConv?.id,
+          },
+          workspaceId: targetWsId,
+        });
+      }
+
+      if (events.length > 0 && this.messageRepo) {
+        const created = await this.messageRepo.insertManyIgnoreDuplicate(events);
+        totalMessagesSynced += created.length;
+
+        // Bắn sự kiện WebSocket realtime để màn hình Inbox & Kanban cập nhật ngay tức thì
+        if (this.realtime) {
+          for (let i = 0; i < created.length; i++) {
+            const ev = events[i];
+            const item = created[i];
+            if (ev && item) {
+              const isOut = ev.direction === MessageDirection.OUTBOUND;
+              const conversationId = `FACEBOOK_${pageId}_${customer?.id || ev.senderExternalId}`;
+
+              this.realtime.broadcastNewMessage({
+                id: item.id,
+                conversationId,
+                channel: 'FACEBOOK',
+                direction: isOut ? 'OUTBOUND' : 'INBOUND',
+                content: ev.content || '',
+                senderName: isOut ? account.displayName : customerName,
+                senderAvatar: isOut ? (account.avatarUrl || '') : customerAvatar,
+                sentAt: new Date(ev.sentAt).toLocaleTimeString(),
+                customerPhone: dbCustomer?.phone || '',
+                customerEmail: dbCustomer?.email || customer?.email || '',
+              });
+            }
+          }
+
+          // Tự động đẩy sự kiện cập nhật Phễu Kanban
+          if (dbCustomer) {
+            this.realtime.broadcastPipelineChange({
+              customerId: dbCustomer.id,
+              customerName: customerName,
+              previousStage: '',
+              newStage: 'STAGE_NEW',
+              updatedBy: 'Facebook Sync',
+            });
+          }
+        }
+      }
+    }
+
+    this.logger.log(`Synced ${totalMessagesSynced} messages across ${conversations.length} conversations for ${account.displayName}`);
+
+    return {
+      syncedCount: totalMessagesSynced,
+      conversationsCount: conversations.length,
+      pageName: account.displayName,
+    };
   }
 
   private mapToDto(account: any): ChannelAccountDto {

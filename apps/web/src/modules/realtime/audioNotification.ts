@@ -8,7 +8,7 @@ let soundEnabled = true;
 
 // Khôi phục cài đặt âm thanh từ LocalStorage nếu có
 try {
-  const saved = localStorage.getItem('cusc_crm_sound_enabled');
+  const saved = localStorage.getItem('polarisx_crm_sound_enabled') || localStorage.getItem('cusc_crm_sound_enabled');
   if (saved !== null) {
     soundEnabled = saved === 'true';
   }
@@ -104,7 +104,7 @@ export function isSoundEnabled(): boolean {
 export function setSoundEnabled(enabled: boolean): void {
   soundEnabled = enabled;
   try {
-    localStorage.setItem('cusc_crm_sound_enabled', String(enabled));
+    localStorage.setItem('polarisx_crm_sound_enabled', String(enabled));
   } catch {
     // ignore
   }

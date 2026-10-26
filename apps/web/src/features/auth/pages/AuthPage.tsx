@@ -46,7 +46,7 @@ export function AuthPage({
           className="mx-auto mb-6 h-[76px] w-auto object-contain"
           src={cuscLogo1xPng}
           srcSet={`${cuscLogo1xPng} 1x, ${cuscLogoPng} 2x`}
-          alt="CUSC Logo"
+          alt="PolarisX Logo"
           width={154}
           height={76}
           fetchPriority="high"

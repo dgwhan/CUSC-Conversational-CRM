@@ -116,7 +116,7 @@ export const LogPersonalZaloModal: React.FC<LogPersonalZaloModalProps> = ({
             <textarea
               className="crm-form-textarea"
               rows={4}
-              placeholder="VD: Em An đã chat Zalo với mình, phụ huynh đồng ý đăng ký khóa Fullstack Web. Đã hẹn 9h sáng thứ 7 đến trung tâm CUSC hoàn tất thủ tục học bổng 20%..."
+              placeholder="VD: Em An đã chat Zalo với mình, phụ huynh đồng ý đăng ký khóa Fullstack Web. Đã hẹn 9h sáng thứ 7 đến trung tâm PolarisX hoàn tất thủ tục học bổng 20%..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
               required

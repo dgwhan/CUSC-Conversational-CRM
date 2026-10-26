@@ -75,7 +75,7 @@ export interface WorkspaceConfig {
 
 export const WorkspaceConfigSchema: z.ZodType<WorkspaceConfig> = z.object({
   workspaceId: z.string().default('ws-default-001'),
-  workspaceName: z.string().min(1).default('CUSC Tuyển Sinh & Đào Tạo'),
+  workspaceName: z.string().min(1).default('Tuyển Sinh & Đào Tạo'),
   domain: BusinessDomainSchema.default('EDUCATION'),
   terminology: WorkspaceTerminologySchema,
   pipelineStages: z.array(PipelineStageConfigSchema).min(2, 'Pipeline must have at least 2 stages'),

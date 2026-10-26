@@ -14,8 +14,12 @@ import {
   LayoutGrid,
   Smartphone,
   X,
+  Edit2,
+  DollarSign,
 } from 'lucide-react';
 import type { CustomerProfile, LeadStatus, LeadStage } from '../types.js';
+import { Avatar } from '../../../components/common/Avatar.js';
+import { AssignProductModal } from '../../../components/common/AssignProductModal.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useTranslation } from '../../../i18n/index.js';
 import { LogPersonalZaloModal } from './LogPersonalZaloModal.js';
@@ -30,6 +34,7 @@ export interface CustomerProfileColumnProps {
   onRemoveTag: (tag: string) => void;
   onAddNote: (content: string) => void;
   onRemoveNote: (noteId: string) => void;
+  onUpdateProducts?: (courses: string[], estimatedValue: number) => void;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
 }
@@ -43,6 +48,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   onRemoveTag,
   onAddNote,
   onRemoveNote,
+  onUpdateProducts,
   isMobileOpen = false,
   onCloseMobile,
 }) => {
@@ -53,6 +59,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   const [newNoteInput, setNewNoteInput] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLogZaloModalOpen, setIsLogZaloModalOpen] = useState(false);
+  const [isAssignProductModalOpen, setIsAssignProductModalOpen] = useState(false);
 
   const currentStageKey =
     customer.leadStage ||
@@ -121,9 +128,10 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
       {/* 1. Header Hồ Sơ Khách Hàng */}
       <div className="profile-header-card">
         <div className="profile-avatar-large-wrapper">
-          <img
+          <Avatar
             src={customer.avatarUrl}
-            alt={customer.fullName}
+            name={customer.fullName}
+            size={72}
             className="profile-avatar-large"
           />
           <span className={`channel-profile-tag ${customer.channel.toLowerCase()}`}>
@@ -330,21 +338,185 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
 
         {/* 5. Khóa Học / Đơn Hàng / Sản Phẩm Quan Tâm */}
         <div className="profile-section-card">
-          <div className="section-title-row">
-            <BookOpen size={15} className="section-title-icon" />
-            <h4 className="section-title">{config.terminology.productLabel} ({customer.interestCourses.length})</h4>
+          <div className="section-title-row" style={{ justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <BookOpen size={15} className="section-title-icon" />
+              <h4 className="section-title">
+                {config.terminology.productLabel} ({customer.interestCourses?.length || 0})
+              </h4>
+            </div>
+            <button
+              type="button"
+              className="crm-btn crm-btn-secondary crm-btn-sm"
+              onClick={() => setIsAssignProductModalOpen(true)}
+              title={`Gán hoặc thay đổi ${config.terminology.productLabel.toLowerCase()}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '11.5px',
+                padding: '3px 8px',
+                color: '#0284c7',
+                background: '#f0f9ff',
+                borderColor: '#bae6fd',
+                cursor: 'pointer',
+              }}
+            >
+              <Plus size={13} />
+              <span>Gán</span>
+            </button>
           </div>
 
-          {customer.interestCourses.length === 0 ? (
-            <p className="empty-sub-text">{t('inbox.profile.noCourses')}</p>
+          {!customer.interestCourses || customer.interestCourses.length === 0 ? (
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '16px 12px',
+                background: '#f8fafc',
+                borderRadius: '8px',
+                border: '1px dashed #cbd5e1',
+                marginTop: '6px',
+              }}
+            >
+              <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#64748b' }}>
+                Chưa gán {config.terminology.productLabel.toLowerCase()}
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsAssignProductModalOpen(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '12px',
+                  color: '#0284c7',
+                  background: '#ffffff',
+                  border: '1px solid #0284c7',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                <Plus size={13} />
+                <span>Chọn từ danh mục cấu hình</span>
+              </button>
+            </div>
           ) : (
-            <div className="courses-list">
-              {customer.interestCourses.map((course, idx) => (
-                <div key={idx} className="course-item-card">
-                  <div className="course-dot" />
-                  <span className="course-name">{course}</span>
-                </div>
-              ))}
+            <div className="courses-list" style={{ marginTop: '8px' }}>
+              {customer.interestCourses.map((course, idx) => {
+                const prod = config.productCatalog.find((p) => p.name === course || p.id === course);
+                return (
+                  <div
+                    key={idx}
+                    className="course-item-card"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                      <div className="course-dot" />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          className="course-name"
+                          style={{
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            color: '#1e293b',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={course}
+                        >
+                          {course}
+                        </div>
+                        {prod && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '11px',
+                              marginTop: '2px',
+                            }}
+                          >
+                            {prod.category && (
+                              <span
+                                style={{
+                                  background: '#e2e8f0',
+                                  color: '#475569',
+                                  padding: '1px 5px',
+                                  borderRadius: '3px',
+                                  fontSize: '10px',
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {prod.category}
+                              </span>
+                            )}
+                            <span style={{ color: '#059669', fontWeight: 600 }}>
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(prod.defaultPrice)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = customer.interestCourses.filter((c) => c !== course);
+                        const nextVal = next.reduce((sum, name) => {
+                          const f = config.productCatalog.find((p) => p.name === name || p.id === name);
+                          return sum + (f?.defaultPrice || 0);
+                        }, 0);
+                        if (onUpdateProducts) onUpdateProducts(next, nextVal);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#94a3b8',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                      title="Gỡ bỏ"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Dòng tổng giá trị dự kiến */}
+              <div
+                style={{
+                  marginTop: '6px',
+                  paddingTop: '8px',
+                  borderTop: '1px dashed #e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span style={{ fontSize: '11.5px', color: '#64748b' }}>
+                  {config.terminology.valueLabel}:
+                </span>
+                <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#059669' }}>
+                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                    customer.estimatedValue || 0
+                  )}
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -406,6 +578,24 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
         customer={customer}
         onClose={() => setIsLogZaloModalOpen(false)}
         onSaveNote={(note) => onAddNote(note)}
+      />
+
+      {/* Modal Gán Khóa học / Dự án BĐS / Gói liệu trình dịch vụ theo Catalog cấu hình */}
+      <AssignProductModal
+        isOpen={isAssignProductModalOpen}
+        onClose={() => setIsAssignProductModalOpen(false)}
+        customerName={customer.fullName}
+        productLabel={config.terminology.productLabel}
+        valueLabel={config.terminology.valueLabel}
+        catalog={config.productCatalog}
+        initialSelected={customer.interestCourses || []}
+        initialValue={customer.estimatedValue || 0}
+        onSave={(courses, estimatedVal) => {
+          if (onUpdateProducts) {
+            onUpdateProducts(courses, estimatedVal);
+          }
+          notify.success(`Đã cập nhật ${config.terminology.productLabel.toLowerCase()} cho ${customer.fullName}.`);
+        }}
       />
     </aside>
   );

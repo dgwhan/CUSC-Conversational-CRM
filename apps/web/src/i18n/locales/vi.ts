@@ -2,7 +2,7 @@ import type { TranslationDictionary } from '../types.js';
 
 export const vi: TranslationDictionary = {
   common: {
-    systemName: 'CUSC CRM',
+    systemName: 'PolarisX CRM',
     portalName: 'Recruitment Portal',
     save: 'Lưu',
     cancel: 'Hủy bỏ',
@@ -52,7 +52,7 @@ export const vi: TranslationDictionary = {
   },
   onboarding: {
     badge: 'QUY TRÌNH THIẾT LẬP CRM',
-    welcomeTitle: 'Chào mừng bạn đến với CUSC Social CRM',
+    welcomeTitle: 'Chào mừng bạn đến với PolarisX Social CRM',
     welcomeDesc: 'Chỉ mất 2 phút để kết nối các kênh Fanpage, Zalo OA và bắt đầu quản lý tin nhắn khách hàng tập trung.',
     skipToInbox: 'Bỏ qua & Vào thẳng Hộp thư →',
     steps: {
@@ -65,10 +65,10 @@ export const vi: TranslationDictionary = {
       title: 'Bước 1: Thiết lập Thông tin Doanh nghiệp',
       desc: 'Khởi tạo không gian làm việc (Workspace) để gom các kênh mạng xã hội và phân công nhân viên tư vấn.',
       companyName: 'Tên Doanh nghiệp / Tổ chức / Trường học',
-      companyPlaceholder: 'VD: Trung tâm Công nghệ Phần mềm Đại học Cần Thơ (CUSC)',
+      companyPlaceholder: 'VD: Trung tâm Công nghệ Phần mềm Đại học Cần Thơ (PolarisX)',
       companyHint: 'Tên này sẽ hiển thị trên đầu thanh điều hướng và trong email thông báo.',
       brandName: 'Tên thương hiệu / Viết tắt',
-      brandPlaceholder: 'VD: CUSC Cần Thơ',
+      brandPlaceholder: 'VD: PolarisX Cần Thơ',
       phone: 'Số điện thoại Hotline / Zalo chính',
       phonePlaceholder: 'VD: 0292.3835.581 hoặc 0901.234.567',
       industry: 'Lĩnh vực hoạt động',
@@ -115,7 +115,7 @@ export const vi: TranslationDictionary = {
     step3: {
       title: 'Bước 3: Mời Thành viên Đội ngũ Tư vấn',
       desc: 'Phân quyền cho các tư vấn viên hoặc quản lý để cùng trực tin nhắn và chăm sóc ứng viên.',
-      emailPlaceholder: 'Nhập địa chỉ email nhân sự (VD: agent1@cusc.vn)...',
+      emailPlaceholder: 'Nhập địa chỉ email nhân sự (VD: agent1@polarisx.vn)...',
       agentRole: 'Tư vấn viên (Agent)',
       adminRole: 'Quản lý (Admin)',
       agentDesc: 'Trực tiếp chat và phân loại lead được giao',
@@ -132,14 +132,14 @@ export const vi: TranslationDictionary = {
       backBtn: 'Quay lại',
       finishBtn: 'Hoàn tất & Vào Không gian làm việc',
       errors: {
-        invalidEmail: 'Vui lòng nhập định dạng email hợp lệ (VD: nhanvien@cusc.vn).',
+        invalidEmail: 'Vui lòng nhập định dạng email hợp lệ (VD: nhanvien@polarisx.vn).',
         duplicateEmail: 'Email này đã có trong danh sách mời.',
       },
     },
     oauthModal: {
       authorizingAccount: 'Tài khoản ủy quyền:',
       verified: 'Đã xác minh',
-      permissionsTitle: 'Các quyền sẽ cấp cho CUSC Recruitment CRM:',
+      permissionsTitle: 'Các quyền sẽ cấp cho PolarisX Recruitment CRM:',
       termsNotice: 'Bằng việc tiếp tục, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của bên cung cấp nền tảng.',
       cancelBtn: 'Hủy bỏ',
       authorizingBtn: 'Đang cấp quyền...',

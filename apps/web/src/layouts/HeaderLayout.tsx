@@ -19,7 +19,7 @@ export interface HeaderLayoutProps {
 }
 
 /**
- * Layout Header chuyên biệt cho toàn bộ ứng dụng CUSC Recruitment CRM.
+ * Layout Header chuyên biệt cho toàn bộ ứng dụng PolarisX Recruitment CRM.
  * Được tách thành layout riêng biệt độc lập với App.tsx để dễ dàng bảo trì,
  * chỉnh sửa giao diện navigation, breadcrumb, quick tabs, và các widgets tiện ích.
  * Hỗ trợ tối ưu responsive đa kích thước màn hình (Desktop, Tablet, Mobile).

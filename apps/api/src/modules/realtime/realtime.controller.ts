@@ -97,7 +97,7 @@ export class RealtimeController {
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>CUSC CRM - Bộ Kiểm Thử Hoạt Động WebSocket</title>
+  <title>PolarisX CRM - Bộ Kiểm Thử Hoạt Động WebSocket</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
     .card { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #334155; }
@@ -115,7 +115,7 @@ export class RealtimeController {
   </style>
 </head>
 <body>
-  <h1>⚡ CUSC Recruitment CRM - WebSocket Diagnostic & Test Kit</h1>
+  <h1>⚡ PolarisX Recruitment CRM - WebSocket Diagnostic & Test Kit</h1>
   <div class="card">
     <p>Trạng thái kết nối Socket: <span id="statusBadge" class="badge connecting">ĐANG KẾT NỐI...</span></p>
     <p>Độ trễ Ping/Pong: <strong id="latencyText">-- ms</strong> | Số sự kiện nhận được: <strong id="eventCount">0</strong></p>

@@ -20,13 +20,13 @@ const accounts = [
     email: 'owner@cusc.com',
     password: 'ownerCusc123!',
     role: 'OWNER',
-    fullName: 'Owner CUSC',
+    fullName: 'Owner PolarisX',
   },
   {
     email: 'staff@cusc.com',
     password: 'staffCusc123!',
     role: 'STAFF',
-    fullName: 'Staff CUSC',
+    fullName: 'Staff PolarisX',
   },
 ];
 
@@ -60,7 +60,7 @@ try {
     const workspaceId = randomUUID();
     await client.query(
       `INSERT INTO workspaces (id, name, slug, owner_id, is_active, created_at, updated_at)
-       VALUES ($1, 'Trung tâm Công nghệ Phần mềm CUSC', 'cusc', $2, true, NOW(), NOW())
+       VALUES ($1, 'Tổ hợp Công nghệ PolarisX', 'polarisx', $2, true, NOW(), NOW())
        ON CONFLICT (slug) DO UPDATE SET
          name = EXCLUDED.name,
          owner_id = EXCLUDED.owner_id,

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { WebhookController } from '../../src/modules/messaging/presentation/webhook.controller.js';
+import { WebhookController, ChannelPipe } from '../../src/modules/messaging/presentation/webhook.controller.js';
 import { ReceiveInboundMessage } from '../../src/modules/messaging/application/receive-inbound-message.usecase.js';
 import { Channel } from '../../src/modules/messaging/domain/channel.js';
 import { ChannelAdapterRegistry } from '../../src/modules/messaging/application/channel-adapter.registry.js';
@@ -139,6 +139,22 @@ describe('WebhookController', () => {
             expect(res).toEqual({ status: 'ok' });
             // Chắc chắn phản hồi dưới 3000ms (giới hạn bảo vệ 2500ms)
             expect(duration).toBeLessThan(3000);
+        });
+    });
+
+    describe('ChannelPipe (Chuẩn hóa URL channel không phân biệt hoa thường)', () => {
+        const pipe = new ChannelPipe();
+
+        it('chuyển đổi "facebook" chữ thường thành Channel.FACEBOOK', () => {
+            expect(pipe.transform('facebook')).toBe(Channel.FACEBOOK);
+        });
+
+        it('chuyển đổi "zalo" chữ thường thành Channel.ZALO', () => {
+            expect(pipe.transform('zalo')).toBe(Channel.ZALO);
+        });
+
+        it('ném BadRequestException với kênh không hỗ trợ', () => {
+            expect(() => pipe.transform('invalid_channel')).toThrow(BadRequestException);
         });
     });
 });

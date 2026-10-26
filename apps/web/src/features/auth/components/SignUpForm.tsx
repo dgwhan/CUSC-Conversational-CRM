@@ -115,7 +115,7 @@ export function SignUpForm({
       {!hideHeading && (
         <PageHeading
           title="Tạo tài khoản mới"
-          description="Đăng ký tài khoản nhân viên để tham gia hệ thống Conversational CRM của CUSC."
+          description="Đăng ký tài khoản nhân viên để tham gia hệ thống Conversational CRM của PolarisX."
         />
       )}
 

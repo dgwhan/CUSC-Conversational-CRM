@@ -88,7 +88,7 @@ function CRMMainContent() {
       return (
         <HttpErrorPage
           statusCode={simulatedErrorCode}
-          errorLocation={`POST /api/messages/import (Client ID: CUSC-SRV-01)`}
+          errorLocation={`POST /api/messages/import (Client ID: PolarisX-SRV-01)`}
           errorDetails={{
             status: simulatedErrorCode,
             timestamp: new Date().toISOString(),

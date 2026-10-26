@@ -50,7 +50,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'kanban' as ActiveNavTab,
-      label: config.terminology.pipelineName || 'Bảng Phễu Bán Hàng',
+      label: (config.terminology.pipelineName || 'Phễu Tuyển Sinh & Đào Tạo')
+        .replace(/\s*(CUSC|PolarisX)/gi, '')
+        .trim() || 'Phễu Tuyển Sinh & Đào Tạo',
       icon: <LayoutGrid size={18} />,
       tag: '',
     },

@@ -146,6 +146,12 @@ export class FacebookAdapter implements ChannelAdapter {
         }
 
         if (!appSecret) {
+            if (process.env.NODE_ENV !== 'production') {
+                this.logger.warn(
+                    'Received X-Hub-Signature-256 header but META_APP_SECRET is not configured. Bypassing HMAC verification in development mode. In production, configure META_APP_SECRET.',
+                );
+                return true;
+            }
             this.logger.warn('Received X-Hub-Signature-256 header but META_APP_SECRET is not configured.');
             return false;
         }

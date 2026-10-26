@@ -249,7 +249,7 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
 
   const handleComplete = async () => {
     notify.success(
-      `Khởi tạo Workspace "${state.business.companyName || 'CUSC CRM'}" hoàn tất! Đang chuyển hướng vào Hộp thư Trực tuyến...`,
+      `Khởi tạo Workspace "${state.business.companyName || 'PolarisX CRM'}" hoàn tất! Đang chuyển hướng vào Hộp thư Trực tuyến...`,
       'Onboarding Thành công',
     );
     onComplete(state);

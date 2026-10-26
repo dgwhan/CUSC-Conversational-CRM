@@ -5,10 +5,11 @@ import {
     Get,
     HttpCode,
     HttpStatus,
+    Injectable,
     Logger,
     Optional,
     Param,
-    ParseEnumPipe,
+    PipeTransform,
     Post,
     Req,
     Res,
@@ -18,6 +19,20 @@ import { ReceiveInboundMessage } from "../application/receive-inbound-message.us
 import { ChannelAdapterRegistry } from "../application/channel-adapter.registry.js";
 import { Channel } from "../domain/channel.js";
 import { FacebookAdapter } from "../infrastructure/adapters/facebook.adapter.js";
+
+/**
+ * Pipe chuẩn hóa channel không phân biệt hoa thường (hỗ trợ cả /facebook và /FACEBOOK)
+ */
+@Injectable()
+export class ChannelPipe implements PipeTransform<string, Channel> {
+    transform(value: string): Channel {
+        const normalized = value ? value.toUpperCase().trim() : '';
+        if (normalized && Object.values(Channel).includes(normalized as Channel)) {
+            return normalized as Channel;
+        }
+        throw new BadRequestException(`Validation failed: unsupported channel "${value}"`);
+    }
+}
 
 @Controller('webhook')
 export class WebhookController {
@@ -37,7 +52,7 @@ export class WebhookController {
     @Get(':channel')
     @HttpCode(HttpStatus.OK)
     async verify(
-        @Param('channel', new ParseEnumPipe(Channel)) channel: Channel,
+        @Param('channel', new ChannelPipe()) channel: Channel,
         @Req() req: FastifyRequest,
         @Res({ passthrough: true }) res: FastifyReply,
     ): Promise<string | { status: string }> {
@@ -68,7 +83,7 @@ export class WebhookController {
     @Post(':channel')
     @HttpCode(HttpStatus.OK)
     async handle(
-        @Param('channel', new ParseEnumPipe(Channel)) channel: Channel,
+        @Param('channel', new ChannelPipe()) channel: Channel,
         @Req() req: FastifyRequest & { rawBody?: Buffer },
     ) {
         if (!req.rawBody) {

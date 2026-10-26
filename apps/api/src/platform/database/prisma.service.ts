@@ -71,7 +71,7 @@ export class PrismaService
           INSERT INTO "workspaces" ("id", "name", "slug", "owner_id", "is_active", "created_at", "updated_at")
           SELECT 
               gen_random_uuid(),
-              COALESCE(wc.workspace_name, 'Trung tâm Công nghệ Phần mềm CUSC'),
+              COALESCE(wc.workspace_name, 'Tổ hợp Công nghệ PolarisX'),
               CONCAT('ws-', SUBSTRING(REPLACE(gen_random_uuid()::text, '-', ''), 1, 8)),
               wc.owner_id,
               true,

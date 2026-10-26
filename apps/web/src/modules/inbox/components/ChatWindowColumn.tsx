@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import type { ConversationItem, AssignedStaff, QuickReplyItem, MessageAttachment } from '../types.js';
 import { QuickReplyBar } from './QuickReplyBar.js';
+import { Avatar } from '../../../components/common/Avatar.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useTranslation } from '../../../i18n/index.js';
 import { useUserRole } from '../../auth/UserRoleContext.js';
@@ -31,6 +32,7 @@ export interface ChatWindowColumnProps {
   onToggleStatus: () => void;
   onBackToList?: () => void;
   onToggleProfile?: () => void;
+  onOpenQuickReplySettings?: () => void;
 }
 
 export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
@@ -42,6 +44,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
   onToggleStatus,
   onBackToList,
   onToggleProfile,
+  onOpenQuickReplySettings,
 }) => {
   const { t } = useTranslation();
   const { isOwner, staffId } = useUserRole();
@@ -86,12 +89,12 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
     notify.info(t('inbox.chatInput.voiceRecordingNotice'));
     setTimeout(() => {
       setIsRecording(false);
-      onSendMessage('Tin nhắn thoại (Ghi âm từ nhân viên tư vấn CUSC)', [
+      onSendMessage('Tin nhắn thoại (Ghi âm từ nhân viên tư vấn PolarisX)', [
         {
           id: `att-voice-${Date.now()}`,
           type: 'AUDIO',
           url: 'https://example.com/audio/voice-sample.mp3',
-          name: 'tuvan_khoahoc_cusc.mp3',
+          name: 'tuvan_khoahoc_polarisx.mp3',
           duration: '0:35',
         },
       ]);
@@ -117,9 +120,10 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
           )}
 
           <div className="chat-avatar-box">
-            <img
+            <Avatar
               src={conversation.customer.avatarUrl}
-              alt={conversation.customer.fullName}
+              name={conversation.customer.fullName}
+              size={40}
               className="chat-header-avatar"
             />
             <span className={`chat-online-dot ${conversation.status === 'OPEN' ? 'online' : ''}`} />
@@ -276,9 +280,10 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
               className={`chat-bubble-row ${isOutbound ? 'outbound' : 'inbound'}`}
             >
               {!isOutbound && (
-                <img
+                <Avatar
                   src={conversation.customer.avatarUrl}
-                  alt={msg.senderName}
+                  name={msg.senderName}
+                  size={30}
                   className="msg-bubble-avatar"
                 />
               )}
@@ -352,6 +357,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
       <QuickReplyBar
         replies={quickReplies}
         onSelect={handleQuickReplySelect}
+        onOpenSettings={onOpenQuickReplySettings}
       />
 
       {/* 4. Khung Soạn Thảo & Gửi Tin Nhắn (Composer) */}
@@ -376,7 +382,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
                   id: `att-img-${Date.now()}`,
                   type: 'IMAGE',
                   url: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&auto=format&fit=crop&q=60',
-                  name: 'chung_chi_cusc.jpg',
+                  name: 'chung_chi_polarisx.jpg',
                 },
               ]);
             }}

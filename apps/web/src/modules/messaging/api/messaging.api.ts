@@ -22,7 +22,7 @@ export const messagingApi = {
     const headers = 'kênh,người gửi,nội dung,thời gian\r\n';
     const sample = [
       'ZALO,0912345678,Tư vấn giúp em khóa học Lập trình Web,2026-10-24T08:30:00Z',
-      'FACEBOOK,fb_user_102,Học phí ngành CNTT tại CUSC là bao nhiêu ạ?,2026-10-24T09:15:00Z',
+      'FACEBOOK,fb_user_102,Học phí ngành CNTT tại PolarisX là bao nhiêu ạ?,2026-10-24T09:15:00Z',
       'TIKTOK,tiktok_user_55,Trường có xét học bạ THPT không ad?,2026-10-24T10:00:00Z',
       'MANUAL_IMPORT,thi_sinh_01,Thí sinh đến trực tiếp văn phòng tư vấn tuyển sinh,2026-10-24T10:45:00Z',
     ].join('\r\n');

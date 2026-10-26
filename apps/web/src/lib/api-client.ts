@@ -1,5 +1,5 @@
 /**
- * API Client tập trung cho ứng dụng CUSC Recruitment CRM.
+ * API Client tập trung cho ứng dụng PolarisX Recruitment CRM.
  * Hỗ trợ tự động định tuyến qua Vite Proxy hoặc cấu hình Base URL tuỳ chỉnh.
  * Tích hợp ErrorHandler chi tiết và thông báo Toast vị trí lỗi.
  */
@@ -241,6 +241,79 @@ class ApiClient {
 
   disconnectChannel(id: string, workspaceId?: string) {
     return this.delete<{ success: boolean; id: string }>(`/channels/${id}`, {
+      headers: workspaceId ? { 'x-workspace-id': workspaceId } : {},
+    });
+  }
+
+  syncChannel(id: string, workspaceId?: string) {
+    return this.post<{ syncedCount: number; conversationsCount: number; pageName: string }>(
+      `/channels/${id}/sync`,
+      {},
+      {
+        headers: workspaceId ? { 'x-workspace-id': workspaceId } : {},
+      },
+    );
+  }
+
+  getMessages(params?: {
+    page?: number;
+    limit?: number;
+    channel?: string;
+    search?: string;
+    workspaceId?: string;
+  }) {
+    return this.get<{
+      items: Array<{
+        id: string;
+        channel: string;
+        externalMessageId: string;
+        senderExternalId: string;
+        content: string | null;
+        direction: 'INBOUND' | 'OUTBOUND';
+        sentAt: string;
+        channelAccountId?: string;
+        channelAccount?: { displayName: string; externalAccountId: string };
+      }>;
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }>('/messages', {
+      params,
+      headers: params?.workspaceId ? { 'x-workspace-id': params.workspaceId } : {},
+    });
+  }
+  getCustomers(params?: { workspaceId?: string; search?: string }) {
+    return this.get<{
+      items: Array<{
+        id: string;
+        workspaceId?: string | null;
+        fullName: string;
+        phone?: string | null;
+        email?: string | null;
+        avatarUrl?: string | null;
+        channelIdentities?: any;
+        interestCourses?: string[];
+        estimatedValue?: number;
+        leadStage?: string;
+        conversations?: Array<{
+          id: string;
+          snippet?: string | null;
+          lastMessageAt?: string | null;
+          channelAccount?: { displayName: string; channel: string; avatarUrl?: string };
+        }>;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+      total: number;
+    }>('/customers', {
+      params,
+      headers: params?.workspaceId ? { 'x-workspace-id': params.workspaceId } : {},
+    });
+  }
+
+  updateCustomer(id: string, data: Record<string, unknown>, workspaceId?: string) {
+    return this.patch<Record<string, unknown>>(`/customers/${id}`, data, {
       headers: workspaceId ? { 'x-workspace-id': workspaceId } : {},
     });
   }

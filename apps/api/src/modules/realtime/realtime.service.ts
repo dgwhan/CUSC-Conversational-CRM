@@ -106,7 +106,7 @@ export class RealtimeService implements OnModuleDestroy {
               type: 'pong',
               data: {
                 timestamp: new Date().toISOString(),
-                server: 'CUSC-CRM-WS',
+                server: 'PolarisX-CRM-WS',
               },
               timestamp: new Date().toISOString(),
             }),
@@ -158,7 +158,7 @@ export class RealtimeService implements OnModuleDestroy {
       map(
         (): MessageEvent => ({
           type: 'heartbeat',
-          data: { timestamp: new Date().toISOString(), server: 'CUSC-CRM-SSE' },
+          data: { timestamp: new Date().toISOString(), server: 'PolarisX-CRM-SSE' },
         }),
       ),
     );
@@ -232,7 +232,7 @@ export class RealtimeService implements OnModuleDestroy {
     message: string;
   } {
     const sentAt = new Date().toISOString();
-    const message = customMessage || 'CUSC-CRM Socket Diagnostic Heartbeat Test';
+    const message = customMessage || 'PolarisX-CRM Socket Diagnostic Heartbeat Test';
 
     const payload: RealtimeEventPayload<{ message: string; timestamp: string }> = {
       type: 'socket:test_ping',

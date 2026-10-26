@@ -171,7 +171,7 @@ export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
           </div>
           <div>
             <span className="summary-label">{t('onboarding.step3.summaryWorkspace')}:</span>
-            <span className="summary-value">{business.companyName || 'Doanh nghiệp CUSC'}</span>
+            <span className="summary-value">{business.companyName || 'Doanh nghiệp PolarisX'}</span>
           </div>
         </div>
 
