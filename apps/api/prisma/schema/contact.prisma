@@ -1,0 +1,28 @@
+model Contact {
+    id              String            @id @default(uuid()) @db.Uuid
+    displayName     String            @map("display_name") @db.VarChar(255)
+    phoneNormalized String?           @unique @map("phone_normalized") @db.VarChar(50)
+    email           String?           @db.VarChar(255)
+    notes           String?           @db.Text
+    createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+    updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+    channelIdentities ChannelIdentity[]
+
+    @@map("contacts")
+}
+
+model ChannelIdentity {
+    id             String   @id @default(uuid()) @db.Uuid
+    contactId      String   @map("contact_id") @db.Uuid
+    channel        Channel
+    externalUserId String   @map("external_user_id") @db.VarChar(255)
+    createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+    updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+    contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+    @@unique([channel, externalUserId])
+    @@index([contactId])
+    @@map("channel_identities")
+}
