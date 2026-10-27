@@ -6,21 +6,26 @@ import {
     Body,
     Headers,
     Query,
-    NotFoundException,
     Optional,
+    Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { RealtimeService } from '../../realtime/realtime.service.js';
 
+/**
+ * Controller managing workspace customers, recruitment leads, and pipeline stages.
+ */
 @Controller('customers')
 export class CustomerController {
+    private readonly logger = new Logger(CustomerController.name);
+
     constructor(
         private readonly prisma: PrismaService,
         @Optional() private readonly realtime?: RealtimeService,
-    ) {}
+    ) { }
 
     /**
-     * Lấy danh sách khách hàng trong Workspace để hiển thị trên Phễu Kanban & Quản lý danh bạ
+     * Retrieve list of customers within a workspace, supporting search and conversation snippet retrieval.
      */
     @Get()
     async getCustomers(
@@ -66,6 +71,7 @@ export class CustomerController {
 
         const mappedItems = items.map((c: any) => {
             const identities = (c.channelIdentities as any) || {};
+
             return {
                 ...c,
                 leadStatus: c.leadStatus || identities.leadStatus || 'NEW',
@@ -79,7 +85,8 @@ export class CustomerController {
     }
 
     /**
-     * Cập nhật thông tin khách hàng (bao gồm Khóa học / Dự án / Gói dịch vụ quan tâm và giá trị dự kiến)
+     * Update customer profile, recruitment pipeline stage, and lead qualification status.
+     * Automatically broadcasts real-time pipeline changes to connected staff.
      */
     @Patch(':id')
     async updateCustomer(
@@ -98,7 +105,7 @@ export class CustomerController {
         const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         let existing: any = null;
 
-        // 1. Tìm nếu id truyền vào là định dạng UUID chuẩn
+        //Match exact standard UUID
         if (UUID_REGEX.test(id)) {
             try {
                 existing = await this.prisma.customer.findUnique({ where: { id } });
@@ -107,7 +114,7 @@ export class CustomerController {
             }
         }
 
-        // 2. Tìm nếu id có tiền tố như cust-<uuid> hoặc cand-<uuid>
+        //Match prefixed UUIDs (e.g., cust-<uuid> or cand-<uuid>)
         if (!existing) {
             const strippedUuid = id.replace(/^(cust|cand)-/, '');
             if (UUID_REGEX.test(strippedUuid)) {
@@ -119,7 +126,7 @@ export class CustomerController {
             }
         }
 
-        // 3. Tìm theo Social ID (facebook, zalo, socialId) hoặc theo Email, Phone, Tên
+        //Fallback to socialId or personal identifier lookups
         if (!existing) {
             const cleanSocialId = id.replace(/^(cust|cand)-(facebook-|zalo-)?/, '').replace(/^(facebook|zalo)-/, '');
             try {
@@ -141,8 +148,7 @@ export class CustomerController {
             }
         }
 
-        // 4. Nếu khách hàng chưa tồn tại trong CSDL (ví dụ ứng viên mới thêm thủ công hoặc từ tin nhắn chưa tạo Customer),
-        // tự động tạo mới Customer vào DB với trạng thái đã chọn thay vì lỗi 404
+        //Upsert fallback: Provision new Customer if not found in database
         if (!existing) {
             const cleanSocialId = id.replace(/^(cust|cand)-(facebook-|zalo-)?/, '').replace(/^(facebook|zalo)-/, '');
             let newCust: any;
@@ -165,7 +171,6 @@ export class CustomerController {
                     },
                 });
             } catch {
-                // Fallback nếu CSDL chưa có cột lead_status / lead_stage
                 newCust = await this.prisma.customer.create({
                     data: {
                         fullName: body.fullName || (id.startsWith('cand-') ? 'Ứng viên mới' : 'Khách hàng'),
@@ -192,7 +197,7 @@ export class CustomerController {
                         previousStage: 'STAGE_NEW',
                         updatedBy: body.updatedBy || 'Hệ thống CRM',
                     });
-                } catch {}
+                } catch { }
             }
 
             return {
@@ -227,7 +232,6 @@ export class CustomerController {
                 },
             });
         } catch {
-            // Fallback an toàn nếu cột lead_status / lead_stage chưa có trong CSDL
             updated = await this.prisma.customer.update({
                 where: { id: existing.id },
                 data: {
@@ -248,7 +252,7 @@ export class CustomerController {
                     previousStage: (existing.leadStage || existing.leadStatus || 'STAGE_NEW') as string,
                     updatedBy: body.updatedBy || 'Hệ thống CRM',
                 });
-            } catch {}
+            } catch { }
         }
 
         return {

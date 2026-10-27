@@ -9,6 +9,7 @@ import { MessageRepository } from './infrastructure/message.repository.js';
 import { WebhookController } from './presentation/webhook.controller.js';
 import { MessageImportController } from './presentation/message-import.controller.js';
 import { CustomerController } from './presentation/customer.controller.js';
+import { ContactController } from './presentation/contact.controller.js';
 import { INBOUND_QUEUE, InboundMessageQueue } from './domain/channel-adapter.port.js';
 import { ManualImportAdapter } from './infrastructure/adapters/manual-import.adapter.js';
 import { ZaloAdapter } from './infrastructure/adapters/zalo.adapter.js';
@@ -51,7 +52,7 @@ const adaptersProvider: Provider = {
 
 @Module({
     imports: [PrismaModule, RealtimeModule],
-    controllers: [WebhookController, MessageImportController, CustomerController],
+    controllers: [WebhookController, MessageImportController, CustomerController, ContactController],
     providers: [
         MessageRepository,
         ChannelAdapterRegistry,

@@ -69,13 +69,24 @@ export class MessageRepository {
         const mappedItems = items.map((m: any) => {
             const raw = (m.rawPayload as any) || {};
             const customer = m.conversation?.customer;
-            const senderExternalId =
-                raw.senderExternalId ||
-                raw.sender?.id ||
-                raw.from?.id ||
+            const isOutbound = m.direction === 'OUTBOUND' || m.direction === MessageDirection.OUTBOUND;
+            const recipientExternalId =
+                raw.recipient?.id ||
+                raw.to?.data?.[0]?.id ||
+                raw.to?.id ||
                 customer?.channelIdentities?.facebook ||
                 customer?.id ||
-                'unknown';
+                null;
+
+            const senderExternalId =
+                isOutbound && recipientExternalId
+                    ? recipientExternalId
+                    : (raw.senderExternalId ||
+                       raw.sender?.id ||
+                       raw.from?.id ||
+                       customer?.channelIdentities?.facebook ||
+                       customer?.id ||
+                       'unknown');
 
             const customerName =
                 customer?.fullName ||
@@ -89,6 +100,11 @@ export class MessageRepository {
                 raw.customerAvatar ||
                 null;
 
+            const tags =
+                (Array.isArray(m.conversation?.tags) && m.conversation.tags.length > 0)
+                    ? m.conversation.tags
+                    : (Array.isArray(raw.tags) && raw.tags.length > 0 ? raw.tags : []);
+
             return {
                 ...m,
                 senderExternalId,
@@ -96,6 +112,7 @@ export class MessageRepository {
                 customerAvatar,
                 customerPhone: customer?.phone || null,
                 customerEmail: customer?.email || null,
+                tags,
             };
         });
 

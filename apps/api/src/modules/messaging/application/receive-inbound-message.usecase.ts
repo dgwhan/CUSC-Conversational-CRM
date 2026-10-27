@@ -7,6 +7,8 @@ import { ChannelAdapterRegistry } from "./channel-adapter.registry.js";
 import { MessageRepository } from "../infrastructure/message.repository.js";
 import { RealtimeService } from "../../realtime/realtime.service.js";
 import { PrismaService } from "../../../platform/database/prisma.service.js";
+import { CUSTOMER_GATEWAY } from "../domain/customer-gateway.port.js";
+import type { CustomerGateway } from "../domain/customer-gateway.port.js";
 
 @Injectable()
 export class ReceiveInboundMessage {
@@ -18,7 +20,8 @@ export class ReceiveInboundMessage {
         @Inject(INBOUND_QUEUE) private readonly queue: InboundMessageQueue,
         @Optional() private readonly realtime?: RealtimeService,
         @Optional() private readonly prisma?: PrismaService,
-    ) {}
+        @Optional() @Inject(CUSTOMER_GATEWAY) private readonly customers?: CustomerGateway,
+    ) { }
 
     async execute(req: RawWebhookRequest & { channel: Channel }): Promise<void> {
         const adapter = this.adapters.get(req.channel);
@@ -47,18 +50,43 @@ export class ReceiveInboundMessage {
                 const item = created[i];
                 if (event && item) {
                     const isOutbound = event.direction === 'OUTBOUND';
-                    // Tạo conversationId theo ngữ cảnh tài khoản và người gửi thực tế thay vì gán cứng
-                    const conversationId = event.externalAccountId && event.senderExternalId
-                        ? `${event.channel}_${event.externalAccountId}_${event.senderExternalId}`
+                    const raw = (event.rawPayload as any) || {};
+                    // Đối với tin echo/outbound từ Page, khách hàng chính là recipient chứ không phải sender (Page ID)
+                    const customerExternalId = isOutbound
+                        ? (raw.recipient?.id || raw.to?.data?.[0]?.id || raw.to?.id || event.senderExternalId)
+                        : event.senderExternalId;
+
+                    // Tạo conversationId theo ngữ cảnh tài khoản và ID khách hàng đối thoại
+                    const conversationId = event.externalAccountId && customerExternalId
+                        ? `${event.channel}_${event.externalAccountId}_${customerExternalId}`
                         : `conv_${item.id}`;
 
                     let customerName = isOutbound
                         ? 'Trang (Page Meta)'
-                        : `Khách hàng (${event.senderExternalId?.slice(-4) || event.channel})`;
+                        : `Khách hàng (${customerExternalId?.slice(-4) || event.channel})`;
                     let customerAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName)}&background=0284c7&color=fff&bold=true`;
                     let dbCustomer: any = null;
 
-                    // TỰ ĐỘNG ĐỔ DỮ LIỆU KHÁCH HÀNG VÀO DATABASE BẢNG "customers"
+                    // TỰ ĐỘNG TÌM HOẶC TẠO CONTACT & IDENTITY THEO (KÊNH, EXTERNAL_USER_ID)
+                    if (!isOutbound && this.customers && event.senderExternalId) {
+                        try {
+                            const raw = (event.rawPayload as any) || {};
+                            const contactResult = await this.customers.findOrCreate({
+                                channel: event.channel,
+                                senderExternalId: event.senderExternalId,
+                                displayName: raw.customerName || raw.displayName || raw.name,
+                                rawPayload: event.rawPayload,
+                            });
+                            const contactObj = contactResult.contact as { displayName?: string } | undefined;
+                            if (contactObj?.displayName) {
+                                customerName = contactObj.displayName;
+                            }
+                        } catch (err) {
+                            this.logger.warn(`Could not findOrCreate contact on message arrival: ${(err as Error).message}`);
+                        }
+                    }
+
+                    // TỰ ĐỘNG ĐỔ DỮ LIỆU KHÁCH HÀNG VÀO DATABASE BẢNG "customers" (cho Kanban & Pipeline)
                     if (!isOutbound && this.prisma && event.senderExternalId) {
                         try {
                             const raw = (event.rawPayload as any) || {};

@@ -56,6 +56,8 @@ export class ProcessMessageReceived {
         if (!rawPayload || typeof rawPayload !== 'object') return 'unknown-sender';
         const raw = rawPayload as Record<string, unknown>;
         if (typeof raw.senderExternalId === 'string' && raw.senderExternalId) return raw.senderExternalId;
+        if (typeof raw.external_user_id === 'string' && raw.external_user_id) return raw.external_user_id;
+        if (typeof raw.externalUserId === 'string' && raw.externalUserId) return raw.externalUserId;
         if (typeof raw.sender === 'string' && raw.sender) return raw.sender;
         if (raw.sender && typeof raw.sender === 'object') {
             const senderObj = raw.sender as Record<string, unknown>;

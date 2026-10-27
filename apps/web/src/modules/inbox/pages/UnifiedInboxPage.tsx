@@ -25,6 +25,155 @@ interface UnifiedInboxPageProps {
   initialConversationId?: string | null;
 }
 
+// Hàm tiện ích hợp nhất các cuộc hội thoại trùng lặp của cùng một khách hàng
+export const mergeDuplicateConversations = (conversations: ConversationItem[]): ConversationItem[] => {
+  const isRealName = (name?: string) =>
+    Boolean(
+      name &&
+      name.trim().length > 1 &&
+      !name.includes('#') &&
+      !name.toLowerCase().startsWith('khách hàng') &&
+      !name.toLowerCase().startsWith('lead')
+    );
+
+  const merged: ConversationItem[] = [];
+
+  for (const conv of conversations) {
+    const existingIdx = merged.findIndex((m) => {
+      // 1. Khớp chính xác ID hội thoại
+      if (m.id === conv.id) return true;
+
+      // 2. Một trong 2 ID chứa ID còn lại (ví dụ FACEBOOK_pageId_senderId và FACEBOOK_senderId)
+      if (m.id && conv.id && (m.id.includes(conv.id) || conv.id.includes(m.id))) return true;
+
+      const mCust = m.customer;
+      const cCust = conv.customer;
+      if (!mCust || !cCust) return false;
+
+      // 3. Khớp ID khách hàng trong database
+      if (
+        mCust.id &&
+        cCust.id &&
+        mCust.id === cCust.id &&
+        !mCust.id.startsWith('cust-') &&
+        !cCust.id.startsWith('cust-')
+      ) {
+        return true;
+      }
+
+      // 4. Khớp Social ID / External User ID (Facebook PSID / Zalo ID)
+      const mSocial = mCust.socialId || mCust.channelIdentities?.[0]?.externalUserId;
+      const cSocial = cCust.socialId || cCust.channelIdentities?.[0]?.externalUserId;
+      if (
+        mSocial &&
+        cSocial &&
+        mSocial !== 'anonymous' &&
+        mSocial !== 'khách' &&
+        mSocial === cSocial
+      ) {
+        return true;
+      }
+
+      // 5. Social ID của một bên nằm trong ID hội thoại của bên kia
+      if (mSocial && mSocial !== 'khách' && mSocial !== 'anonymous' && conv.id.includes(mSocial)) return true;
+      if (cSocial && cSocial !== 'khách' && cSocial !== 'anonymous' && m.id.includes(cSocial)) return true;
+
+      // 6. Khớp Tên thật của khách hàng trong cùng kênh liên lạc
+      if (
+        m.channel === conv.channel &&
+        isRealName(mCust.fullName) &&
+        isRealName(cCust.fullName) &&
+        mCust.fullName.trim().toLowerCase() === cCust.fullName.trim().toLowerCase()
+      ) {
+        return true;
+      }
+
+      // 7. Khớp Số điện thoại hoặc Email
+      if (mCust.phone && cCust.phone && mCust.phone !== 'Chưa có SĐT' && mCust.phone === cCust.phone) {
+        return true;
+      }
+      if (mCust.email && cCust.email && mCust.email !== 'Chưa có Email' && mCust.email === cCust.email) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (existingIdx === -1) {
+      merged.push({ ...conv });
+    } else {
+      const target = merged[existingIdx];
+
+      // Gộp và khử trùng lặp toàn bộ tin nhắn, sắp xếp theo thời gian
+      const seenMsgIds = new Set<string>();
+      const combinedMessages: ChatMessage[] = [];
+      for (const msg of [...target.messages, ...conv.messages]) {
+        const msgKey = msg.id || `${msg.direction}_${msg.content}_${msg.sentAt}`;
+        if (!seenMsgIds.has(msgKey)) {
+          seenMsgIds.add(msgKey);
+          combinedMessages.push(msg);
+        }
+      }
+
+      // Gộp các nhãn phân loại (tags), ưu tiên giữ nhãn cụ thể như 'Facebook Lead', 'lead'
+      const allTags = Array.from(new Set([...(target.tags || []), ...(conv.tags || [])]));
+      const filteredTags =
+        allTags.length > 1 && allTags.some((t) => t !== 'Khách hàng mới')
+          ? allTags.filter((t) => t !== 'Khách hàng mới')
+          : allTags;
+
+      // Ưu tiên trạng thái Lead cao hơn
+      const priority: Record<LeadStatus, number> = {
+        CONVERTED: 4,
+        POTENTIAL: 3,
+        UNQUALIFIED: 2,
+        NEW: 1,
+      };
+      const finalStatus =
+        (priority[target.customer.leadStatus] || 0) >= (priority[conv.customer.leadStatus] || 0)
+          ? target.customer.leadStatus
+          : conv.customer.leadStatus;
+
+      // Ưu tiên Avatar ảnh thật
+      const preferAvatar = (a1?: string, a2?: string) => {
+        if (a1 && !a1.includes('ui-avatars.com')) return a1;
+        if (a2 && !a2.includes('ui-avatars.com')) return a2;
+        return a1 || a2 || '';
+      };
+
+      const finalFullName = isRealName(target.customer.fullName)
+        ? target.customer.fullName
+        : isRealName(conv.customer.fullName)
+        ? conv.customer.fullName
+        : target.customer.fullName;
+
+      const latestMsg = combinedMessages[combinedMessages.length - 1];
+
+      merged[existingIdx] = {
+        ...target,
+        snippet: latestMsg?.content || target.snippet || conv.snippet,
+        lastMessageAt: latestMsg?.sentAt || target.lastMessageAt || conv.lastMessageAt,
+        unreadCount: (target.unreadCount || 0) + (conv.unreadCount || 0),
+        tags: filteredTags.length > 0 ? filteredTags : ['Facebook Lead'],
+        customer: {
+          ...target.customer,
+          ...conv.customer,
+          fullName: finalFullName,
+          avatarUrl: preferAvatar(target.customer.avatarUrl, conv.customer.avatarUrl),
+          leadStatus: finalStatus,
+          leadStage: target.customer.leadStage || conv.customer.leadStage,
+          tags: filteredTags.length > 0 ? filteredTags : ['Facebook Lead'],
+          phone: target.customer.phone !== 'Chưa có SĐT' ? target.customer.phone : conv.customer.phone,
+          email: target.customer.email !== 'Chưa có Email' ? target.customer.email : conv.customer.email,
+        },
+        messages: combinedMessages,
+      };
+    }
+  }
+
+  return merged;
+};
+
 export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   onNavigateToKanban,
   initialConversationId,
@@ -60,7 +209,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           // Làm sạch dữ liệu rác nếu trước đó bị lưu tên "#hách" vào cache trình duyệt
-          return parsed.map((c: ConversationItem) => {
+          const cleaned = parsed.map((c: ConversationItem) => {
             if (c.customer?.fullName?.includes('#hách')) {
               return {
                 ...c,
@@ -72,6 +221,8 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
             }
             return c;
           });
+          // Tự động gộp các cuộc hội thoại trùng lặp của cùng một khách hàng
+          return mergeDuplicateConversations(cleaned);
         }
       }
     } catch {}
@@ -112,10 +263,26 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
 
       const groups: Record<string, typeof messagesRes.items> = {};
       for (const item of messagesRes.items) {
-        const senderId = String(item.senderExternalId || (item as any).rawPayload?.senderExternalId || (item as any).rawPayload?.sender_id || 'anonymous');
-        const convId = item.channel === 'FACEBOOK' && item.channelAccount?.externalAccountId
-          ? `FACEBOOK_${item.channelAccount.externalAccountId}_${senderId}`
+        const raw = (item as any).rawPayload || {};
+        const isOut = item.direction === 'OUTBOUND';
+        // Đối với tin OUTBOUND, người đối thoại là recipient chứ không phải Page
+        const recipientId = raw.recipient?.id || raw.to?.data?.[0]?.id || raw.to?.id;
+        const senderId = String(
+          (isOut && recipientId) ||
+          item.senderExternalId ||
+          raw.senderExternalId ||
+          raw.sender?.id ||
+          raw.from?.id ||
+          (item as any).conversation?.customer?.channelIdentities?.facebook ||
+          (item as any).conversation?.customerId ||
+          'anonymous'
+        );
+
+        const channelAccountExtId = item.channelAccount?.externalAccountId;
+        const convId = item.channel === 'FACEBOOK' && channelAccountExtId
+          ? `FACEBOOK_${channelAccountExtId}_${senderId}`
           : `${item.channel}_${senderId}`;
+
         if (!groups[convId]) groups[convId] = [];
         groups[convId].push(item);
       }
@@ -130,7 +297,13 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           const firstInbound = sorted.find((m) => m.direction === 'INBOUND') || latest;
           const channelName = latest.channelAccount?.displayName || `Kênh ${latest.channel}`;
 
-          const latestSenderId = String(latest.senderExternalId || (latest as any).rawPayload?.senderExternalId || (latest as any).rawPayload?.sender_id || 'khách');
+          const latestSenderId = String(
+            latest.senderExternalId ||
+            (latest as any).rawPayload?.senderExternalId ||
+            (latest as any).rawPayload?.sender?.id ||
+            (latest as any).rawPayload?.from?.id ||
+            'khách'
+          );
           const latestSuffix = latestSenderId.length > 4 ? latestSenderId.slice(-4) : latestSenderId;
           const convCustomer = (latest as any).conversation?.customer;
           const matchedCust =
@@ -166,7 +339,26 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
             };
           });
 
-          const existingIndex = updated.findIndex((c) => c.id === convId);
+          const isRealName = (n?: string) =>
+            Boolean(n && n.length > 1 && !n.includes('#') && !n.toLowerCase().startsWith('khách hàng') && !n.toLowerCase().startsWith('lead'));
+
+          const existingIndex = updated.findIndex((c) => {
+            if (c.id === convId) return true;
+            if (c.id.includes(convId) || convId.includes(c.id)) return true;
+            if (latestSenderId && latestSenderId !== 'khách' && latestSenderId !== 'anonymous') {
+              if (c.customer.socialId === latestSenderId || c.id.includes(latestSenderId)) return true;
+            }
+            if (matchedCust?.id && c.customer.id === matchedCust.id) return true;
+            if (
+              isRealName(rawCustomerName) &&
+              isRealName(c.customer.fullName) &&
+              c.customer.fullName.trim().toLowerCase() === rawCustomerName.trim().toLowerCase()
+            ) {
+              return true;
+            }
+            return false;
+          });
+
           if (existingIndex >= 0) {
             const existing = updated[existingIndex];
             const existingIds = new Set(existing.messages.map((m) => m.id));
@@ -176,6 +368,12 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
               (matchedCust || (latest as any).customerName) &&
               (existing.customer.fullName.includes('#') || existing.customer.fullName.includes('Khách hàng') || !existing.customer.avatarUrl);
 
+            const identitiesList =
+              matchedCust?.channelIdentitiesList ||
+              (latestSenderId && latestSenderId !== 'anonymous' && latestSenderId !== 'khách'
+                ? [{ channel: latest.channel, externalUserId: latestSenderId }]
+                : []);
+
             updated[existingIndex] = {
               ...existing,
               snippet: latest.content || existing.snippet,
@@ -183,6 +381,8 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
               customer: shouldUpdateCustomer
                 ? {
                     ...existing.customer,
+                    contactId: matchedCust?.contact?.id || existing.customer.contactId,
+                    channelIdentities: identitiesList.length ? identitiesList : existing.customer.channelIdentities,
                     fullName: rawCustomerName,
                     avatarUrl: rawCustomerAvatar,
                     phone: matchedCust?.phone || existing.customer.phone,
@@ -196,6 +396,8 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                   }
                 : {
                     ...existing.customer,
+                    contactId: matchedCust?.contact?.id || existing.customer.contactId,
+                    channelIdentities: identitiesList.length ? identitiesList : existing.customer.channelIdentities,
                     leadStatus: (matchedCust?.leadStatus as any) || existing.customer.leadStatus,
                     leadStage: matchedCust?.leadStage || existing.customer.leadStage,
                     interestCourses: existing.customer.interestCourses?.length
@@ -206,6 +408,12 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
               messages: newMsgs.length > 0 ? [...existing.messages, ...newMsgs] : existing.messages,
             };
           } else {
+            const identitiesList =
+              matchedCust?.channelIdentitiesList ||
+              (latestSenderId && latestSenderId !== 'anonymous' && latestSenderId !== 'khách'
+                ? [{ channel: latest.channel, externalUserId: latestSenderId }]
+                : []);
+
             const newConv: ConversationItem = {
               id: convId,
               channel: latest.channel as any,
@@ -214,10 +422,17 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
               lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
               lastCustomerMessageAt: firstInbound.sentAt,
               unreadCount: 0,
-              tags: ['Facebook Lead'],
+              tags:
+                Array.isArray((latest as any).tags) && (latest as any).tags.length > 0
+                  ? (latest as any).tags
+                  : Array.isArray((latest as any).rawPayload?.tags) && (latest as any).rawPayload.tags.length > 0
+                  ? (latest as any).rawPayload.tags
+                  : ['Facebook Lead'],
               status: 'OPEN',
               customer: {
                 id: matchedCust?.id || convCustomer?.id || (latestSenderId !== 'anonymous' && latestSenderId !== 'khách' ? `cust-${latestSenderId}` : `cust-${convId}`),
+                contactId: matchedCust?.contact?.id,
+                channelIdentities: identitiesList,
                 fullName: rawCustomerName,
                 phone: matchedCust?.phone || 'Chưa có SĐT',
                 email: matchedCust?.email || 'Chưa có Email',
@@ -225,9 +440,14 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                 socialId: latestSenderId,
                 channel: latest.channel as any,
                 channelAccountName: channelName,
-                leadStatus: (matchedCust?.leadStatus as any) || 'NEW',
+                leadStatus: (matchedCust?.leadStatus as any) || 'POTENTIAL',
                 leadStage: matchedCust?.leadStage || undefined,
-                tags: ['Facebook Lead'],
+                tags:
+                  Array.isArray((latest as any).tags) && (latest as any).tags.length > 0
+                    ? (latest as any).tags
+                    : Array.isArray((latest as any).rawPayload?.tags) && (latest as any).rawPayload.tags.length > 0
+                    ? (latest as any).rawPayload.tags
+                    : ['Facebook Lead'],
                 interestCourses: matchedCust?.interestCourses || [],
                 estimatedValue: matchedCust?.estimatedValue || 0,
                 notes: [],
@@ -237,7 +457,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
             updated.unshift(newConv);
           }
         }
-        return updated;
+        return mergeDuplicateConversations(updated);
       });
     } catch {
       // Backend có thể chưa khởi động hoặc chưa có tin nhắn
@@ -304,11 +524,57 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     const unsubscribe = onNewMessage((msg) => {
       setConversations((prev) => {
         const targetId = msg.conversationId || `conv-${Date.now()}`;
-        const exists = prev.some((c) => c.id === targetId);
+        const isRealName = (name?: string) =>
+          Boolean(
+            name &&
+            name.trim().length > 1 &&
+            !name.includes('#') &&
+            !name.toLowerCase().startsWith('khách hàng') &&
+            !name.toLowerCase().startsWith('lead')
+          );
 
+        // Tìm kiếm cuộc hội thoại tương ứng trong danh sách
+        const existingIdx = prev.findIndex((c) => {
+          // 1. Khớp chính xác ID hội thoại
+          if (c.id === targetId) return true;
+          // 2. Một trong 2 ID chứa ID còn lại
+          if (msg.conversationId && (c.id.includes(msg.conversationId) || msg.conversationId.includes(c.id))) return true;
+          // 3. ID của tin nhắn nằm trong ID hội thoại
+          if (msg.id && c.id.includes(msg.id)) return true;
+          // 4. Khớp theo Tên thật của khách hàng
+          if (
+            msg.senderName &&
+            isRealName(msg.senderName) &&
+            isRealName(c.customer.fullName) &&
+            c.customer.fullName.trim().toLowerCase() === msg.senderName.trim().toLowerCase()
+          ) {
+            return true;
+          }
+          // 5. Khớp Số điện thoại
+          if (
+            msg.customerPhone &&
+            c.customer.phone &&
+            c.customer.phone !== 'Chưa có SĐT' &&
+            c.customer.phone === msg.customerPhone
+          ) {
+            return true;
+          }
+          // 6. Khớp Email
+          if (
+            msg.customerEmail &&
+            c.customer.email &&
+            c.customer.email !== 'Chưa có Email' &&
+            c.customer.email === msg.customerEmail
+          ) {
+            return true;
+          }
+          return false;
+        });
+
+        const matchedConvId = existingIdx >= 0 ? prev[existingIdx].id : targetId;
         const newChatMsg = {
-          id: msg.id,
-          conversationId: targetId,
+          id: msg.id || `msg-${Date.now()}`,
+          conversationId: matchedConvId,
           direction: msg.direction || ('INBOUND' as const),
           content: msg.content,
           sentAt: msg.sentAt || 'Vừa xong',
@@ -317,22 +583,35 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           status: 'DELIVERED' as const,
         };
 
-        if (exists) {
-          return prev.map((c) => {
-            if (c.id !== targetId) return c;
-            const isCurrentlyOpen = c.id === selectedId;
-            return {
-              ...c,
-              snippet: msg.content,
-              lastMessageAt: 'Vừa xong',
-              lastCustomerMessageAt: new Date().toISOString(),
-              unreadCount: isCurrentlyOpen ? 0 : c.unreadCount + 1,
-              messages: [...c.messages, newChatMsg],
-            };
-          });
+        if (existingIdx >= 0) {
+          const existing = prev[existingIdx];
+          const isCurrentlyOpen = existing.id === selectedId;
+
+          const updatedTarget: ConversationItem = {
+            ...existing,
+            snippet: msg.content,
+            lastMessageAt: 'Vừa xong',
+            lastCustomerMessageAt: new Date().toISOString(),
+            unreadCount: isCurrentlyOpen ? 0 : (existing.unreadCount || 0) + 1,
+            customer: {
+              ...existing.customer,
+              avatarUrl:
+                msg.senderAvatar && !msg.senderAvatar.includes('ui-avatars.com')
+                  ? msg.senderAvatar
+                  : existing.customer.avatarUrl,
+            },
+            messages: [...existing.messages, newChatMsg],
+          };
+
+          // Đưa hội thoại vừa có tương tác mới lên đầu danh sách
+          const remaining = prev.filter((_, idx) => idx !== existingIdx);
+          return [updatedTarget, ...remaining];
         }
 
-        // Tự động tạo cuộc hội thoại mới khi nhận được tin nhắn từ khách hàng qua Webhook
+        // Tự động tạo cuộc hội thoại mới khi nhận được tin nhắn từ khách hàng mới chưa từng có trong hệ thống
+        const isFb = msg.channel === 'FACEBOOK';
+        const defaultTags = isFb ? ['Facebook Lead'] : ['Khách hàng mới'];
+
         const newConv: ConversationItem = {
           id: targetId,
           channel: msg.channel,
@@ -341,19 +620,21 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           lastMessageAt: 'Vừa xong',
           lastCustomerMessageAt: new Date().toISOString(),
           unreadCount: 1,
-          tags: ['Khách hàng mới'],
+          tags: defaultTags,
           status: 'OPEN',
           customer: {
             id: `cust-${Date.now()}`,
             fullName: msg.senderName || `Khách hàng (${msg.channel})`,
             phone: msg.customerPhone || 'Chưa có SĐT',
             email: msg.customerEmail || 'Chưa có Email',
-            avatarUrl: msg.senderAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.senderName || 'Lead')}&background=0284c7&color=fff&bold=true`,
+            avatarUrl:
+              msg.senderAvatar ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.senderName || 'Lead')}&background=0284c7&color=fff&bold=true`,
             socialId: msg.id,
             channel: msg.channel,
             channelAccountName: `Kênh ${msg.channel}`,
-            leadStatus: 'NEW',
-            tags: ['Khách hàng mới'],
+            leadStatus: isFb ? 'POTENTIAL' : 'NEW',
+            tags: defaultTags,
             interestCourses: [],
             notes: [],
           },
@@ -364,7 +645,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           setSelectedId(targetId);
         }
 
-        return [newConv, ...prev];
+        return mergeDuplicateConversations([newConv, ...prev]);
       });
     });
 
@@ -820,6 +1101,66 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     }
   };
 
+  // 10. Cập nhật thông tin liên hệ (Phone, Email, FullName) trực tiếp từ Customer Profile Column
+  const handleUpdateContactInfo = (info: { phone?: string; email?: string; fullName?: string }) => {
+    if (!currentConv) return;
+
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id !== currentConv.id) return c;
+        return {
+          ...c,
+          customer: {
+            ...c.customer,
+            phone: info.phone !== undefined ? info.phone : c.customer.phone,
+            email: info.email !== undefined ? info.email : c.customer.email,
+            fullName: info.fullName !== undefined ? info.fullName : c.customer.fullName,
+          },
+        };
+      })
+    );
+
+    try {
+      const kanbanRaw = localStorage.getItem('polarisx_crm_kanban_candidates') || localStorage.getItem('cusc_crm_kanban_candidates');
+      if (kanbanRaw) {
+        const kanbanList = JSON.parse(kanbanRaw);
+        if (Array.isArray(kanbanList)) {
+          const updatedKanban = kanbanList.map((cand: any) => {
+            if (
+              cand.conversationId === currentConv.id ||
+              cand.id === currentConv.customer.id ||
+              cand.fullName === currentConv.customer.fullName
+            ) {
+              return {
+                ...cand,
+                ...(info.phone !== undefined ? { phone: info.phone } : {}),
+                ...(info.email !== undefined ? { email: info.email } : {}),
+                ...(info.fullName !== undefined ? { fullName: info.fullName } : {}),
+              };
+            }
+            return cand;
+          });
+          localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
+        }
+      }
+    } catch {}
+
+    if (currentConv.customer.id) {
+      apiClient.updateCustomer(currentConv.customer.id, {
+        phone: info.phone !== undefined ? info.phone : currentConv.customer.phone,
+        email: info.email !== undefined ? info.email : currentConv.customer.email,
+        fullName: info.fullName !== undefined ? info.fullName : currentConv.customer.fullName,
+      }).then(() => {
+        notify.success('Đã lưu thông tin liên hệ thành công.');
+      }).catch((err) => {
+        console.warn('Lỗi lưu thông tin liên hệ:', err);
+        notify.warning('Đã cập nhật giao diện, nhưng đồng bộ DB gặp sự cố.');
+      });
+    } else {
+      notify.success('Đã lưu thông tin liên hệ.');
+    }
+  };
+
   return (
     <div className={`pancake-inbox-container ${selectedId ? 'has-active-chat' : ''}`}>
       {/* CỘT 1 (Trái): Danh sách Hội thoại */}
@@ -901,6 +1242,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           customer={currentConv.customer}
           onUpdateLeadStatus={handleUpdateLeadStatus}
           onUpdateLeadStage={handleUpdateLeadStage}
+          onUpdateContactInfo={handleUpdateContactInfo}
           onNavigateToKanban={onNavigateToKanban}
           onAddTag={handleAddTag}
           onRemoveTag={handleRemoveTag}

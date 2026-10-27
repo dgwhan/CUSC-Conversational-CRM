@@ -5,6 +5,7 @@
 @import './styles/kanban-realtime.css';
 @import './styles/responsive.css';
 @import './styles/header-layout.css';
+@import './styles/contact-sidebar-flat.css';
 
 /* App Global Layout Wrapper */
 #root {

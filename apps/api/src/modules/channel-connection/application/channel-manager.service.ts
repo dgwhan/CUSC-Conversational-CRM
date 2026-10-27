@@ -354,10 +354,10 @@ export class ChannelManagerService {
 
     this.logger.log(`Starting Facebook message sync for page "${account.displayName}" (${pageId})...`);
 
-    // Gọi Meta Graph API lấy danh sách cuộc hội thoại và các tin nhắn gần nhất kèm avatar profile
+    // Gọi Meta Graph API lấy danh sách cuộc hội thoại và các tin nhắn gần nhất kèm avatar profile & nhãn phân loại (labels)
     const url = `https://graph.facebook.com/v19.0/${encodeURIComponent(
       pageId,
-    )}/conversations?fields=id,updated_time,participants{id,name,email,picture{url}},messages.limit(30){id,message,created_time,from,to}&access_token=${pageToken}`;
+    )}/conversations?fields=id,updated_time,labels{id,name},participants{id,name,email,picture{url}},messages.limit(30){id,message,created_time,from,to}&access_token=${pageToken}`;
 
     const res = await fetch(url);
     if (!res.ok) {
@@ -375,6 +375,10 @@ export class ChannelManagerService {
       const messagesList: any[] = conv.messages?.data || [];
       const participants: any[] = conv.participants?.data || [];
       const customer = participants.find((p) => p.id !== pageId);
+      const fbLabels: string[] = Array.isArray(conv.labels?.data)
+        ? conv.labels.data.map((l: any) => l.name).filter(Boolean)
+        : [];
+      const convTags = fbLabels.length > 0 ? fbLabels : ['Facebook Lead'];
 
       // 1. Trích xuất hoặc truy vấn avatar & thông tin khách hàng thực tế từ Meta
       let customerName = customer?.name || (customer?.id ? `Khách hàng Facebook #${customer.id.slice(-4)}` : 'Khách hàng Facebook');
@@ -468,6 +472,7 @@ export class ChannelManagerService {
                 snippet: latestMsg,
                 lastMessageAt: convTime,
                 lastCustomerMessageAt: convTime,
+                tags: convTags,
               },
             });
           } else {
@@ -476,6 +481,7 @@ export class ChannelManagerService {
               data: {
                 snippet: latestMsg,
                 lastMessageAt: convTime,
+                tags: convTags,
                 ...(dbCustomer && !dbConv.customerId ? { customerId: dbCustomer.id } : {}),
               },
             });
@@ -503,6 +509,7 @@ export class ChannelManagerService {
             customerAvatar,
             customerId: dbCustomer?.id,
             conversationId: dbConv?.id,
+            tags: convTags,
           },
           workspaceId: targetWsId,
         });

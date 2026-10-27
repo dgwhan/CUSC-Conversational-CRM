@@ -13,4 +13,6 @@ export * from './infrastructure/gateways/default-customer.gateway.js';
 export * from './infrastructure/gateways/default-classification.gateway.js';
 export * from './presentation/webhook.controller.js';
 export * from './presentation/message-import.controller.js';
+export * from './presentation/customer.controller.js';
+export * from './presentation/contact.controller.js';
 export * from './messaging.module.js';

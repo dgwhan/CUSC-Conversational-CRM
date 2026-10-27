@@ -1,6 +1,27 @@
 export type ChannelType = 'FACEBOOK' | 'ZALO' | 'ZALO_PERSONAL' | 'TIKTOK' | 'INSTAGRAM' | 'MANUAL';
 
-export type LeadStatus = 'NEW' | 'POTENTIAL' | 'CONVERTED' | 'UNQUALIFIED';
+// Constants cho LeadStatus - Khớp chính xác với cột lead_status (VARCHAR 50) trong DB
+export const LEAD_STATUS = {
+  NEW: 'NEW',
+  POTENTIAL: 'POTENTIAL',
+  CONVERTED: 'CONVERTED',
+  UNQUALIFIED: 'UNQUALIFIED',
+} as const;
+
+export type LeadStatus = (typeof LEAD_STATUS)[keyof typeof LEAD_STATUS];
+
+// Constants cho Pipeline Stage IDs - Khớp chính xác với các stage config của Workspace / DB lead_stage
+export const PIPELINE_STAGE_ID = {
+  STAGE_NEW: 'STAGE_NEW',
+  STAGE_CONTACTED: 'STAGE_CONTACTED',
+  STAGE_QUALIFIED: 'STAGE_QUALIFIED',
+  STAGE_APPOINTMENT: 'STAGE_APPOINTMENT',
+  STAGE_SUBMITTED: 'STAGE_SUBMITTED',
+  STAGE_ENROLLED: 'STAGE_ENROLLED',
+  STAGE_LOST: 'STAGE_LOST',
+} as const;
+
+export type PipelineStageId = (typeof PIPELINE_STAGE_ID)[keyof typeof PIPELINE_STAGE_ID];
 
 // Các giai đoạn phễu tuyển sinh / Sales Pipeline theo chuẩn đào tạo CUSC hoặc tùy biến Workspace
 export type LeadStage =
@@ -11,6 +32,7 @@ export type LeadStage =
   | 'SUBMITTED'    // 5. Đã nộp hồ sơ / Chờ xét duyệt
   | 'ENROLLED'     // 6. Trúng tuyển / Đã nhập học (Đã chốt)
   | 'LOST'         // 7. Thất bại / Hủy hồ sơ
+  | PipelineStageId
   | (string & {});
 
 export type StaffPresenceStatus = 'ONLINE' | 'AWAY' | 'BUSY';
@@ -43,12 +65,21 @@ export interface InternalNote {
   createdAt: string;
 }
 
+export interface ChannelIdentityItem {
+  id?: string;
+  channel: string;
+  externalUserId: string;
+  createdAt?: string;
+}
+
 export interface CustomerProfile {
   id: string;
+  contactId?: string;
   fullName: string;
   phone: string;
   email: string;
   avatarUrl: string;
+  profileUrl?: string;
   socialId: string;
   channel: ChannelType;
   channelAccountName: string;
@@ -59,6 +90,7 @@ export interface CustomerProfile {
   tags: string[];
   interestCourses: string[];
   notes: InternalNote[];
+  channelIdentities?: ChannelIdentityItem[];
 }
 
 export interface AssignedStaff {
