@@ -8,5 +8,6 @@ export type RegisterResponseDto = {
         fullName: string;
         phoneNumber?: string | null;
         role: StaffRole;
+        ownerId?: string | null;
     };
 };

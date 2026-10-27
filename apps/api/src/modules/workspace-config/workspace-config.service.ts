@@ -43,14 +43,19 @@ export class WorkspaceConfigService {
 
   /**
    * Tìm ownerId hợp lệ từ Staff hoặc Workspace trong DB.
-   * RÀNG BUỘC ĐA NGƯỜI DÙNG: Nếu là Staff, hệ thống tự động tìm và trả về ownerId của Staff đó,
-   * đảm bảo Staff chỉ xem được workspace của Owner quản lý mình.
+   * Nếu có workspaceId hợp lệ, ưu tiên lấy ownerId của chính Workspace đó.
    */
   async resolveOwnerId(ownerId?: string, workspaceId?: string, currentStaffId?: string): Promise<string | null> {
     if (!this.prisma) return null;
 
     try {
-      // 1. Kiểm tra theo currentStaffId (từ JWT / header)
+      // 1. Kiểm tra theo workspaceId truyền lên (nếu chuyển Workspace thì lấy ownerId của Workspace đó)
+      if (workspaceId && isUuid(workspaceId)) {
+        const ws = await this.prisma.workspace.findUnique({ where: { id: workspaceId } });
+        if (ws?.ownerId) return ws.ownerId;
+      }
+
+      // 2. Kiểm tra theo currentStaffId (từ JWT / header)
       if (currentStaffId && isUuid(currentStaffId)) {
         const staff = await this.prisma.staff.findUnique({ where: { id: currentStaffId } });
         if (staff) {
@@ -59,18 +64,12 @@ export class WorkspaceConfigService {
         }
       }
 
-      // 2. Kiểm tra theo ownerId truyền lên
+      // 3. Kiểm tra theo ownerId truyền lên
       if (ownerId && isUuid(ownerId)) {
         const staff = await this.prisma.staff.findUnique({ where: { id: ownerId } });
         if (staff) {
           return staff.role === 'OWNER' ? staff.id : (staff.ownerId || staff.id);
         }
-      }
-
-      // 3. Kiểm tra theo workspaceId
-      if (workspaceId && isUuid(workspaceId)) {
-        const ws = await this.prisma.workspace.findUnique({ where: { id: workspaceId } });
-        if (ws?.ownerId) return ws.ownerId;
       }
 
       // 4. Fallback tìm Owner mặc định từ DB (ví dụ tài khoản owner@cusc.com)
@@ -81,6 +80,149 @@ export class WorkspaceConfigService {
       return defaultOwner?.id || null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Lấy danh sách tất cả Workspace mà tài khoản người dùng tham gia (là Owner hoặc Member)
+   */
+  async getMyWorkspaces(currentStaffId?: string, ownerId?: string): Promise<Array<{
+    id: string;
+    name: string;
+    slug: string;
+    role: 'OWNER' | 'STAFF';
+    isOwner: boolean;
+    domain: string;
+    ownerName: string;
+    createdAt: Date;
+  }>> {
+    const targetStaffId = currentStaffId || ownerId;
+    if (!targetStaffId || !this.prisma) {
+      return [
+        {
+          id: 'ws-default-001',
+          name: 'PolarisX',
+          slug: 'polarisx-default',
+          role: 'OWNER',
+          isOwner: true,
+          domain: 'EDUCATION',
+          ownerName: 'Chính bạn',
+          createdAt: new Date(),
+        },
+      ];
+    }
+
+    try {
+      const currentStaff = await this.prisma.staff.findUnique({
+        where: { id: targetStaffId },
+      });
+
+      if (!currentStaff) {
+        return [
+          {
+            id: 'ws-default-001',
+            name: 'PolarisX',
+            slug: 'polarisx-default',
+            role: 'OWNER',
+            isOwner: true,
+            domain: 'EDUCATION',
+            ownerName: 'Chính bạn',
+            createdAt: new Date(),
+          },
+        ];
+      }
+
+      // Đảm bảo nếu là OWNER thì đã có bản ghi Workspace trong DB
+      if (currentStaff.role === 'OWNER') {
+        await this.resolveWorkspaceForOwner(currentStaff.id);
+      }
+
+      // 1. Workspaces do người này làm Chủ sở hữu
+      const ownedWorkspaces = await this.prisma.workspace.findMany({
+        where: { ownerId: targetStaffId, isActive: true },
+        include: {
+          configuration: true,
+          owner: { select: { fullName: true, email: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      // 2. Workspaces người này tham gia với tư cách thành viên
+      const memberships = await this.prisma.workspaceMember.findMany({
+        where: { staffId: targetStaffId, isActive: true },
+        include: {
+          workspace: {
+            include: {
+              configuration: true,
+              owner: { select: { fullName: true, email: true } },
+            },
+          },
+        },
+      });
+
+      const resultMap = new Map<string, any>();
+
+      // Đưa owned workspaces vào trước
+      for (const ws of ownedWorkspaces) {
+        resultMap.set(ws.id, {
+          id: ws.id,
+          name: ws.configuration?.workspaceName || ws.name || 'PolarisX Workspace',
+          slug: ws.slug,
+          role: 'OWNER',
+          isOwner: true,
+          domain: ws.configuration?.domain || 'EDUCATION',
+          ownerName: ws.owner?.fullName || 'Chính bạn',
+          createdAt: ws.createdAt,
+        });
+      }
+
+      // Đưa workspaces từ membership vào
+      for (const m of memberships) {
+        if (!m.workspace || !m.workspace.isActive) continue;
+        if (!resultMap.has(m.workspace.id)) {
+          const isWsOwner = m.workspace.ownerId === targetStaffId || m.role === 'OWNER';
+          resultMap.set(m.workspace.id, {
+            id: m.workspace.id,
+            name: m.workspace.configuration?.workspaceName || m.workspace.name || 'PolarisX Workspace',
+            slug: m.workspace.slug,
+            role: isWsOwner ? 'OWNER' : (m.role as 'OWNER' | 'STAFF'),
+            isOwner: isWsOwner,
+            domain: m.workspace.configuration?.domain || 'EDUCATION',
+            ownerName: m.workspace.owner?.fullName || 'Chủ doanh nghiệp',
+            createdAt: m.workspace.createdAt,
+          });
+        }
+      }
+
+      const list = Array.from(resultMap.values());
+      if (list.length === 0) {
+        list.push({
+          id: 'ws-default-001',
+          name: 'PolarisX',
+          slug: 'polarisx-default',
+          role: currentStaff.role === 'OWNER' ? 'OWNER' : 'STAFF',
+          isOwner: currentStaff.role === 'OWNER',
+          domain: 'EDUCATION',
+          ownerName: currentStaff.fullName || 'Chính bạn',
+          createdAt: new Date(),
+        });
+      }
+
+      return list;
+    } catch (err) {
+      this.logger.error(`Error in getMyWorkspaces: ${(err as Error).message}`);
+      return [
+        {
+          id: 'ws-default-001',
+          name: 'PolarisX',
+          slug: 'polarisx-default',
+          role: 'OWNER',
+          isOwner: true,
+          domain: 'EDUCATION',
+          ownerName: 'Chính bạn',
+          createdAt: new Date(),
+        },
+      ];
     }
   }
 
@@ -123,7 +265,7 @@ export class WorkspaceConfigService {
 
       const newWs = await this.prisma.workspace.create({
         data: {
-          name: staff?.fullName ? `Workspace của ${ownerName}` : 'Tổ hợp Công nghệ PolarisX',
+          name: staff?.fullName ? `Workspace của ${ownerName}` : 'PolarisX',
           slug: cleanSlug,
           ownerId: resolvedOwner,
           isActive: true,
@@ -191,7 +333,7 @@ export class WorkspaceConfigService {
             const finalWsId = dbConfig.workspaceId || actualWsId || workspaceId;
             const config: WorkspaceConfig = {
               workspaceId: finalWsId,
-              workspaceName: dbConfig.workspaceName || 'Tổ hợp Công nghệ PolarisX',
+              workspaceName: dbConfig.workspaceName || 'PolarisX',
               domain: (dbConfig.domain as BusinessDomain) || 'EDUCATION',
               terminology: (dbConfig.terminology as any) || INDUSTRY_PRESETS.EDUCATION.terminology,
               pipelineStages: ((dbConfig.pipelineStages as any[]) || []).map((s) => ({ ...s })),

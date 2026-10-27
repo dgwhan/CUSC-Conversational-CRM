@@ -6,7 +6,7 @@ import {
   Check,
   Loader2,
 } from 'lucide-react';
-import type { OnboardingState, BusinessSetupData, ChannelKey, FanpageItem, DiscoveredPageDto } from '../types.js';
+import type { OnboardingState, BusinessSetupData, ChannelKey, FanpageItem, DiscoveredPageDto, StaffInvite } from '../types.js';
 import { Step1BusinessSetup } from '../components/Step1BusinessSetup.js';
 import { Step2ChannelConnect } from '../components/Step2ChannelConnect.js';
 import { Step3TeamInvite } from '../components/Step3TeamInvite.js';
@@ -26,7 +26,13 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
   onSkipToInbox,
 }) => {
   const { t } = useTranslation();
-  const { config: workspaceConfig } = useWorkspaceConfig();
+  const {
+    config: workspaceConfig,
+    staffMembers,
+    fetchStaffList,
+    createStaffMember,
+    deleteStaffMember,
+  } = useWorkspaceConfig();
   const { staffId, ownerId, isOwner } = useUserRole();
   const effectiveOwnerId = ownerId || (isOwner ? staffId : '');
   const effectiveWorkspaceId = workspaceConfig.workspaceId;
@@ -47,6 +53,33 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
     pages: [],
     invites: [],
   }));
+
+  // Tự động tải danh sách nhân viên thực tế đã có trong Workspace
+  useEffect(() => {
+    if (isOwner) {
+      fetchStaffList();
+    }
+  }, [isOwner, fetchStaffList]);
+
+  // Đồng bộ danh sách nhân viên thuộc Workspace vào Bước 3 Onboarding
+  useEffect(() => {
+    if (staffMembers && staffMembers.length > 0) {
+      const activeInvites: StaffInvite[] = staffMembers
+        .filter((s) => s.id !== staffId && s.id !== effectiveOwnerId)
+        .map((s) => ({
+          id: s.id,
+          email: s.email,
+          role: s.role === 'OWNER' ? 'ADMIN' : 'AGENT',
+          fullName: s.fullName,
+          status: s.status,
+        }));
+
+      setState((prev) => ({
+        ...prev,
+        invites: activeInvites,
+      }));
+    }
+  }, [staffMembers, staffId, effectiveOwnerId]);
 
   // Tự động tải danh sách các kênh đã liên kết thực tế từ Database theo Workspace
   // NẾU ĐÃ CÓ KẾT NỐI MẠNG XÃ HỘI TRƯỚC ĐÓ: TỰ ĐỘNG BỎ QUA BƯỚC 1 VÀ CHUYỂN THẲNG VÀO BƯỚC 2
@@ -124,7 +157,7 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
         'Kết nối Kênh Thành công',
       );
     } catch (err) {
-      notify.warn(`Đã thêm vào danh sách (${(err as Error).message}).`);
+      notify.warning(`Đã thêm vào danh sách (${(err as Error).message}).`);
     }
 
     // Tải lại danh sách kênh mới nhất từ Database
@@ -218,7 +251,7 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
       await apiClient.disconnectChannel(pageId, effectiveWorkspaceId);
       notify.success(`Đã ngắt kết nối ${target.name} khỏi Workspace.`);
     } catch (err) {
-      notify.warn(`Đã xóa khỏi danh sách (${(err as Error).message}).`);
+      notify.warning(`Đã xóa khỏi danh sách (${(err as Error).message}).`);
     }
 
     setState((prev) => {
@@ -231,20 +264,24 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
     });
   };
 
-  const handleAddInvite = (email: string, role: 'ADMIN' | 'AGENT') => {
-    const newInvite = { id: `inv-${Date.now()}`, email, role };
-    setState((prev) => ({
-      ...prev,
-      invites: [...prev.invites, newInvite],
-    }));
-    notify.success(`Đã thêm ${email} (${role}) vào danh sách mời.`);
+  const handleAddInvite = async (email: string, role: 'ADMIN' | 'AGENT') => {
+    const defaultName = email.split('@')[0];
+    await createStaffMember({
+      email,
+      fullName: defaultName,
+      role: role === 'ADMIN' ? 'OWNER' : 'STAFF',
+    });
+    await fetchStaffList();
   };
 
-  const handleRemoveInvite = (id: string) => {
-    setState((prev) => ({
-      ...prev,
-      invites: prev.invites.filter((inv) => inv.id !== id),
-    }));
+  const handleRemoveInvite = async (id: string) => {
+    try {
+      await deleteStaffMember(id);
+      await fetchStaffList();
+      notify.success('Đã loại nhân viên khỏi Workspace.');
+    } catch {
+      // Thông báo lỗi đã được xử lý trong deleteStaffMember
+    }
   };
 
   const handleComplete = async () => {

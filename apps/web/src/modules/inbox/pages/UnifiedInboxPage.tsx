@@ -253,7 +253,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           const res = await apiClient.syncChannel(ch.id as string);
           totalSynced += res.syncedCount;
         } catch (err) {
-          notify.warn(`Không thể kéo tin từ ${(ch as any).displayName}: ${(err as Error).message}`);
+          notify.warning(`Không thể kéo tin từ ${(ch as any).displayName}: ${(err as Error).message}`);
         }
       }
 

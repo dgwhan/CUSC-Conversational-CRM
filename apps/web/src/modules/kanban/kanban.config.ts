@@ -1,33 +1,6 @@
-export interface KanbanCandidate {
-  id: string;
-  fullName: string;
-  phone: string;
-  email: string;
-  avatarUrl?: string;
-  channel: 'FACEBOOK' | 'ZALO' | 'ZALO_PERSONAL' | 'TIKTOK' | 'MANUAL';
-  channelAccountName?: string;
-  stage: string;
-  estimatedTuition: number;
-  priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  interestCourses: string[];
-  assignedStaffId?: string;
-  assignedStaffName?: string;
-  assignedStaffAvatar?: string;
-  assignedStaffPresence?: 'ONLINE' | 'AWAY' | 'BUSY';
-  lastActivityAt: string;
-  notesCount: number;
-  tags: string[];
-  conversationId?: string;
-}
+import type { KanbanCandidate, KanbanColumnConfig } from './kanban.types.js';
 
-export interface KanbanColumnConfig {
-  id: string;
-  title: string;
-  subtitle: string;
-  color: string;
-  bgColor: string;
-  borderColor: string;
-}
+export type { KanbanCandidate, KanbanColumnConfig };
 
 export const KANBAN_STAGES_CONFIG: KanbanColumnConfig[] = [
   {

@@ -17,8 +17,8 @@ export interface Step3TeamInviteProps {
   business: BusinessSetupData;
   pages: FanpageItem[];
   invites: StaffInvite[];
-  onAddInvite: (email: string, role: 'ADMIN' | 'AGENT') => void;
-  onRemoveInvite: (id: string) => void;
+  onAddInvite: (email: string, role: 'ADMIN' | 'AGENT') => Promise<void> | void;
+  onRemoveInvite: (id: string) => Promise<void> | void;
   onFinish: () => void;
   onBack: () => void;
 }
@@ -36,23 +36,32 @@ export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
   const [emailInput, setEmailInput] = useState('');
   const [roleInput, setRoleInput] = useState<'ADMIN' | 'AGENT'>('AGENT');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const activePages = pages.filter((p) => p.selected);
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = emailInput.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       setErrorMsg(t('onboarding.step3.errors.invalidEmail'));
       return;
     }
-    if (invites.some((inv) => inv.email === cleanEmail)) {
+    if (invites.some((inv) => inv.email.toLowerCase() === cleanEmail)) {
       setErrorMsg(t('onboarding.step3.errors.duplicateEmail'));
       return;
     }
     setErrorMsg(null);
-    onAddInvite(cleanEmail, roleInput);
-    setEmailInput('');
+    setIsSubmitting(true);
+    try {
+      await onAddInvite(cleanEmail, roleInput);
+      setEmailInput('');
+      setErrorMsg(null);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Không thể mời thành viên này.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -69,6 +78,29 @@ export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
         </div>
       </div>
 
+      {/* Thông báo điều kiện mời thành viên & Chuyển đổi nhanh Workspace */}
+      <div
+        className="onboarding-invite-rule-alert"
+        style={{
+          background: 'rgba(59, 130, 246, 0.08)',
+          border: '1px solid rgba(59, 130, 246, 0.25)',
+          borderRadius: '8px',
+          padding: '10px 14px',
+          marginBottom: '16px',
+          fontSize: '13px',
+          color: '#93c5fd',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '10px',
+          lineHeight: '1.45',
+        }}
+      >
+        <Sparkles size={18} style={{ color: '#60a5fa', flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <strong>Quy tắc mời thành viên:</strong> Chỉ mời thành công khi tài khoản của thành viên <strong>đã có sẵn trong hệ thống</strong>. Nếu người được mời đang là Owner của Workspace khác, hệ thống sẽ cấp quyền thành viên và hiển thị <strong>tab chuyển đổi nhanh giữa các Workspace</strong> để làm việc đa nhiệm dễ dàng.
+        </div>
+      </div>
+
       {/* Form nhập email mời */}
       <form className="invite-form-box" onSubmit={handleAdd}>
         <div className="invite-inputs-row">
@@ -80,6 +112,7 @@ export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
               placeholder={t('onboarding.step3.emailPlaceholder')}
               value={emailInput}
               onChange={(e) => setEmailInput(e.target.value)}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -89,6 +122,7 @@ export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
               className="onboarding-select"
               value={roleInput}
               onChange={(e) => setRoleInput(e.target.value as 'ADMIN' | 'AGENT')}
+              disabled={isSubmitting}
             >
               <option value="AGENT">{t('onboarding.step3.agentRole')}</option>
               <option value="ADMIN">{t('onboarding.step3.adminRole')}</option>
@@ -99,9 +133,10 @@ export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
             type="submit"
             className="crm-btn crm-btn-secondary"
             style={{ whiteSpace: 'nowrap' }}
+            disabled={isSubmitting}
           >
             <UserPlus size={16} />
-            {t('onboarding.step3.addBtn')}
+            {isSubmitting ? 'Đang thêm...' : t('onboarding.step3.addBtn')}
           </button>
         </div>
 
@@ -128,36 +163,63 @@ export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
               </tr>
             </thead>
             <tbody>
-              {invites.map((inv) => (
-                <tr key={inv.id}>
-                  <td>
-                    <div className="user-email-cell">
-                      <div className="email-avatar">{inv.email.charAt(0).toUpperCase()}</div>
-                      <span className="email-text">{inv.email}</span>
+              {invites.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', padding: '32px 16px', color: '#64748b' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <UserPlus size={26} color="#94a3b8" />
+                      <span style={{ fontSize: '13px' }}>
+                        Chưa có nhân viên nào trong Workspace này. Hãy nhập email ở biểu mẫu phía trên để mời nhân viên tham gia.
+                      </span>
                     </div>
                   </td>
-                  <td>
-                    <span className={`role-badge ${inv.role.toLowerCase()}`}>
-                      {inv.role === 'ADMIN' ? t('onboarding.step3.adminRole') : t('onboarding.step3.agentRole')}
-                    </span>
-                  </td>
-                  <td className="permission-desc">
-                    {inv.role === 'ADMIN'
-                      ? t('onboarding.step3.adminDesc')
-                      : t('onboarding.step3.agentDesc')}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <button
-                      type="button"
-                      className="table-action-btn delete-btn"
-                      onClick={() => onRemoveInvite(inv.id)}
-                      title="Xóa khỏi danh sách"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </td>
                 </tr>
-              ))}
+              ) : (
+                invites.map((inv) => (
+                  <tr key={inv.id}>
+                    <td>
+                      <div className="user-email-cell">
+                        <div className="email-avatar">{inv.email.charAt(0).toUpperCase()}</div>
+                        <div>
+                          <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                            {inv.fullName || inv.email.split('@')[0]}
+                          </div>
+                          <span className="email-text" style={{ fontSize: '12px', color: '#64748b' }}>
+                            {inv.email}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`role-badge ${inv.role.toLowerCase()}`}>
+                        {inv.role === 'ADMIN' ? 'Quản trị viên (Admin)' : 'Tư vấn viên (Agent)'}
+                      </span>
+                    </td>
+                    <td className="permission-desc">
+                      <div>
+                        {inv.role === 'ADMIN'
+                          ? t('onboarding.step3.adminDesc')
+                          : t('onboarding.step3.agentDesc')}
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        className="table-action-btn delete-btn"
+                        onClick={() => {
+                          if (window.confirm(`Bạn có chắc muốn loại "${inv.fullName || inv.email}" khỏi Workspace?`)) {
+                            onRemoveInvite(inv.id);
+                          }
+                        }}
+                        title="Loại nhân viên khỏi Workspace"
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

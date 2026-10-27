@@ -8,5 +8,7 @@ export type LoginResponseDto = {
         fullName: string;
         role: StaffRole;
         mustChangePassword: boolean;
+        ownerId?: string | null;
+        phoneNumber?: string | null;
     };
 };

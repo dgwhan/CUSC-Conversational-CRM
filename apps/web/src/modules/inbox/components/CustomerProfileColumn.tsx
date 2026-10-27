@@ -14,8 +14,6 @@ import {
   LayoutGrid,
   Smartphone,
   X,
-  Edit2,
-  DollarSign,
 } from 'lucide-react';
 import type { CustomerProfile, LeadStatus, LeadStage } from '../types.js';
 import { Avatar } from '../../../components/common/Avatar.js';

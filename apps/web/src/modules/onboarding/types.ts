@@ -22,6 +22,8 @@ export interface StaffInvite {
   id: string;
   email: string;
   role: 'ADMIN' | 'AGENT';
+  fullName?: string;
+  status?: string;
 }
 
 export interface VerificationDetails {

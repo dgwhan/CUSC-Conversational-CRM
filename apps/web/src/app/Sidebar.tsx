@@ -19,7 +19,7 @@ import { useUserRole } from '../modules/auth/UserRoleContext.js';
 import { useWorkspaceConfig } from '../modules/workspace/WorkspaceConfigContext.js';
 import { notify } from '../components/feedback/toastEmitter.js';
 
-export type ActiveNavTab = 'inbox' | 'kanban' | 'onboarding' | 'import' | 'workspace-settings';
+export type ActiveNavTab = 'inbox' | 'kanban' | 'reports' | 'onboarding' | 'import' | 'workspace-settings';
 
 export interface SidebarProps {
   currentTab: ActiveNavTab;
@@ -57,6 +57,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       tag: '',
     },
     {
+      id: 'reports' as ActiveNavTab,
+      label: t('nav.reportsStats'),
+      icon: <BarChart3 size={18} />,
+      tag: '',
+    },
+    {
       id: 'workspace-settings' as ActiveNavTab,
       label: 'Cấu Hình Phễu & Multi-tenant',
       icon: <Sliders size={18} />,
@@ -81,7 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const systemNavItems = [
     { label: t('nav.admissionsMgmt'), icon: <UserCheck size={18} /> },
     { label: t('nav.applicantProfiles'), icon: <Users size={18} /> },
-    { label: t('nav.reportsStats'), icon: <BarChart3 size={18} /> },
+
     { label: t('nav.systemSettings'), icon: <Settings size={18} /> },
   ];
 

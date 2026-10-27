@@ -7,6 +7,7 @@ import { LanguageSwitcher } from '../i18n/LanguageSwitcher.js';
 import { StaffPresenceSelector } from '../modules/realtime/StaffPresenceSelector.js';
 import { useRealtime } from '../modules/realtime/RealtimeContext.js';
 import { RoleSwitcher, useUserRole } from '../modules/auth/index.js';
+import { WorkspaceSwitcher, useWorkspaceConfig } from '../modules/workspace/index.js';
 import '../styles/header-layout.css';
 
 export interface HeaderLayoutProps {
@@ -34,9 +35,12 @@ export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
 }) => {
   const { t } = useTranslation();
   const { isOwner, staffName, logout } = useUserRole();
+  const { isCurrentWorkspaceOwner } = useWorkspaceConfig();
   const { unreadCount } = useRealtime();
   const [showConfig, setShowConfig] = useState(false);
   const [apiUrl, setApiUrl] = useState(apiClient.getBaseUrl());
+
+  const canManageWorkspace = isCurrentWorkspaceOwner ?? isOwner;
 
   const handleSaveApi = () => {
     apiClient.setBaseUrl(apiUrl);
@@ -51,6 +55,8 @@ export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
         return t('nav.liveChatBreadcrumb');
       case 'kanban':
         return 'Bảng Phễu Tuyển Sinh (Kanban)';
+      case 'reports':
+        return 'Báo Cáo & Thống Kê Tuyển Sinh (Analytics)';
       case 'workspace-settings':
         return 'Cấu Hình Phễu & Multi-tenant';
       case 'onboarding':
@@ -92,6 +98,9 @@ export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
 
         {/* Khu vực Utilities bên phải (Role, Presence, Language, Profile, API) */}
         <div className="crm-navbar-right crm-navbar-actions">
+          {/* Tab chuyển đổi nhanh giữa các Workspace (Workspace Switcher) */}
+          <WorkspaceSwitcher />
+
           {/* Nút Chuyển đổi Vai trò RBAC (Chủ DN <-> Nhân viên tư vấn) */}
           <RoleSwitcher />
 
@@ -163,7 +172,15 @@ export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
             Phễu Kanban
           </button>
 
-          {isOwner && (
+          <button
+            type="button"
+            className={`navbar-tab-btn ${currentTab === 'reports' ? 'active' : ''}`}
+            onClick={() => onTabChange?.('reports')}
+          >
+            Báo Cáo & Thống Kê
+          </button>
+
+          {canManageWorkspace && (
             <button
               type="button"
               className={`navbar-tab-btn ${currentTab === 'workspace-settings' ? 'active' : ''}`}
@@ -174,7 +191,7 @@ export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
             </button>
           )}
 
-          {isOwner && (
+          {canManageWorkspace && (
             <button
               type="button"
               className={`navbar-tab-btn ${currentTab === 'onboarding' ? 'active' : ''}`}

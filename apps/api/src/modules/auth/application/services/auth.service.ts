@@ -36,6 +36,7 @@ export type AuthLoginResult = {
             fullName: string;
             mustChangePassword: boolean;
             phoneNumber?: string | null;
+            ownerId?: string | null;
         };
     };
     refreshToken: string;
@@ -51,6 +52,7 @@ export type AuthRegisterResult = {
             fullName: string;
             phoneNumber?: string | null;
             role: StaffRole;
+            ownerId?: string | null;
         };
     };
     refreshToken: string;
@@ -205,6 +207,7 @@ export class AuthService {
                                 role: staff.role as StaffRole,
                                 mustChangePassword: staff.mustChangePassword,
                                 phoneNumber: staff.phoneNumber,
+                                ownerId: staff.ownerId || (staff.role === 'OWNER' ? staff.id : null),
                             },
                         };
 
@@ -304,6 +307,17 @@ export class AuthService {
 
         const outcome = await this.prisma.$transaction(
             async (tx) => {
+                let resolvedOwnerId: string | null = null;
+                if (assignedRole === "STAFF") {
+                    const defaultOwner = await tx.staff.findFirst({
+                        where: { role: "OWNER" },
+                        orderBy: { createdAt: "asc" },
+                    });
+                    if (defaultOwner) {
+                        resolvedOwnerId = defaultOwner.id;
+                    }
+                }
+
                 const createdStaff = await tx.staff.create({
                     data: {
                         email: normalizedEmail,
@@ -313,8 +327,24 @@ export class AuthService {
                         role: assignedRole,
                         status: "ACTIVE",
                         mustChangePassword: false,
+                        ownerId: resolvedOwnerId,
                     },
                 });
+
+                if (resolvedOwnerId) {
+                    const ownerWs = await tx.workspace.findFirst({
+                        where: { ownerId: resolvedOwnerId },
+                    });
+                    if (ownerWs) {
+                        await tx.workspaceMember.create({
+                            data: {
+                                workspaceId: ownerWs.id,
+                                staffId: createdStaff.id,
+                                role: "STAFF",
+                            },
+                        }).catch(() => {});
+                    }
+                }
 
                 const tokenResult = this.jwtTokenService.GenerateToken({
                     id: createdStaff.id,
@@ -364,6 +394,7 @@ export class AuthService {
                     fullName: outcome.staff.fullName,
                     phoneNumber: outcome.staff.phoneNumber,
                     role: outcome.staff.role as StaffRole,
+                    ownerId: outcome.staff.ownerId || null,
                 },
             },
             refreshToken: outcome.refreshToken,

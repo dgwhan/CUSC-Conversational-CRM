@@ -97,4 +97,74 @@ describe('StaffManagementService (Owner-Staff Relationship & RBAC Management)', 
     const listOwner2 = await service.getStaffList(owner2);
     expect(listOwner2.some((s) => s.email === 'staff_of_owner1@cusc.com')).toBe(false);
   });
+
+  it('should reject invitation if email does not exist in DB', async () => {
+    const mockPrisma = {
+      staff: {
+        findUnique: async () => null,
+      },
+      workspace: {
+        findFirst: async () => ({ id: 'ws-123', ownerId: 'owner-123' }),
+      },
+    } as any;
+
+    const prismaService = new StaffManagementService(mockPrisma);
+    await expect(
+      prismaService.createStaff('owner-123', {
+        email: 'not_exist@gmail.com',
+        fullName: 'Unknown User',
+      })
+    ).rejects.toThrow('chưa tồn tại trong hệ thống');
+  });
+
+  it('should link member if email already exists in DB', async () => {
+    const mockExisting = {
+      id: 'staff-exist-uuid',
+      email: 'exist@gmail.com',
+      fullName: 'User Da Co',
+      role: 'OWNER',
+      status: 'ACTIVE',
+      ownerId: null,
+      lockedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    let upsertMemberCalled = false;
+    const mockPrisma = {
+      staff: {
+        findUnique: async (args: any) => {
+          if (args.where.id === 'owner-123') {
+            return { id: 'owner-123', role: 'OWNER', fullName: 'Chủ Doanh Nghiệp' };
+          }
+          if (args.where.email === 'exist@gmail.com') {
+            return mockExisting;
+          }
+          return null;
+        },
+        update: async (args: any) => ({ ...mockExisting, ...args.data }),
+      },
+      workspace: {
+        findFirst: async () => ({ id: 'ws-123', ownerId: 'owner-123' }),
+      },
+      workspaceMember: {
+        findUnique: async () => null,
+        upsert: async () => {
+          upsertMemberCalled = true;
+          return {};
+        },
+      },
+    } as any;
+
+    const prismaService = new StaffManagementService(mockPrisma);
+    const result = await prismaService.createStaff('owner-123', {
+      email: 'exist@gmail.com',
+      fullName: 'User Da Co',
+    });
+
+    expect(result.email).toBe('exist@gmail.com');
+    expect(upsertMemberCalled).toBe(true);
+    // Vẫn giữ role OWNER của chính họ nếu họ là Owner của workspace khác
+    expect(result.role).toBe('OWNER');
+  });
 });

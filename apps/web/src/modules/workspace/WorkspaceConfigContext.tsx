@@ -9,6 +9,18 @@ import type {
 import { CLIENT_INDUSTRY_PRESETS } from './workspacePresets.js';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import { useUserRole } from '../auth/UserRoleContext.js';
+import { apiClient } from '../../lib/api-client.js';
+
+export interface WorkspaceItem {
+  id: string;
+  name: string;
+  slug: string;
+  role: 'OWNER' | 'STAFF';
+  isOwner: boolean;
+  domain: string;
+  ownerName?: string;
+  createdAt?: string;
+}
 
 export interface ManagedStaffItem {
   id: string;
@@ -37,17 +49,25 @@ interface WorkspaceConfigContextType {
   addCriteria: (criteria: Omit<LeadQualificationCriteria, 'id'>) => Promise<void>;
   updateCriteria: (criteriaId: string, patch: Partial<LeadQualificationCriteria>) => Promise<void>;
   deleteCriteria: (criteriaId: string) => Promise<void>;
-  // Quản lý nhân sự Staff theo ownerId
+  // Quản lý nhân sự Staff theo workspace
   staffMembers: ManagedStaffItem[];
-  fetchStaffList: () => Promise<ManagedStaffItem[]>;
+  fetchStaffList: (targetWsId?: string) => Promise<ManagedStaffItem[]>;
   createStaffMember: (data: { email: string; fullName: string; password?: string; role?: 'STAFF' | 'OWNER' }) => Promise<void>;
   updateStaffMember: (staffId: string, data: { fullName?: string; password?: string; role?: 'STAFF' | 'OWNER' }) => Promise<void>;
   toggleLockStaffMember: (staffId: string, lock: boolean) => Promise<void>;
   deleteStaffMember: (staffId: string) => Promise<void>;
   resetToDefault: () => void;
+  // Multi-Workspace & Switcher
+  myWorkspaces: WorkspaceItem[];
+  activeWorkspaceId: string;
+  activeWorkspace: WorkspaceItem | null;
+  isCurrentWorkspaceOwner: boolean;
+  switchWorkspace: (workspaceId: string) => Promise<void>;
+  fetchMyWorkspaces: () => Promise<WorkspaceItem[]>;
 }
 
 const STORAGE_KEY = 'polarisx_crm_workspace_config_v1';
+const ACTIVE_WORKSPACE_KEY = 'polarisx_crm_active_workspace_id';
 
 const defaultEducationPreset = CLIENT_INDUSTRY_PRESETS.EDUCATION;
 const initialDefaultConfig: WorkspaceConfig = {
@@ -66,6 +86,15 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
   const { isOwner, staffId, ownerId, isAuthenticated } = useUserRole();
   const [isLoading, setIsLoading] = useState(false);
   const [staffMembers, setStaffMembers] = useState<ManagedStaffItem[]>([]);
+  const [myWorkspaces, setMyWorkspaces] = useState<WorkspaceItem[]>([]);
+
+  // Lấy workspace ID đang active từ localStorage hoặc khởi tạo
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(ACTIVE_WORKSPACE_KEY) || '';
+    }
+    return '';
+  });
 
   const effectiveOwnerId = ownerId || (isOwner ? staffId : '');
 
@@ -87,15 +116,49 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
     return initialDefaultConfig;
   });
 
-  // Đồng bộ cấu hình từ Backend API theo ownerId
-  const syncFromBackend = useCallback(async () => {
+  // Tìm workspace hiện tại trong danh sách
+  const activeWorkspace = myWorkspaces.find((w) => w.id === activeWorkspaceId) || null;
+  // Quyền OWNER trong workspace hiện tại (nếu là workspace riêng: OWNER, nếu là workspace được mời: role của membership)
+  const isCurrentWorkspaceOwner = activeWorkspace ? activeWorkspace.isOwner : isOwner;
+
+  // Lấy danh sách Workspaces của user từ Backend
+  const fetchMyWorkspaces = useCallback(async (): Promise<WorkspaceItem[]> => {
+    if (!isAuthenticated) return [];
+    try {
+      const list = await apiClient.getMyWorkspaces(staffId, effectiveOwnerId);
+      if (Array.isArray(list) && list.length > 0) {
+        setMyWorkspaces(list);
+
+        // Nếu chưa chọn active workspace hoặc workspace hiện tại không nằm trong danh sách, chọn cái đầu tiên
+        const currentActive = localStorage.getItem(ACTIVE_WORKSPACE_KEY);
+        const match = list.find((w) => w.id === currentActive);
+        const selectedId = match ? match.id : list[0].id;
+
+        setActiveWorkspaceId(selectedId);
+        apiClient.setActiveWorkspaceId(selectedId);
+        localStorage.setItem(ACTIVE_WORKSPACE_KEY, selectedId);
+        return list;
+      }
+    } catch (err) {
+      console.warn('Could not fetch workspaces:', err);
+    }
+    return [];
+  }, [isAuthenticated, staffId, effectiveOwnerId]);
+
+  useEffect(() => {
+    fetchMyWorkspaces();
+  }, [fetchMyWorkspaces]);
+
+  // Đồng bộ cấu hình từ Backend API theo workspaceId
+  const syncFromBackend = useCallback(async (targetWsId?: string) => {
+    const wsToFetch = targetWsId || activeWorkspaceId || config.workspaceId || '';
     try {
       const res = await fetch('/api/workspaces/current/config', {
         headers: {
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
-          'x-user-role': isOwner ? 'OWNER' : 'STAFF',
-          'x-workspace-id': config.workspaceId || '',
+          'x-user-role': isCurrentWorkspaceOwner ? 'OWNER' : 'STAFF',
+          'x-workspace-id': wsToFetch,
         },
       });
       if (res.ok) {
@@ -109,7 +172,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
     } catch {
       // Backend có thể chưa chạy, dùng local cache
     }
-  }, [effectiveOwnerId, staffId, isOwner, config.workspaceId]);
+  }, [effectiveOwnerId, staffId, isCurrentWorkspaceOwner, activeWorkspaceId, config.workspaceId]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -132,7 +195,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
    * Cập nhật toàn bộ hoặc một phần cấu hình và lưu DB theo ownerId
    */
   const updateConfig = async (patch: Partial<WorkspaceConfig>) => {
-    if (!isOwner) {
+    if (!isCurrentWorkspaceOwner) {
       notify.warning('Chỉ Chủ doanh nghiệp (Owner/Admin) mới có quyền chỉnh sửa cấu hình Workspace.', 'Bảo Mật RBAC');
       return;
     }
@@ -157,7 +220,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
           'x-user-role': 'OWNER',
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
-          'x-workspace-id': config.workspaceId || '',
+          'x-workspace-id': activeWorkspaceId || config.workspaceId || '',
         },
         body: JSON.stringify(patch),
       });
@@ -184,7 +247,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
    * 1-Click áp dụng mẫu ngành nghề
    */
   const applyPreset = async (domain: BusinessDomain, customName?: string) => {
-    if (!isOwner) {
+    if (!isCurrentWorkspaceOwner) {
       notify.warning('Chỉ Chủ doanh nghiệp (Owner/Admin) mới có quyền đổi mẫu ngành nghề.', 'Bảo Mật RBAC');
       return;
     }
@@ -194,7 +257,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
 
     setIsLoading(true);
     const newConfig: WorkspaceConfig = {
-      workspaceId: config.workspaceId,
+      workspaceId: activeWorkspaceId || config.workspaceId,
       workspaceName: customName || preset.workspaceName,
       domain: preset.domain,
       terminology: { ...preset.terminology },
@@ -213,6 +276,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
           'x-user-role': 'OWNER',
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
+          'x-workspace-id': activeWorkspaceId || config.workspaceId || '',
         },
         body: JSON.stringify({ presetKey: domain, workspaceName: customName }),
       });
@@ -223,149 +287,107 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
       }
 
       const remoteConfig: WorkspaceConfig = await res.json();
-      if (remoteConfig) saveConfig(remoteConfig);
-      notify.success(`Đã áp dụng mẫu "${preset.terminology.pipelineName}" vào Database!`);
+      if (remoteConfig && remoteConfig.pipelineStages?.length >= 2) {
+        saveConfig(remoteConfig);
+      }
+      notify.success(`Đã áp dụng mẫu [${preset.workspaceName}] cho hệ thống thành công!`);
     } catch (err) {
-      notify.info(`Đã chuyển đổi sang mô hình "${preset.terminology.pipelineName}" (${(err as Error).message}).`);
+      console.error('Apply preset failed:', err);
+      notify.info(`Đã áp dụng mẫu cục bộ (${(err as Error).message}).`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  /**
-   * Thêm giai đoạn mới vào phễu
-   */
   const addStage = async (stage: Omit<PipelineStageConfig, 'id' | 'order'>) => {
+    const newId = `stage_${Date.now()}`;
+    const newOrder = config.pipelineStages.length;
     const newStage: PipelineStageConfig = {
       ...stage,
-      id: `STAGE_${Date.now()}`,
-      order: config.pipelineStages.length + 1,
+      id: newId,
+      order: newOrder,
     };
-
-    const newStages = [...config.pipelineStages, newStage];
-    await updateConfig({ pipelineStages: newStages });
+    const updatedStages = [...config.pipelineStages, newStage];
+    await updateConfig({ pipelineStages: updatedStages });
   };
 
-  /**
-   * Cập nhật 1 giai đoạn
-   */
   const updateStage = async (stageId: string, patch: Partial<PipelineStageConfig>) => {
-    const newStages = config.pipelineStages.map((s) => (s.id === stageId ? { ...s, ...patch } : s));
-    await updateConfig({ pipelineStages: newStages });
+    const updatedStages = config.pipelineStages.map((s) =>
+      s.id === stageId ? { ...s, ...patch } : s
+    );
+    await updateConfig({ pipelineStages: updatedStages });
   };
 
-  /**
-   * Xóa giai đoạn
-   */
   const deleteStage = async (stageId: string) => {
     if (config.pipelineStages.length <= 2) {
-      notify.warning('Phễu phải có tối thiểu 2 giai đoạn (bắt đầu và kết thúc). Không thể xóa thêm.');
+      notify.warning('Phễu phải có tối thiểu 2 giai đoạn.');
       return;
     }
-
-    const stageToDelete = config.pipelineStages.find((s) => s.id === stageId);
-    const newStages = config.pipelineStages.filter((s) => s.id !== stageId);
-    newStages.forEach((s, idx) => {
-      s.order = idx + 1;
-    });
-
-    await updateConfig({ pipelineStages: newStages });
-    notify.info(`Đã xóa giai đoạn "${stageToDelete?.name || stageId}" khỏi phễu.`);
+    const updatedStages = config.pipelineStages
+      .filter((s) => s.id !== stageId)
+      .map((s, idx) => ({ ...s, order: idx }));
+    await updateConfig({ pipelineStages: updatedStages });
   };
 
-  /**
-   * Đổi thứ tự giai đoạn
-   */
   const reorderStages = async (sourceIndex: number, destIndex: number) => {
-    if (sourceIndex === destIndex) return;
-    const stages = [...config.pipelineStages];
-    const [moved] = stages.splice(sourceIndex, 1);
-    stages.splice(destIndex, 0, moved);
-
-    stages.forEach((s, idx) => {
-      s.order = idx + 1;
-    });
-
-    await updateConfig({ pipelineStages: stages });
+    const nextStages = [...config.pipelineStages];
+    const [moved] = nextStages.splice(sourceIndex, 1);
+    nextStages.splice(destIndex, 0, moved);
+    const reordered = nextStages.map((s, idx) => ({ ...s, order: idx }));
+    await updateConfig({ pipelineStages: reordered });
   };
 
-  /**
-   * Thêm sản phẩm / khóa học / ngành đào tạo mới
-   */
   const addProduct = async (product: Omit<ProductItemConfig, 'id'>) => {
-    const newProduct: ProductItemConfig = {
-      ...product,
-      id: `PROD_${Date.now()}`,
-    };
-
-    const newCatalog = [...config.productCatalog, newProduct];
-    await updateConfig({ productCatalog: newCatalog });
-    notify.success(`Đã thêm "${product.name}" vào danh mục ${config.terminology.productLabel}!`);
+    const newId = `prod_${Date.now()}`;
+    const newProduct: ProductItemConfig = { ...product, id: newId };
+    const updatedCatalog = [...config.productCatalog, newProduct];
+    await updateConfig({ productCatalog: updatedCatalog });
   };
 
-  /**
-   * Cập nhật sản phẩm / khóa học
-   */
   const updateProduct = async (productId: string, patch: Partial<ProductItemConfig>) => {
-    const newCatalog = config.productCatalog.map((p) => (p.id === productId ? { ...p, ...patch } : p));
-    await updateConfig({ productCatalog: newCatalog });
+    const updatedCatalog = config.productCatalog.map((p) =>
+      p.id === productId ? { ...p, ...patch } : p
+    );
+    await updateConfig({ productCatalog: updatedCatalog });
   };
 
-  /**
-   * Xóa sản phẩm / khóa học
-   */
   const deleteProduct = async (productId: string) => {
-    if (config.productCatalog.length <= 1) {
-      notify.warning(`Danh mục ${config.terminology.productLabel} phải có ít nhất 1 mục.`);
-      return;
-    }
-
-    const newCatalog = config.productCatalog.filter((p) => p.id !== productId);
-    await updateConfig({ productCatalog: newCatalog });
-    notify.info('Đã xóa mục khỏi danh mục.');
+    const updatedCatalog = config.productCatalog.filter((p) => p.id !== productId);
+    await updateConfig({ productCatalog: updatedCatalog });
   };
 
-  /**
-   * Thêm tiêu chí đánh giá / phân loại mới
-   */
-  const addCriteria = async (criteria: Omit<LeadQualificationCriteria, 'id'>) => {
-    const newCrit: LeadQualificationCriteria = {
-      ...criteria,
-      id: `CRIT_${Date.now()}`,
-    };
-    const newCriteriaList = [...config.criteria, newCrit];
-    await updateConfig({ criteria: newCriteriaList });
-    notify.success(`Đã thêm tiêu chí "${criteria.name}" vào Workspace!`);
+  const addCriteria = async (criterion: Omit<LeadQualificationCriteria, 'id'>) => {
+    const newId = `crit_${Date.now()}`;
+    const newCrit: LeadQualificationCriteria = { ...criterion, id: newId };
+    const updatedCriteria = [...config.criteria, newCrit];
+    await updateConfig({ criteria: updatedCriteria });
   };
 
-  /**
-   * Cập nhật tiêu chí
-   */
   const updateCriteria = async (criteriaId: string, patch: Partial<LeadQualificationCriteria>) => {
-    const newCriteriaList = config.criteria.map((c) => (c.id === criteriaId ? { ...c, ...patch } : c));
-    await updateConfig({ criteria: newCriteriaList });
+    const updatedCriteria = config.criteria.map((c) =>
+      c.id === criteriaId ? { ...c, ...patch } : c
+    );
+    await updateConfig({ criteria: updatedCriteria });
   };
 
-  /**
-   * Xóa tiêu chí
-   */
   const deleteCriteria = async (criteriaId: string) => {
-    const newCriteriaList = config.criteria.filter((c) => c.id !== criteriaId);
-    await updateConfig({ criteria: newCriteriaList });
-    notify.info('Đã xóa tiêu chí đánh giá.');
+    const updatedCriteria = config.criteria.filter((c) => c.id !== criteriaId);
+    await updateConfig({ criteria: updatedCriteria });
   };
 
   // ==========================================
-  // QUẢN LÝ NHÂN SỰ STAFF THUỘC OWNER
+  // QUẢN LÝ NHÂN SỰ THEO WORKSPACE
   // ==========================================
 
-  const fetchStaffList = useCallback(async (): Promise<ManagedStaffItem[]> => {
+  const fetchStaffList = useCallback(async (targetWsId?: string): Promise<ManagedStaffItem[]> => {
+    const wsToFetch = targetWsId || activeWorkspaceId || config.workspaceId || '';
     try {
       const res = await fetch('/api/workspaces/current/staff', {
         headers: {
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
-          'x-user-role': isOwner ? 'OWNER' : 'STAFF',
+          'x-user-role': isCurrentWorkspaceOwner ? 'OWNER' : 'STAFF',
+          'x-workspace-id': wsToFetch,
         },
       });
       if (res.ok) {
@@ -377,13 +399,39 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
       console.warn('Could not fetch staff from backend:', err);
     }
     return [];
-  }, [effectiveOwnerId, staffId, isOwner]);
+  }, [effectiveOwnerId, staffId, isCurrentWorkspaceOwner, activeWorkspaceId, config.workspaceId]);
 
   useEffect(() => {
-    if (isOwner) {
+    if (isCurrentWorkspaceOwner) {
       fetchStaffList();
     }
-  }, [isOwner, fetchStaffList]);
+  }, [isCurrentWorkspaceOwner, fetchStaffList]);
+
+  // Chuyển đổi nhanh giữa các Workspace (Workspace Switcher)
+  const switchWorkspace = async (targetWsId: string) => {
+    if (targetWsId === activeWorkspaceId) return;
+
+    const targetWs = myWorkspaces.find((w) => w.id === targetWsId);
+    setActiveWorkspaceId(targetWsId);
+    apiClient.setActiveWorkspaceId(targetWsId);
+    localStorage.setItem(ACTIVE_WORKSPACE_KEY, targetWsId);
+
+    setIsLoading(true);
+    try {
+      await Promise.all([
+        syncFromBackend(targetWsId),
+        fetchStaffList(targetWsId),
+      ]);
+      notify.success(
+        `Đã chuyển sang không gian làm việc "${targetWs?.name || 'Workspace'}" (${targetWs?.isOwner ? 'Chủ sở hữu' : 'Thành viên'})!`,
+        'Đổi Workspace'
+      );
+    } catch (err) {
+      console.error('Switch workspace failed:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const createStaffMember = async (data: { email: string; fullName: string; password?: string; role?: 'STAFF' | 'OWNER' }) => {
     try {
@@ -394,20 +442,21 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
           'x-user-role': 'OWNER',
+          'x-workspace-id': activeWorkspaceId || config.workspaceId || '',
         },
         body: JSON.stringify(data),
       });
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || 'Lỗi khi tạo tài khoản nhân viên');
+        throw new Error(errData.message || 'Lỗi khi mời nhân viên');
       }
 
       const created = await res.json();
-      setStaffMembers((prev) => [created, ...prev]);
-      notify.success(`Đã tạo tài khoản cho nhân viên "${created.fullName}"!`);
+      setStaffMembers((prev) => [created, ...prev.filter((s) => s.id !== created.id)]);
+      notify.success(`Đã thêm nhân viên "${created.fullName}" (${created.email}) vào Workspace!`);
     } catch (err) {
-      notify.error((err as Error).message, 'Tạo Nhân Viên Thất Bại');
+      notify.error((err as Error).message, 'Mời Nhân Viên Thất Bại');
       throw err;
     }
   };
@@ -421,6 +470,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
           'x-user-role': 'OWNER',
+          'x-workspace-id': activeWorkspaceId || config.workspaceId || '',
         },
         body: JSON.stringify(data),
       });
@@ -448,6 +498,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
           'x-user-role': 'OWNER',
+          'x-workspace-id': activeWorkspaceId || config.workspaceId || '',
         },
         body: JSON.stringify({ lock }),
       });
@@ -477,6 +528,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
           'x-user-role': 'OWNER',
+          'x-workspace-id': activeWorkspaceId || config.workspaceId || '',
         },
       });
 
@@ -486,7 +538,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
       }
 
       setStaffMembers((prev) => prev.filter((s) => s.id !== targetId));
-      notify.success('Đã xóa nhân viên khỏi hệ thống!');
+      notify.success('Đã loại nhân viên khỏi Workspace!');
     } catch (err) {
       notify.error((err as Error).message, 'Xóa Thất Bại');
       throw err;
@@ -497,7 +549,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
    * Khôi phục về mặc định PolarisX
    */
   const resetToDefault = () => {
-    if (!isOwner) return;
+    if (!isCurrentWorkspaceOwner) return;
     saveConfig(initialDefaultConfig);
     notify.success('Đã khôi phục cấu hình mặc định CRM.');
   };
@@ -526,6 +578,12 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
         toggleLockStaffMember,
         deleteStaffMember,
         resetToDefault,
+        myWorkspaces,
+        activeWorkspaceId,
+        activeWorkspace,
+        isCurrentWorkspaceOwner,
+        switchWorkspace,
+        fetchMyWorkspaces,
       }}
     >
       {children}

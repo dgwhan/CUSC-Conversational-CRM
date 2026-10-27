@@ -23,7 +23,6 @@ import {
   Sparkles,
   Lock,
   Sliders,
-  Trash2,
   Plus,
   Edit2,
 } from 'lucide-react';
@@ -38,7 +37,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
   onNavigateToSettings,
 }) => {
   const { staffPresences, onPipelineChange, onNewMessage } = useRealtime();
-const { isOwner, isAgent, staffId, staffName } = useUserRole();
+const { isOwner, isAgent, staffId } = useUserRole();
   const { config } = useWorkspaceConfig();
 
   const [candidates, setCandidates] = useState<KanbanCandidate[]>(() => {
@@ -217,16 +216,7 @@ const { isOwner, isAgent, staffId, staffName } = useUserRole();
   }, [onNewMessage, config.pipelineStages]);
 
   
-  const handleClearAllCandidates = () => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa toàn bộ dữ liệu ứng viên trên phễu Kanban để làm sạch dữ liệu?')) {
-      setCandidates([]);
-      try {
-        localStorage.removeItem('polarisx_crm_kanban_candidates');
-        localStorage.removeItem('cusc_crm_kanban_candidates');
-      } catch {}
-      notify.info('Đã xóa sạch toàn bộ ứng viên trên phễu Kanban.');
-    }
-  };
+
 
   // Gán / Cập nhật Khóa học / Dự án BĐS / Gói dịch vụ từ catalog cho Ứng viên trên Kanban
   const handleSaveCandidateProducts = (courses: string[], tuition: number) => {

@@ -14,11 +14,9 @@ import {
   Eye,
   EyeOff,
   BookOpen,
-  AlertTriangle,
   XCircle,
   RefreshCw,
   ArrowRight,
-  Copy,
 } from 'lucide-react';
 import type { ChannelKey, DiscoveredPageDto } from '../types.js';
 import { apiClient } from '../../../lib/api-client.js';
@@ -246,9 +244,9 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
         setTestStatus('SUCCESS');
         setTestResult({
           success: true,
-          message: result.testResult?.message || `Xác thực thành công Fanpage "${verifiedPage.name}"!`,
+          message: (result as any).testResult?.message || `Xác thực thành công Fanpage "${verifiedPage.name}"!`,
           page: verifiedPage as DiscoveredPageDto,
-          details: result.testResult?.details,
+          details: (result as any).testResult?.details,
         });
         notify.success(`Đã kiểm thử và xác thực thành công Fanpage "${verifiedPage.name}"!`);
       } else {
@@ -609,7 +607,7 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
                       fontFamily: 'monospace',
                       fontSize: '11px',
                       boxSizing: 'border-box',
-                      WebkitTextSecurity: showToken ? 'none' : 'disc',
+                      ...(showToken ? {} : { WebkitTextSecurity: 'disc' } as any),
                     }}
                     placeholder={channelConfig.tokenPlaceholder}
                     value={accessTokenInput}

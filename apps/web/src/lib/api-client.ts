@@ -37,6 +37,21 @@ export class ApiError extends Error {
 
 class ApiClient {
   private baseUrl: string = '/api';
+  private activeWorkspaceId: string = '';
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      this.activeWorkspaceId = localStorage.getItem('polarisx_crm_active_workspace_id') || '';
+    }
+  }
+
+  setActiveWorkspaceId(id: string) {
+    this.activeWorkspaceId = id;
+  }
+
+  getActiveWorkspaceId(): string {
+    return this.activeWorkspaceId;
+  }
 
   setBaseUrl(url: string) {
     this.baseUrl = url.replace(/\/+$/, '');
@@ -65,6 +80,7 @@ class ApiClient {
       response = await fetch(url, {
         method,
         headers: {
+          ...(this.activeWorkspaceId ? { 'x-workspace-id': this.activeWorkspaceId } : {}),
           ...(restOptions.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...headers,
         },
@@ -315,6 +331,24 @@ class ApiClient {
   updateCustomer(id: string, data: Record<string, unknown>, workspaceId?: string) {
     return this.patch<Record<string, unknown>>(`/customers/${id}`, data, {
       headers: workspaceId ? { 'x-workspace-id': workspaceId } : {},
+    });
+  }
+
+  getMyWorkspaces(staffId?: string, ownerId?: string) {
+    return this.get<Array<{
+      id: string;
+      name: string;
+      slug: string;
+      role: 'OWNER' | 'STAFF';
+      isOwner: boolean;
+      domain: string;
+      ownerName?: string;
+      createdAt?: string;
+    }>>('/workspaces/my-workspaces', {
+      headers: {
+        ...(staffId ? { 'x-staff-id': staffId } : {}),
+        ...(ownerId ? { 'x-owner-id': ownerId } : {}),
+      },
     });
   }
 }

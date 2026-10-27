@@ -26,7 +26,7 @@ export const RoleSwitcher: React.FC = () => {
             <span className="role-text">Tư vấn viên ({role})</span>
           </>
         )}
-        <Lock size={11} className="role-lock-icon" title="Vai trò đã khóa bảo mật" />
+        <span title="Vai trò đã khóa bảo mật"><Lock size={11} className="role-lock-icon" /></span>
       </div>
     </div>
   );

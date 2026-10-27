@@ -57,10 +57,13 @@ try {
   const ownerId = ownerRes.rows[0]?.id;
 
   if (ownerId) {
+    // Cập nhật owner_id cho tài khoản staff demo
+    await client.query(`UPDATE staff SET owner_id = $1 WHERE email = 'staff@cusc.com'`, [ownerId]);
+
     const workspaceId = randomUUID();
     await client.query(
       `INSERT INTO workspaces (id, name, slug, owner_id, is_active, created_at, updated_at)
-       VALUES ($1, 'Tổ hợp Công nghệ PolarisX', 'polarisx', $2, true, NOW(), NOW())
+       VALUES ($1, 'PolarisX', 'polarisx', $2, true, NOW(), NOW())
        ON CONFLICT (slug) DO UPDATE SET
          name = EXCLUDED.name,
          owner_id = EXCLUDED.owner_id,
@@ -68,8 +71,8 @@ try {
       [workspaceId, ownerId],
     );
 
-    const wsRes = await client.query(`SELECT id FROM workspaces WHERE slug = 'cusc' LIMIT 1`);
-    const actualWsId = wsRes.rows[0]?.id;
+    const wsRes = await client.query(`SELECT id FROM workspaces WHERE slug = 'polarisx' OR slug = 'cusc' LIMIT 1`);
+    const actualWsId = wsRes.rows[0]?.id || workspaceId;
 
     if (actualWsId) {
       // Gán các staff vào workspace_members

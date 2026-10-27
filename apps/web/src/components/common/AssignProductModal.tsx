@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Search, Check, Plus, Trash2, Package, DollarSign, Tag, Info } from 'lucide-react';
+import { X, Search, Check, Plus, Package, DollarSign } from 'lucide-react';
 import type { ProductItemConfig } from '../../modules/workspace/workspaceConfig.types.js';
 
 export interface AssignProductModalProps {

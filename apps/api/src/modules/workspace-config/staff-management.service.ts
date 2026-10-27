@@ -84,11 +84,59 @@ export class StaffManagementService {
 
     if (this.prisma) {
       try {
+        const ownerWorkspace = await this.prisma.workspace.findFirst({
+          where: { ownerId: resolvedOwner },
+        });
+
+        // Tự động tìm và liên kết các tài khoản STAFF chưa có ownerId (orphaned) vào Workspace của Owner
+        if (ownerWorkspace) {
+          const orphanStaff = await this.prisma.staff.findMany({
+            where: {
+              role: 'STAFF',
+              ownerId: null,
+              id: { not: resolvedOwner },
+            },
+          });
+          if (orphanStaff.length > 0) {
+            for (const s of orphanStaff) {
+              await this.prisma.staff.update({
+                where: { id: s.id },
+                data: { ownerId: resolvedOwner },
+              }).catch(() => {});
+              await this.prisma.workspaceMember.upsert({
+                where: {
+                  workspaceId_staffId: {
+                    workspaceId: ownerWorkspace.id,
+                    staffId: s.id,
+                  },
+                },
+                create: {
+                  workspaceId: ownerWorkspace.id,
+                  staffId: s.id,
+                  role: 'STAFF',
+                },
+                update: { isActive: true },
+              }).catch(() => {});
+            }
+          }
+        }
+
         const staffMembers = await this.prisma.staff.findMany({
           where: {
             OR: [
               { ownerId: resolvedOwner },
               { id: resolvedOwner }, // Bao gồm cả tài khoản Owner để dễ theo dõi
+              ...(ownerWorkspace
+                ? [
+                    {
+                      memberships: {
+                        some: {
+                          workspaceId: ownerWorkspace.id,
+                        },
+                      },
+                    },
+                  ]
+                : []),
             ],
           },
           select: {
@@ -115,9 +163,10 @@ export class StaffManagementService {
   }
 
   /**
-   * Tạo nhân viên mới trực thuộc Owner
+   * Tạo hoặc Mời nhân viên mới trực thuộc Owner
+   * CHỈ SUCCESS KHI TÀI KHOẢN ĐÃ CÓ SẴN TRONG HỆ THỐNG DB
    */
-  async createStaff(ownerId: string, dto: CreateStaffDto): Promise<StaffItemResponse> {
+  async createStaff(ownerId: string, dto: CreateStaffDto, workspaceId?: string): Promise<StaffItemResponse> {
     const resolvedOwner = await this.resolveOwnerId(ownerId);
     const normalizedEmail = dto.email.trim().toLowerCase();
 
@@ -125,28 +174,88 @@ export class StaffManagementService {
       throw new BadRequestException('Email và Họ tên nhân viên không được để trống.');
     }
 
-    const defaultPassword = dto.password || 'PolarisX123456!';
-    const passwordHash = await argon2.hash(defaultPassword);
-
     if (this.prisma) {
       try {
-        // Kiểm tra trùng email
+        let ownerWorkspace = workspaceId
+          ? await this.prisma.workspace.findUnique({ where: { id: workspaceId } })
+          : await this.prisma.workspace.findFirst({ where: { ownerId: resolvedOwner } });
+
+        if (!ownerWorkspace) {
+          const ownerStaff = await this.prisma.staff.findUnique({ where: { id: resolvedOwner } });
+          const ownerName = ownerStaff?.fullName || 'PolarisX';
+          const cleanSlug = `ws-${resolvedOwner.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)}-${Date.now().toString(36)}`;
+          ownerWorkspace = await this.prisma.workspace.create({
+            data: {
+              name: ownerStaff?.fullName ? `Workspace của ${ownerName}` : 'PolarisX',
+              slug: cleanSlug,
+              ownerId: resolvedOwner,
+              isActive: true,
+            },
+          });
+        }
+
+        // Kiểm tra xem email này đã tồn tại trong bảng staff chưa
         const existing = await this.prisma.staff.findUnique({
           where: { email: normalizedEmail },
         });
-        if (existing) {
-          throw new BadRequestException(`Email "${normalizedEmail}" đã được sử dụng trong hệ thống.`);
+
+        // RÀNG BUỘC: Chỉ thành công khi tài khoản đã có trong hệ thống DB
+        if (!existing) {
+          throw new NotFoundException(
+            `Tài khoản với email "${normalizedEmail}" chưa tồn tại trong hệ thống. Vui lòng yêu cầu thành viên đăng ký tài khoản trước khi mời vào Workspace.`
+          );
         }
 
-        const newStaff = await this.prisma.staff.create({
-          data: {
-            email: normalizedEmail,
-            fullName: dto.fullName.trim(),
-            passwordHash,
-            role: dto.role || 'STAFF',
-            status: 'ACTIVE',
-            ownerId: resolvedOwner,
+        if (existing.id === resolvedOwner) {
+          throw new BadRequestException('Không thể thêm chính tài khoản Chủ doanh nghiệp làm nhân viên.');
+        }
+
+        // Kiểm tra xem tài khoản này đã là thành viên trong Workspace chưa
+        const existingMember = await this.prisma.workspaceMember.findUnique({
+          where: {
+            workspaceId_staffId: {
+              workspaceId: ownerWorkspace.id,
+              staffId: existing.id,
+            },
           },
+        });
+
+        if (existingMember && existingMember.isActive) {
+          throw new BadRequestException(`Tài khoản "${existing.email}" đã là thành viên trong Workspace này.`);
+        }
+
+        // Tạo hoặc kích hoạt bản ghi WorkspaceMember
+        const targetMemberRole = dto.role === 'OWNER' ? 'OWNER' : 'STAFF';
+        await this.prisma.workspaceMember.upsert({
+          where: {
+            workspaceId_staffId: {
+              workspaceId: ownerWorkspace.id,
+              staffId: existing.id,
+            },
+          },
+          create: {
+            workspaceId: ownerWorkspace.id,
+            staffId: existing.id,
+            role: targetMemberRole,
+            isActive: true,
+          },
+          update: {
+            role: targetMemberRole,
+            isActive: true,
+          },
+        });
+
+        // Cập nhật thông tin staff nếu là STAFF thông thường (KHÔNG ghi đè quyền OWNER của họ ở workspace khác)
+        const updateData: any = {
+          status: 'ACTIVE',
+        };
+        if (existing.role !== 'OWNER' && !existing.ownerId) {
+          updateData.ownerId = resolvedOwner;
+        }
+
+        const updated = await this.prisma.staff.update({
+          where: { id: existing.id },
+          data: updateData,
           select: {
             id: true,
             email: true,
@@ -160,32 +269,19 @@ export class StaffManagementService {
           },
         });
 
-        // Gán nhân viên vào Workspace của Owner
-        const ownerWorkspace = await this.prisma.workspace.findFirst({
-          where: { ownerId: resolvedOwner },
-        });
-
-        if (ownerWorkspace) {
-          await this.prisma.workspaceMember.create({
-            data: {
-              workspaceId: ownerWorkspace.id,
-              staffId: newStaff.id,
-              role: 'STAFF',
-            },
-          }).catch(() => {}); // bỏ qua nếu đã tồn tại
-        }
-
-        this.logger.log(`Created new staff "${newStaff.email}" for owner ${resolvedOwner}`);
-        return newStaff as StaffItemResponse;
+        this.logger.log(`Linked existing staff "${updated.email}" to workspace ${ownerWorkspace.id} of owner ${resolvedOwner}`);
+        return updated as StaffItemResponse;
       } catch (err) {
-        if (err instanceof BadRequestException) throw err;
-        this.logger.warn(`Could not create staff in DB: ${(err as Error).message}`);
+        if (err instanceof BadRequestException || err instanceof NotFoundException) throw err;
+        this.logger.warn(`Could not invite staff in DB: ${(err as Error).message}`);
+        throw err;
       }
     }
 
-    // In-memory fallback
+    // In-memory fallback (cho môi trường test cô lập không có DB)
+    const list = this.inMemoryStaff.get(resolvedOwner) || [];
     const mockStaff: StaffItemResponse = {
-      id: `staff-${Date.now()}`,
+      id: `staff-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       email: normalizedEmail,
       fullName: dto.fullName.trim(),
       role: dto.role || 'STAFF',
@@ -195,7 +291,6 @@ export class StaffManagementService {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    const list = this.inMemoryStaff.get(resolvedOwner) || [];
     list.push(mockStaff);
     this.inMemoryStaff.set(resolvedOwner, list);
     return mockStaff;
@@ -209,12 +304,21 @@ export class StaffManagementService {
 
     if (this.prisma) {
       try {
-        const staff = await this.prisma.staff.findUnique({ where: { id: staffId } });
+        const staff = await this.prisma.staff.findUnique({
+          where: { id: staffId },
+          include: { memberships: true },
+        });
         if (!staff) {
           throw new NotFoundException('Không tìm thấy nhân viên.');
         }
 
-        if (staff.ownerId !== resolvedOwner && staff.id !== resolvedOwner) {
+        const ownerWorkspace = await this.prisma.workspace.findFirst({
+          where: { ownerId: resolvedOwner },
+        });
+        const belongsToWorkspace = ownerWorkspace && staff.memberships.some((m) => m.workspaceId === ownerWorkspace.id);
+        const isManagedByOwner = staff.ownerId === resolvedOwner || staff.id === resolvedOwner || belongsToWorkspace;
+
+        if (!isManagedByOwner) {
           throw new ForbiddenException('Bạn chỉ có quyền chỉnh sửa nhân viên thuộc quyền quản lý của mình.');
         }
 
@@ -270,10 +374,19 @@ export class StaffManagementService {
 
     if (this.prisma) {
       try {
-        const staff = await this.prisma.staff.findUnique({ where: { id: staffId } });
+        const staff = await this.prisma.staff.findUnique({
+          where: { id: staffId },
+          include: { memberships: true },
+        });
         if (!staff) throw new NotFoundException('Không tìm thấy nhân viên.');
 
-        if (staff.ownerId !== resolvedOwner) {
+        const ownerWorkspace = await this.prisma.workspace.findFirst({
+          where: { ownerId: resolvedOwner },
+        });
+        const belongsToWorkspace = ownerWorkspace && staff.memberships.some((m) => m.workspaceId === ownerWorkspace.id);
+        const isManagedByOwner = staff.ownerId === resolvedOwner || belongsToWorkspace;
+
+        if (!isManagedByOwner) {
           throw new ForbiddenException('Bạn chỉ có quyền khóa tài khoản nhân viên thuộc quyền quản lý của mình.');
         }
 
@@ -329,7 +442,7 @@ export class StaffManagementService {
   }
 
   /**
-   * Xóa nhân viên khỏi hệ thống của Owner
+   * Xóa hoặc Loại nhân viên khỏi hệ thống của Owner
    */
   async deleteStaff(ownerId: string, staffId: string): Promise<{ success: boolean; message: string }> {
     const resolvedOwner = await this.resolveOwnerId(ownerId);
@@ -340,20 +453,51 @@ export class StaffManagementService {
 
     if (this.prisma) {
       try {
-        const staff = await this.prisma.staff.findUnique({ where: { id: staffId } });
+        const staff = await this.prisma.staff.findUnique({
+          where: { id: staffId },
+          include: { memberships: true },
+        });
         if (!staff) throw new NotFoundException('Không tìm thấy nhân viên.');
 
-        if (staff.ownerId !== resolvedOwner) {
+        const ownerWorkspace = await this.prisma.workspace.findFirst({
+          where: { ownerId: resolvedOwner },
+        });
+        const belongsToWorkspace = ownerWorkspace && staff.memberships.some((m) => m.workspaceId === ownerWorkspace.id);
+        const isManagedByOwner = staff.ownerId === resolvedOwner || belongsToWorkspace;
+
+        if (!isManagedByOwner) {
           throw new ForbiddenException('Bạn chỉ có quyền xóa nhân viên thuộc quyền quản lý của mình.');
         }
 
-        // Xóa liên kết workspace_members và staff
-        await this.prisma.workspaceMember.deleteMany({ where: { staffId } });
-        await this.prisma.refreshToken.deleteMany({ where: { staffId } });
-        await this.prisma.staff.delete({ where: { id: staffId } });
+        // Xóa liên kết workspace_members của nhân viên khỏi workspace của owner
+        if (ownerWorkspace) {
+          await this.prisma.workspaceMember.deleteMany({
+            where: {
+              workspaceId: ownerWorkspace.id,
+              staffId,
+            },
+          }).catch(() => {});
+        }
+        await this.prisma.refreshToken.deleteMany({ where: { staffId } }).catch(() => {});
+
+        // Nếu tài khoản là OWNER ở nơi khác, KHÔNG xóa bảng Staff, chỉ ngắt liên kết
+        if (staff.role === 'OWNER') {
+          this.logger.log(`Removed staff ${staffId} (Owner of other workspace) from workspace ${ownerWorkspace?.id}`);
+          return { success: true, message: `Đã loại nhân viên ${staff.fullName} (${staff.email}) khỏi Workspace.` };
+        }
+
+        // Thử xóa hoàn toàn tài khoản staff hoặc ngắt liên kết ownerId
+        try {
+          await this.prisma.staff.delete({ where: { id: staffId } });
+        } catch {
+          await this.prisma.staff.update({
+            where: { id: staffId },
+            data: { ownerId: null, status: 'LOCKED' },
+          });
+        }
 
         this.logger.log(`Deleted staff ${staffId} by owner ${resolvedOwner}`);
-        return { success: true, message: `Đã xóa nhân viên ${staff.fullName} (${staff.email}).` };
+        return { success: true, message: `Đã loại nhân viên ${staff.fullName} (${staff.email}) khỏi Workspace.` };
       } catch (err) {
         if (err instanceof NotFoundException || err instanceof ForbiddenException || err instanceof BadRequestException) {
           throw err;

@@ -33,7 +33,7 @@ export class StaffManagementController {
   }
 
   /**
-   * Tạo nhân viên mới dưới quyền Owner
+   * Tạo nhân viên mới dưới quyền Owner (hoặc mời nhân viên đã có tài khoản vào Workspace)
    */
   @Post()
   @Roles('OWNER', 'ADMIN')
@@ -41,8 +41,9 @@ export class StaffManagementController {
     @Body() dto: CreateStaffDto,
     @Headers('x-owner-id') ownerId?: string,
     @Headers('x-staff-id') staffId?: string,
+    @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    return this.staffService.createStaff(ownerId || staffId || '', dto);
+    return this.staffService.createStaff(ownerId || staffId || '', dto, workspaceId);
   }
 
   /**

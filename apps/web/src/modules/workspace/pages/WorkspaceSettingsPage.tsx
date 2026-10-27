@@ -22,8 +22,6 @@ import {
   Users,
   Lock,
   Unlock,
-  UserCheck,
-  ShieldCheck,
 } from 'lucide-react';
 import { useWorkspaceConfig } from '../WorkspaceConfigContext.js';
 import { useUserRole } from '../../auth/UserRoleContext.js';

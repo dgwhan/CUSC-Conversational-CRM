@@ -10,6 +10,7 @@ import { MessagingModule } from './modules/messaging/messaging.module.js';
 import { ChannelConnectionModule } from './modules/channel-connection/channel-connection.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { WorkspaceConfigModule } from './modules/workspace-config/workspace-config.module.js';
+import { ReportsModule } from './modules/reports/reports.module.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { WorkspaceConfigModule } from './modules/workspace-config/workspace-conf
     ChannelConnectionModule,
     RealtimeModule,
     WorkspaceConfigModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

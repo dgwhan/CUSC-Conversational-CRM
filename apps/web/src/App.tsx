@@ -11,9 +11,10 @@ import { WorkspaceConfigProvider } from './modules/workspace/WorkspaceConfigCont
 import { AuthPage } from './features/auth/pages/AuthPage.js';
 
 // Lazy load CRM internal pages and components for high performance initial load
-const AppLayout = lazy(() => import('./app/AppLayout.js').then((m) => ({ default: m.AppLayout })));
+
 const UnifiedInboxPage = lazy(() => import('./modules/inbox/pages/UnifiedInboxPage.js').then((m) => ({ default: m.UnifiedInboxPage })));
 const AdmissionKanbanBoard = lazy(() => import('./modules/kanban/AdmissionKanbanBoard.js').then((m) => ({ default: m.AdmissionKanbanBoard })));
+const ReportsDashboardPage = lazy(() => import('./modules/reports/pages/ReportsDashboardPage.js').then((m) => ({ default: m.ReportsDashboardPage })));
 const WorkspaceSettingsPage = lazy(() => import('./modules/workspace/pages/WorkspaceSettingsPage.js').then((m) => ({ default: m.WorkspaceSettingsPage })));
 const OnboardingWizardPage = lazy(() => import('./modules/onboarding/pages/OnboardingWizardPage.js').then((m) => ({ default: m.OnboardingWizardPage })));
 const MessagingImportPage = lazy(() => import('./modules/messaging/pages/MessagingImportPage.js').then((m) => ({ default: m.MessagingImportPage })));
@@ -120,6 +121,7 @@ function CRMMainContent() {
             onNavigateToSettings={() => setActiveTab('workspace-settings')}
           />
         )}
+        {activeTab === 'reports' && <ReportsDashboardPage />}
         {activeTab === 'workspace-settings' && <WorkspaceSettingsPage />}
         {activeTab === 'onboarding' && (
           <OnboardingWizardPage

@@ -26,6 +26,17 @@ export class WorkspaceConfigController {
   constructor(private readonly configService: WorkspaceConfigService) {}
 
   /**
+   * Lấy danh sách các workspace của người dùng hiện tại
+   */
+  @Get('my-workspaces')
+  async getMyWorkspaces(
+    @Headers('x-staff-id') staffId?: string,
+    @Headers('x-owner-id') ownerId?: string,
+  ) {
+    return this.configService.getMyWorkspaces(staffId, ownerId);
+  }
+
+  /**
    * Lấy cấu hình của workspace hiện tại theo ownerId (mở cho cả Owner, Admin và Agent để đồng bộ UI)
    */
   @Get('config')

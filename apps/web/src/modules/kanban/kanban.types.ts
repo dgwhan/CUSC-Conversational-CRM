@@ -5,9 +5,9 @@ export interface KanbanCandidate {
   fullName: string;
   phone: string;
   email: string;
-  avatarUrl: string;
+  avatarUrl?: string;
   channel: ChannelType;
-  channelAccountName: string;
+  channelAccountName?: string;
   stage: LeadStage;
   estimatedTuition: number; // Học phí dự kiến (VNĐ)
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
