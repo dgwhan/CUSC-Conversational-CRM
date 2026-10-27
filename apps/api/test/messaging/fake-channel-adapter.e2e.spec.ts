@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { ChannelAdapter, InvalidWebhookPayloadError } from "../../src/modules/messaging/domain/channel-adapter.port.js";
 import { FakeChannelAdapter, FakeWireEvent } from "../support/fake-channel-adapter.js";
 

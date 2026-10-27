@@ -3,19 +3,27 @@ export type TimeRangeFilter = '7days' | '30days' | 'thisMonth' | 'quarter' | 'ye
 export interface OverviewMetrics {
   totalLeads: number;
   newLeadsGrowth: number; // e.g. +14.5%
-  enrolledCount: number;
+  wonCount: number;
+  enrolledCount: number; // backward compat alias for wonCount
   conversionRate: number; // e.g. 18.2%
   dropOffRate: number;
-  totalEstimatedTuition: number;
-  totalCollectedTuition: number;
+  totalEstimatedValue: number;
+  totalEstimatedTuition: number; // backward compat alias for totalEstimatedValue
+  totalCollectedValue: number;
+  totalCollectedTuition: number; // backward compat alias for totalCollectedValue
   avgResponseTimeMinutes: number;
 }
 
 export interface FunnelStageReport {
   id: string;
+  name?: string;
   label: string;
+  subtitle?: string;
   count: number;
+  value?: number;
   color: string;
+  isWon?: boolean;
+  isLost?: boolean;
   conversionRate?: number;
 }
 
@@ -27,17 +35,21 @@ export interface ChannelReport {
   color: string;
 }
 
-export interface CourseReport {
-  courseName: string;
+export interface ProductReport {
+  productName: string;
+  courseName?: string;
   count: number;
   revenue: number;
 }
+
+export type CourseReport = ProductReport;
 
 export interface StaffPerformanceReport {
   staffId: string;
   name: string;
   avatar?: string;
   leadsCount: number;
+  wonCount?: number;
   enrolledCount: number;
   revenue: number;
   conversionRate: number;
@@ -47,14 +59,23 @@ export interface StaffPerformanceReport {
 export interface TrendDataPoint {
   date: string;
   newLeads: number;
+  won?: number;
   enrolled: number;
   revenue: number;
 }
 
 export interface ReportsData {
+  domain?: string;
+  terminology?: {
+    entityName: string;
+    pipelineName: string;
+    productLabel: string;
+    valueLabel: string;
+  };
   overview: OverviewMetrics;
   funnelStages: FunnelStageReport[];
   channels: ChannelReport[];
+  products: ProductReport[];
   courses: CourseReport[];
   staffList: StaffPerformanceReport[];
   trends: TrendDataPoint[];

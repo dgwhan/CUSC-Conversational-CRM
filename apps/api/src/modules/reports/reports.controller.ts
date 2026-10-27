@@ -1,5 +1,5 @@
 import { Controller, Get, Query, Headers } from '@nestjs/common';
-import { ReportsService } from './reports.service.js';
+import { ReportsService, OverviewFilterDto } from './reports.service.js';
 
 @Controller('reports')
 export class ReportsController {
@@ -8,19 +8,24 @@ export class ReportsController {
   @Get('overview')
   async getOverview(
     @Headers('x-workspace-id') headerWsId?: string,
+    @Headers('x-owner-id') headerOwnerId?: string,
+    @Headers('x-staff-id') headerStaffId?: string,
     @Query('workspaceId') queryWsId?: string,
-    @Query('timeRange') timeRange?: any,
+    @Query('timeRange') timeRange?: OverviewFilterDto['timeRange'],
     @Query('channel') channel?: string,
     @Query('staffId') staffId?: string,
     @Query('courseId') courseId?: string,
+    @Query('productId') productId?: string,
   ) {
     const workspaceId = queryWsId || headerWsId;
     return this.reportsService.getOverview({
       workspaceId,
+      ownerId: headerOwnerId,
+      currentStaffId: headerStaffId,
       timeRange,
       channel,
       staffId,
-      courseId,
+      courseId: courseId || productId,
     });
   }
 }

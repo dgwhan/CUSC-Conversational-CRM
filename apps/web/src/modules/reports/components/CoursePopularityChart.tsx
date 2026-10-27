@@ -1,17 +1,28 @@
 import React from 'react';
 import { Bar } from 'react-chartjs-2';
 import type { ChartData, ChartOptions } from 'chart.js';
-import type { CourseReport } from '../reports.types.js';
+import type { CourseReport, ProductReport } from '../reports.types.js';
 import '../chartSetup.js';
 
 interface CoursePopularityChartProps {
-  courses: CourseReport[];
+  courses?: CourseReport[];
+  products?: ProductReport[];
+  productLabel?: string;
+  entityName?: string;
 }
 
-export const CoursePopularityChart: React.FC<CoursePopularityChartProps> = ({ courses }) => {
-  const topCourses = courses.slice(0, 6);
-  const labels = topCourses.map((c) => c.courseName);
-  const counts = topCourses.map((c) => c.count);
+export const CoursePopularityChart: React.FC<CoursePopularityChartProps> = ({
+  courses,
+  products,
+  productLabel,
+  entityName,
+}) => {
+  const displayLabel = productLabel || 'Sản Phẩm / Dịch Vụ';
+  const displayEntity = entityName || 'khách hàng';
+  const itemList = products || courses || [];
+  const topItems = itemList.slice(0, 6);
+  const labels = topItems.map((c) => c.productName || c.courseName || '');
+  const counts = topItems.map((c) => c.count);
 
   const colors = [
     '#3b82f6', // blue
@@ -26,7 +37,7 @@ export const CoursePopularityChart: React.FC<CoursePopularityChartProps> = ({ co
     labels,
     datasets: [
       {
-        label: 'Số lượng ứng viên quan tâm',
+        label: `Số lượng ${displayEntity} quan tâm`,
         data: counts,
         backgroundColor: colors.slice(0, labels.length),
         borderRadius: 6,
@@ -51,7 +62,7 @@ export const CoursePopularityChart: React.FC<CoursePopularityChartProps> = ({ co
         callbacks: {
           label: (context) => {
             const count = context.raw as number;
-            return ` Hồ sơ quan tâm: ${count}`;
+            return ` ${displayEntity} quan tâm: ${count}`;
           },
         },
       },
@@ -86,19 +97,19 @@ export const CoursePopularityChart: React.FC<CoursePopularityChartProps> = ({ co
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-base font-bold text-slate-800">
-            Ngành / Khóa Học Thu Hút Nhất
+            {displayLabel} Thu Hút Nhất
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Xếp hạng nhu cầu đăng ký nguyện vọng theo chương trình đào tạo
+            Xếp hạng mức độ quan tâm của {displayEntity} theo từng danh mục
           </p>
         </div>
       </div>
       <div className="relative flex-1 min-h-[280px]">
-        {topCourses.length > 0 ? (
+        {topItems.length > 0 ? (
           <Bar data={data} options={options} />
         ) : (
           <div className="flex items-center justify-center h-full text-slate-400 text-sm">
-            Chưa có dữ liệu khóa học
+            Chưa có dữ liệu {displayLabel.toLowerCase()}
           </div>
         )}
       </div>

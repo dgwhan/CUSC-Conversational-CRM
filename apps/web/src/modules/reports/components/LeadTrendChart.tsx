@@ -6,14 +6,23 @@ import '../chartSetup.js';
 
 interface LeadTrendChartProps {
   trends: TrendDataPoint[];
+  entityName?: string;
+  wonLabel?: string;
 }
 
-export const LeadTrendChart: React.FC<LeadTrendChartProps> = ({ trends }) => {
+export const LeadTrendChart: React.FC<LeadTrendChartProps> = ({
+  trends,
+  entityName,
+  wonLabel,
+}) => {
   const [viewMode, setViewMode] = useState<'volume' | 'revenue'>('volume');
+
+  const displayEntity = entityName || 'Hồ sơ';
+  const displayWon = wonLabel || 'Chốt thành công';
 
   const labels = trends.map((t) => t.date);
   const leadsData = trends.map((t) => t.newLeads);
-  const enrolledData = trends.map((t) => t.enrolled);
+  const enrolledData = trends.map((t) => t.won ?? t.enrolled);
   const revenueData = trends.map((t) => t.revenue);
 
   const formatCurrency = (val: number) => {
@@ -28,7 +37,7 @@ export const LeadTrendChart: React.FC<LeadTrendChartProps> = ({ trends }) => {
     labels,
     datasets: [
       {
-        label: 'Hồ sơ mới tiếp nhận',
+        label: `${displayEntity} mới tiếp nhận`,
         data: leadsData,
         borderColor: '#0284c7',
         backgroundColor: 'rgba(2, 132, 199, 0.08)',
@@ -42,7 +51,7 @@ export const LeadTrendChart: React.FC<LeadTrendChartProps> = ({ trends }) => {
         pointHoverRadius: 6,
       },
       {
-        label: 'Nhập học thành công',
+        label: displayWon,
         data: enrolledData,
         borderColor: '#16a34a',
         backgroundColor: 'rgba(22, 163, 74, 0.08)',
@@ -62,7 +71,7 @@ export const LeadTrendChart: React.FC<LeadTrendChartProps> = ({ trends }) => {
     labels,
     datasets: [
       {
-        label: 'Doanh thu học phí thực thu',
+        label: 'Doanh thu ghi nhận',
         data: revenueData,
         borderColor: '#d97706',
         backgroundColor: 'rgba(217, 119, 6, 0.12)',
@@ -88,7 +97,7 @@ export const LeadTrendChart: React.FC<LeadTrendChartProps> = ({ trends }) => {
         labels: {
           boxWidth: 12,
           usePointStyle: true,
-          font: { size: 12 },
+          font: { size: 12, weight: 500 },
           color: '#475569',
         },
       },
@@ -104,7 +113,7 @@ export const LeadTrendChart: React.FC<LeadTrendChartProps> = ({ trends }) => {
             if (viewMode === 'revenue') {
               return ` ${context.dataset.label}: ${formatCurrency(val)}`;
             }
-            return ` ${context.dataset.label}: ${val} học viên`;
+            return ` ${context.dataset.label}: ${val} ${displayEntity.toLowerCase()}`;
           },
         },
       },
@@ -129,7 +138,8 @@ export const LeadTrendChart: React.FC<LeadTrendChartProps> = ({ trends }) => {
           callback: (value) => {
             if (viewMode === 'revenue') {
               const num = Number(value);
-              if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(0)}M`;
+              if (num >= 1000000000) return `${(num / 1000000000).toFixed(1)} Tỷ`;
+              if (num >= 1000000) return `${(num / 1000000).toFixed(0)} Tr`;
               return num.toLocaleString('vi-VN');
             }
             return value;
@@ -144,39 +154,50 @@ export const LeadTrendChart: React.FC<LeadTrendChartProps> = ({ trends }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="text-base font-bold text-slate-800">
-            Xu Hướng Tuyển Sinh & Doanh Thu Theo Thời Gian
+            Biểu Đồ Xu Hướng Tăng Trưởng
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Theo dõi lưu lượng ứng viên tiếp cận và tăng trưởng học phí theo chu kỳ
+            Biến động lưu lượng {displayEntity.toLowerCase()} và dòng doanh thu theo thời gian
           </p>
         </div>
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg self-start sm:self-auto border border-slate-200">
+
+        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg self-start sm:self-auto">
           <button
             type="button"
+            onClick={() => setViewMode('volume')}
             className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
               viewMode === 'volume'
-                ? 'bg-white text-blue-700 shadow-xs'
+                ? 'bg-white text-blue-700 shadow-2xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
-            onClick={() => setViewMode('volume')}
           >
-            Số Lượng Hồ Sơ
+            Số Lượng {displayEntity}
           </button>
           <button
             type="button"
+            onClick={() => setViewMode('revenue')}
             className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
               viewMode === 'revenue'
-                ? 'bg-white text-amber-700 shadow-xs'
+                ? 'bg-white text-blue-700 shadow-2xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
-            onClick={() => setViewMode('revenue')}
           >
-            Doanh Thu Học Phí
+            Doanh Thu (VNĐ)
           </button>
         </div>
       </div>
-      <div className="relative flex-1 min-h-[300px]">
-        <Line data={viewMode === 'volume' ? volumeChartData : revenueChartData} options={options} />
+
+      <div className="relative flex-1 min-h-[280px]">
+        {trends.length > 0 ? (
+          <Line
+            data={viewMode === 'volume' ? volumeChartData : revenueChartData}
+            options={options}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+            Chưa có dữ liệu xu hướng
+          </div>
+        )}
       </div>
     </div>
   );
