@@ -13,7 +13,7 @@
 Trong hệ thống tuyển sinh và chăm sóc ứng viên đa kênh **CUSC Recruitment CRM**, module **Auth & IAM** đóng vai trò là "cánh cổng bảo mật đầu tiên" (First Line of Defense). Hệ thống xử lý thông tin định danh của các cán bộ quản lý tuyển sinh, chuyên viên tư vấn và dữ liệu học viên tiềm năng (Leads). Do đó, việc chuẩn hóa luồng nghiệp vụ xác thực người dùng, phân cấp quyền hạn và khôi phục tài khoản đòi hỏi tính bảo mật, tiện dụng và tuân thủ các chuẩn an toàn thông tin khắt khe.
 
 ### 1.2. Mục tiêu Nghiệp vụ Cốt lõi
-1. **Trải nghiệm Đăng nhập Đa dạng & Thuận tiện**: Cho phép nhân sự linh hoạt đăng nhập bằng **Email công vụ** (`@cusc.ctu.edu.vn`) hoặc **Số điện thoại cá nhân**, giảm thiểu sự phụ thuộc vào một phương thức duy nhất.
+1. **Trải nghiệm Đăng nhập Đa dạng & Thuận tiện**: Cho phép nhân sự linh hoạt đăng nhập bằng **Email công vụ** hoặc **Số điện thoại cá nhân**, giảm thiểu sự phụ thuộc vào một phương thức duy nhất.
 2. **Bảo vệ Tài khoản Chống Tấn công Dò quét (Anti Brute-force)**: Tự động phát hiện các hành vi nhập sai mật khẩu liên tiếp và áp dụng cơ chế khóa tạm thời có thời hạn, bảo vệ an toàn cho cơ sở dữ liệu.
 3. **Phân quyền Minh bạch (Strict RBAC)**: Định rõ giới hạn tác vụ giữa **OWNER** (Chủ sở hữu hệ thống/Giám đốc tuyển sinh) và **STAFF** (Chuyên viên tư vấn), tránh rò rỉ dữ liệu hoặc can thiệp cấu hình trái phép giữa các bộ phận.
 4. **Khôi phục Tài khoản Tự phục vụ 100% (Zero-Helpdesk Password Recovery)**: Người dùng có thể tự khôi phục mật khẩu qua Email OTP chỉ trong vòng 60 giây mà không cần nhờ đến sự hỗ trợ thủ công từ quản trị viên hệ thống.
