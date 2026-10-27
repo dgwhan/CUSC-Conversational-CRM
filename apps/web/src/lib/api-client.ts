@@ -1,5 +1,5 @@
 /**
- * API Client tập trung cho ứng dụng PolarisX Recruitment CRM.
+ * API Client tập trung cho ứng dụng CUSC Conversational CRM.
  * Hỗ trợ tự động định tuyến qua Vite Proxy hoặc cấu hình Base URL tuỳ chỉnh.
  * Tích hợp ErrorHandler chi tiết và thông báo Toast vị trí lỗi.
  */

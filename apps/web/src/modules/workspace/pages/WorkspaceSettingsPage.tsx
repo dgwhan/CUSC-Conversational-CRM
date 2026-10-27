@@ -114,7 +114,7 @@ export const WorkspaceSettingsPage: React.FC = () => {
   const presetsList: { key: BusinessDomain; title: string; subtitle: string; icon: React.ReactNode }[] = [
     {
       key: 'EDUCATION',
-      title: 'Giáo Dục & Tuyển Sinh (PolarisX)',
+      title: 'Giáo Dục & Tuyển Sinh (CUSC)',
       subtitle: 'Khóa học Aptech, Fullstack, Arena, Python AI; Thí sinh & Học phí',
       icon: <GraduationCap size={20} color="#0284c7" />,
     },
@@ -319,11 +319,11 @@ export const WorkspaceSettingsPage: React.FC = () => {
               type="button"
               className="crm-btn crm-btn-secondary crm-btn-sm"
               onClick={resetToDefault}
-              title="Khôi phục về cấu hình mẫu PolarisX ban đầu"
+              title="Khôi phục về cấu hình mẫu CUSC ban đầu"
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <RotateCcw size={14} />
-              <span>Mặc định PolarisX</span>
+              <span>Mặc định CUSC</span>
             </button>
           )}
           <span
@@ -1145,7 +1145,7 @@ export const WorkspaceSettingsPage: React.FC = () => {
                 <input
                   type="text"
                   className="crm-form-input"
-                  placeholder="VD: Phễu Tuyển Sinh PolarisX, Phễu Chốt Cọc Bất Động Sản"
+                  placeholder="VD: Phễu Tuyển Sinh CUSC, Phễu Đào Tạo Lập Trình"
                   value={pipelineNameInput}
                   onChange={(e) => setPipelineNameInput(e.target.value)}
                   disabled={!isOwner}
@@ -1679,7 +1679,7 @@ export const WorkspaceSettingsPage: React.FC = () => {
                       <input
                         type="password"
                         className="crm-form-input"
-                        placeholder="Mặc định: PolarisX123456!"
+                        placeholder="Mặc định: Cusc123456!"
                         value={newStaffPassword}
                         onChange={(e) => setNewStaffPassword(e.target.value)}
                       />

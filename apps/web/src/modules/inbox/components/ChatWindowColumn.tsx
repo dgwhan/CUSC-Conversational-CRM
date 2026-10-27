@@ -89,12 +89,12 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
     notify.info(t('inbox.chatInput.voiceRecordingNotice'));
     setTimeout(() => {
       setIsRecording(false);
-      onSendMessage('Tin nhắn thoại (Ghi âm từ nhân viên tư vấn PolarisX)', [
+      onSendMessage('Tin nhắn thoại (Ghi âm từ nhân viên tư vấn CUSC)', [
         {
           id: `att-voice-${Date.now()}`,
           type: 'AUDIO',
           url: 'https://example.com/audio/voice-sample.mp3',
-          name: 'tuvan_khoahoc_polarisx.mp3',
+          name: 'tuvan_khoahoc_cusc.mp3',
           duration: '0:35',
         },
       ]);

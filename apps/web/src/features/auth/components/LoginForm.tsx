@@ -98,7 +98,7 @@ export function LoginForm({
       {!hideHeading && (
         <PageHeading
           title="Chào mừng trở lại"
-          description="Đăng nhập để tiếp tục sử dụng hệ thống Conversational CRM của PolarisX."
+          description="Đăng nhập để tiếp tục sử dụng hệ thống Conversational CRM của CUSC."
         />
       )}
 

@@ -4,7 +4,7 @@
 
 .pancake-inbox-container {
   display: flex;
-  height: calc(100vh - 56px);
+  height: 100%;
   width: 100%;
   overflow: hidden;
   background-color: var(--color-bg-app);
@@ -1350,6 +1350,9 @@
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
+  flex: 1 !important;
+  height: 100% !important;
+  min-height: 0 !important;
 }
 
 .navbar-quick-tabs {

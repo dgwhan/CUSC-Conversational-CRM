@@ -2,8 +2,8 @@ import type { TranslationDictionary } from '../types.js';
 
 export const vi: TranslationDictionary = {
   common: {
-    systemName: 'PolarisX CRM',
-    portalName: 'Recruitment Portal',
+    systemName: 'CUSC ',
+    portalName: 'Conversational CRM',
     save: 'Lưu',
     cancel: 'Hủy bỏ',
     delete: 'Xóa',
@@ -52,7 +52,7 @@ export const vi: TranslationDictionary = {
   },
   onboarding: {
     badge: 'QUY TRÌNH THIẾT LẬP CRM',
-    welcomeTitle: 'Chào mừng bạn đến với PolarisX Social CRM',
+    welcomeTitle: 'Chào mừng bạn đến với CUSC Conversational CRM',
     welcomeDesc: 'Chỉ mất 2 phút để kết nối các kênh Fanpage, Zalo OA và bắt đầu quản lý tin nhắn khách hàng tập trung.',
     skipToInbox: 'Bỏ qua & Vào thẳng Hộp thư →',
     steps: {
@@ -65,10 +65,10 @@ export const vi: TranslationDictionary = {
       title: 'Bước 1: Thiết lập Thông tin Doanh nghiệp',
       desc: 'Khởi tạo không gian làm việc (Workspace) để gom các kênh mạng xã hội và phân công nhân viên tư vấn.',
       companyName: 'Tên Doanh nghiệp / Tổ chức / Trường học',
-      companyPlaceholder: 'VD: Trung tâm Công nghệ Phần mềm Đại học Cần Thơ (PolarisX)',
+      companyPlaceholder: 'VD: Trung tâm Công nghệ Phần mềm Đại học Cần Thơ (CUSC)',
       companyHint: 'Tên này sẽ hiển thị trên đầu thanh điều hướng và trong email thông báo.',
       brandName: 'Tên thương hiệu / Viết tắt',
-      brandPlaceholder: 'VD: PolarisX Cần Thơ',
+      brandPlaceholder: 'VD: CUSC Cần Thơ',
       phone: 'Số điện thoại Hotline / Zalo chính',
       phonePlaceholder: 'VD: 0292.3835.581 hoặc 0901.234.567',
       industry: 'Lĩnh vực hoạt động',
@@ -132,14 +132,14 @@ export const vi: TranslationDictionary = {
       backBtn: 'Quay lại',
       finishBtn: 'Hoàn tất & Vào Không gian làm việc',
       errors: {
-        invalidEmail: 'Vui lòng nhập định dạng email hợp lệ (VD: nhanvien@polarisx.vn).',
+        invalidEmail: 'Vui lòng nhập định dạng email hợp lệ (VD: nhanvien@cusc.ctu.edu.vn).',
         duplicateEmail: 'Email này đã có trong danh sách mời.',
       },
     },
     oauthModal: {
       authorizingAccount: 'Tài khoản ủy quyền:',
       verified: 'Đã xác minh',
-      permissionsTitle: 'Các quyền sẽ cấp cho PolarisX Recruitment CRM:',
+      permissionsTitle: 'Các quyền sẽ cấp cho CUSC Conversational CRM:',
       termsNotice: 'Bằng việc tiếp tục, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của bên cung cấp nền tảng.',
       cancelBtn: 'Hủy bỏ',
       authorizingBtn: 'Đang cấp quyền...',

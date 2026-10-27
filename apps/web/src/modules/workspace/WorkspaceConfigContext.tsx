@@ -546,7 +546,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
   };
 
   /**
-   * Khôi phục về mặc định PolarisX
+   * Khôi phục về mặc định CUSC
    */
   const resetToDefault = () => {
     if (!isCurrentWorkspaceOwner) return;

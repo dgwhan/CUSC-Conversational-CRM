@@ -5,9 +5,8 @@ import type { ActiveNavTab } from '../app/Sidebar.js';
 import { useTranslation } from '../i18n/index.js';
 import { LanguageSwitcher } from '../i18n/LanguageSwitcher.js';
 import { StaffPresenceSelector } from '../modules/realtime/StaffPresenceSelector.js';
-import { useRealtime } from '../modules/realtime/RealtimeContext.js';
-import { RoleSwitcher, useUserRole } from '../modules/auth/index.js';
-import { WorkspaceSwitcher, useWorkspaceConfig } from '../modules/workspace/index.js';
+import { useUserRole } from '../modules/auth/index.js';
+import { WorkspaceSwitcher } from '../modules/workspace/WorkspaceSwitcher.js';
 import '../styles/header-layout.css';
 
 export interface HeaderLayoutProps {
@@ -20,14 +19,13 @@ export interface HeaderLayoutProps {
 }
 
 /**
- * Layout Header chuyên biệt cho toàn bộ ứng dụng PolarisX Recruitment CRM.
+ * Layout Header chuyên biệt cho toàn bộ ứng dụng CUSC Conversational CRM.
  * Được tách thành layout riêng biệt độc lập với App.tsx để dễ dàng bảo trì,
  * chỉnh sửa giao diện navigation, breadcrumb, quick tabs, và các widgets tiện ích.
  * Hỗ trợ tối ưu responsive đa kích thước màn hình (Desktop, Tablet, Mobile).
  */
 export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
   currentTab,
-  onTabChange,
   onApiUrlChange,
   onToggleMobileMenu,
   title,
@@ -35,12 +33,8 @@ export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
 }) => {
   const { t } = useTranslation();
   const { isOwner, staffName, logout } = useUserRole();
-  const { isCurrentWorkspaceOwner } = useWorkspaceConfig();
-  const { unreadCount } = useRealtime();
   const [showConfig, setShowConfig] = useState(false);
   const [apiUrl, setApiUrl] = useState(apiClient.getBaseUrl());
-
-  const canManageWorkspace = isCurrentWorkspaceOwner ?? isOwner;
 
   const handleSaveApi = () => {
     apiClient.setBaseUrl(apiUrl);
@@ -50,7 +44,7 @@ export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
 
   const getBreadcrumbTitle = () => {
     if (title) return title;
-    switch (currentTab) {
+    switch (currentTab as string) {
       case 'inbox':
         return t('nav.liveChatBreadcrumb');
       case 'kanban':
@@ -100,10 +94,6 @@ export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
         <div className="crm-navbar-right crm-navbar-actions">
           {/* Tab chuyển đổi nhanh giữa các Workspace (Workspace Switcher) */}
           <WorkspaceSwitcher />
-
-          {/* Nút Chuyển đổi Vai trò RBAC (Chủ DN <-> Nhân viên tư vấn) */}
-          <RoleSwitcher />
-
           {/* Trạng thái nhân viên trực tuyến & Chuông thông báo Ting ting */}
           <StaffPresenceSelector />
 
@@ -148,69 +138,8 @@ export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
         </div>
       </div>
 
-      {/* 2. KHU VỰC QUICK TABS (GIỮA TRÊN DESKTOP, HÀNG DƯỚI CUỘN NGANG TRÊN MOBILE) */}
-      <div className="crm-navbar-center">
-        <nav className="navbar-quick-tabs" aria-label="Quick tabs">
-          <button
-            type="button"
-            className={`navbar-tab-btn ${currentTab === 'inbox' ? 'active' : ''}`}
-            onClick={() => onTabChange?.('inbox')}
-          >
-            {t('nav.quickTabInbox')}
-            {unreadCount > 0 && (
-              <span className="navbar-unread-dot" title={`${unreadCount} tin nhắn chưa đọc`}>
-                {unreadCount}
-              </span>
-            )}
-          </button>
 
-          <button
-            type="button"
-            className={`navbar-tab-btn ${currentTab === 'kanban' ? 'active' : ''}`}
-            onClick={() => onTabChange?.('kanban')}
-          >
-            Phễu Kanban
-          </button>
 
-          <button
-            type="button"
-            className={`navbar-tab-btn ${currentTab === 'reports' ? 'active' : ''}`}
-            onClick={() => onTabChange?.('reports')}
-          >
-            Báo Cáo & Thống Kê
-          </button>
-
-          {canManageWorkspace && (
-            <button
-              type="button"
-              className={`navbar-tab-btn ${currentTab === 'workspace-settings' ? 'active' : ''}`}
-              onClick={() => onTabChange?.('workspace-settings')}
-              title="Cấu hình phễu & Quản lý nhân viên"
-            >
-              Cấu hình & Staff
-            </button>
-          )}
-
-          {canManageWorkspace && (
-            <button
-              type="button"
-              className={`navbar-tab-btn ${currentTab === 'onboarding' ? 'active' : ''}`}
-              onClick={() => onTabChange?.('onboarding')}
-              title="Chỉ Chủ doanh nghiệp có quyền thiết lập kênh MXH"
-            >
-              {t('nav.quickTabOnboarding')}
-            </button>
-          )}
-
-          <button
-            type="button"
-            className={`navbar-tab-btn ${currentTab === 'import' ? 'active' : ''}`}
-            onClick={() => onTabChange?.('import')}
-          >
-            {t('nav.quickTabImport')}
-          </button>
-        </nav>
-      </div>
 
       {/* Popover cấu hình URL API Backend (nếu bật) */}
       {showConfig && (

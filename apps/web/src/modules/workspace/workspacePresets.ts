@@ -2,7 +2,7 @@ import type { WorkspaceConfig, BusinessDomain } from './workspaceConfig.types.js
 
 export const CLIENT_INDUSTRY_PRESETS: Record<BusinessDomain, Omit<WorkspaceConfig, 'workspaceId'>> = {
   EDUCATION: {
-    workspaceName: 'Tổ hợp Công nghệ PolarisX',
+    workspaceName: 'Trung tâm Công nghệ Phần mềm Đại học Cần Thơ (CUSC)',
     domain: 'EDUCATION',
     terminology: {
       entityName: 'Thí sinh / Học viên',

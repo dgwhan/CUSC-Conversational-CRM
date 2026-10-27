@@ -6,7 +6,6 @@ import {
   BarChart3,
   Settings,
   Layers,
-  GraduationCap,
   FileSpreadsheet,
   LayoutGrid,
   Sliders,
@@ -18,6 +17,8 @@ import { useRealtime } from '../modules/realtime/RealtimeContext.js';
 import { useUserRole } from '../modules/auth/UserRoleContext.js';
 import { useWorkspaceConfig } from '../modules/workspace/WorkspaceConfigContext.js';
 import { notify } from '../components/feedback/toastEmitter.js';
+import cuscLogoPng from '../assets/logo/CUSC-Logo-1x.png';
+import cuscLogoWebp from '../assets/logo/CUSC-Logo-1x.webp';
 
 export type ActiveNavTab = 'inbox' | 'kanban' | 'reports' | 'onboarding' | 'import' | 'workspace-settings';
 
@@ -95,7 +96,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className={`crm-sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
       <div className="crm-sidebar-brand" style={{ position: 'relative' }}>
         <div className="crm-brand-icon">
-          <GraduationCap size={22} />
+          <picture>
+            <source type="image/webp" srcSet={cuscLogoWebp} />
+            <img
+              src={cuscLogoPng}
+              alt="CUSC Logo"
+              style={{ width: 'auto', height: '34px', objectFit: 'contain', display: 'block' }}
+            />
+          </picture>
         </div>
         <div className="crm-brand-text">
           <span className="crm-brand-name">{t('common.systemName')}</span>

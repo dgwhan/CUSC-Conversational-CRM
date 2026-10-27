@@ -20,7 +20,6 @@ const OnboardingWizardPage = lazy(() => import('./modules/onboarding/pages/Onboa
 const MessagingImportPage = lazy(() => import('./modules/messaging/pages/MessagingImportPage.js').then((m) => ({ default: m.MessagingImportPage })));
 const Error404Page = lazy(() => import('./pages/errors/Error404Page.js').then((m) => ({ default: m.Error404Page })));
 const HttpErrorPage = lazy(() => import('./pages/errors/HttpErrorPage.js').then((m) => ({ default: m.HttpErrorPage })));
-const ErrorSimulationBar = lazy(() => import('./pages/errors/ErrorSimulationBar.js').then((m) => ({ default: m.ErrorSimulationBar })));
 
 // Component phụ mô phỏng lỗi crash để kiểm tra ErrorBoundary
 function CrashTriggerComponent(): React.ReactNode {
@@ -48,7 +47,7 @@ function CRMMainContent() {
   const [activeTab, setActiveTab] = useState<ActiveNavTab>('inbox');
   const [activeChatConvId, setActiveChatConvId] = useState<string | null>(null);
   const [simulatedErrorCode, setSimulatedErrorCode] = useState<number | null>(null);
-  const [shouldCrash, setShouldCrash] = useState(false);
+  const [shouldCrash] = useState(false);
 
   // Mở trực tiếp khung chat từ Kanban card
   const handleOpenChatFromKanban = (conversationId?: string) => {
@@ -89,7 +88,7 @@ function CRMMainContent() {
       return (
         <HttpErrorPage
           statusCode={simulatedErrorCode}
-          errorLocation={`POST /api/messages/import (Client ID: PolarisX-SRV-01)`}
+          errorLocation={`POST /api/messages/import (Client ID: CUSC-SRV-01)`}
           errorDetails={{
             status: simulatedErrorCode,
             timestamp: new Date().toISOString(),
@@ -146,13 +145,6 @@ function CRMMainContent() {
           </div>
         }
       >
-        {/* Thanh công cụ kiểm thử lỗi & thông báo */}
-        <ErrorSimulationBar
-          currentSimulatedCode={simulatedErrorCode}
-          onSimulatePage={(code) => setSimulatedErrorCode(code)}
-          onTriggerCrash={() => setShouldCrash(true)}
-        />
-
         {/* Màn hình chính hoặc màn hình lỗi */}
         {renderCurrentView()}
       </Suspense>
