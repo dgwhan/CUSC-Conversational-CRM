@@ -42,6 +42,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const mainNavItems = [
     {
+      id: 'reports' as ActiveNavTab,
+      label: t('nav.reportsStats'),
+      icon: <BarChart3 size={18} />,
+      tag: '',
+    },
+    {
       id: 'inbox' as ActiveNavTab,
       label: t('nav.liveInbox'),
       icon: <MessageSquare size={18} />,
@@ -54,12 +60,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         .replace(/\s*(CUSC|PolarisX)/gi, '')
         .trim() || 'Phễu Tuyển Sinh & Đào Tạo',
       icon: <LayoutGrid size={18} />,
-      tag: '',
-    },
-    {
-      id: 'reports' as ActiveNavTab,
-      label: t('nav.reportsStats'),
-      icon: <BarChart3 size={18} />,
       tag: '',
     },
     {
