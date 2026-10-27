@@ -7,12 +7,17 @@ import {
     Headers,
     Query,
     NotFoundException,
+    Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
+import { RealtimeService } from '../../realtime/realtime.service.js';
 
 @Controller('customers')
 export class CustomerController {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        @Optional() private readonly realtime?: RealtimeService,
+    ) {}
 
     /**
      * Lấy danh sách khách hàng trong Workspace để hiển thị trên Phễu Kanban & Quản lý danh bạ
@@ -63,9 +68,10 @@ export class CustomerController {
             const identities = (c.channelIdentities as any) || {};
             return {
                 ...c,
+                leadStatus: c.leadStatus || identities.leadStatus || 'NEW',
+                leadStage: c.leadStage || identities.leadStage || null,
                 interestCourses: identities.interestCourses || [],
                 estimatedValue: identities.estimatedValue || 0,
-                leadStage: identities.leadStage || null,
             };
         });
 
@@ -86,24 +92,116 @@ export class CustomerController {
             estimatedValue?: number;
             leadStage?: string;
             leadStatus?: string;
+            updatedBy?: string;
         },
     ) {
-        let existing = await this.prisma.customer.findUnique({ where: { id } });
-        if (!existing) {
-            // Hỗ trợ tìm kiếm theo ID định dạng cust-XXX nếu frontend truyền dạng tiền tố
-            const rawId = id.replace(/^cust-/, '');
-            existing = await this.prisma.customer.findFirst({
-                where: {
-                    OR: [
-                        { id: rawId.length === 36 ? rawId : undefined },
-                        { channelIdentities: { path: ['facebook'], equals: rawId } },
-                    ],
-                },
-            });
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        let existing: any = null;
+
+        // 1. Tìm nếu id truyền vào là định dạng UUID chuẩn
+        if (UUID_REGEX.test(id)) {
+            try {
+                existing = await this.prisma.customer.findUnique({ where: { id } });
+            } catch {
+                existing = null;
+            }
         }
 
+        // 2. Tìm nếu id có tiền tố như cust-<uuid> hoặc cand-<uuid>
         if (!existing) {
-            throw new NotFoundException(`Không tìm thấy khách hàng với ID ${id}`);
+            const strippedUuid = id.replace(/^(cust|cand)-/, '');
+            if (UUID_REGEX.test(strippedUuid)) {
+                try {
+                    existing = await this.prisma.customer.findUnique({ where: { id: strippedUuid } });
+                } catch {
+                    existing = null;
+                }
+            }
+        }
+
+        // 3. Tìm theo Social ID (facebook, zalo, socialId) hoặc theo Email, Phone, Tên
+        if (!existing) {
+            const cleanSocialId = id.replace(/^(cust|cand)-(facebook-|zalo-)?/, '').replace(/^(facebook|zalo)-/, '');
+            try {
+                existing = await this.prisma.customer.findFirst({
+                    where: {
+                        OR: [
+                            { channelIdentities: { path: ['facebook'], equals: cleanSocialId } },
+                            { channelIdentities: { path: ['zalo'], equals: cleanSocialId } },
+                            { channelIdentities: { path: ['socialId'], equals: cleanSocialId } },
+                            { channelIdentities: { path: ['facebook'], equals: id } },
+                            ...(body.phone ? [{ phone: body.phone }] : []),
+                            ...(body.email ? [{ email: body.email }] : []),
+                            ...(body.fullName ? [{ fullName: body.fullName }] : []),
+                        ],
+                    },
+                });
+            } catch {
+                existing = null;
+            }
+        }
+
+        // 4. Nếu khách hàng chưa tồn tại trong CSDL (ví dụ ứng viên mới thêm thủ công hoặc từ tin nhắn chưa tạo Customer),
+        // tự động tạo mới Customer vào DB với trạng thái đã chọn thay vì lỗi 404
+        if (!existing) {
+            const cleanSocialId = id.replace(/^(cust|cand)-(facebook-|zalo-)?/, '').replace(/^(facebook|zalo)-/, '');
+            let newCust: any;
+            try {
+                newCust = await this.prisma.customer.create({
+                    data: {
+                        fullName: body.fullName || (id.startsWith('cand-') ? 'Ứng viên mới' : 'Khách hàng'),
+                        phone: body.phone || null,
+                        email: body.email || null,
+                        leadStatus: body.leadStatus || 'NEW',
+                        leadStage: body.leadStage || 'STAGE_NEW',
+                        channelIdentities: {
+                            socialId: cleanSocialId,
+                            facebook: cleanSocialId,
+                            leadStatus: body.leadStatus || 'NEW',
+                            leadStage: body.leadStage || 'STAGE_NEW',
+                            ...(body.interestCourses !== undefined ? { interestCourses: body.interestCourses } : {}),
+                            ...(body.estimatedValue !== undefined ? { estimatedValue: body.estimatedValue } : {}),
+                        },
+                    },
+                });
+            } catch {
+                // Fallback nếu CSDL chưa có cột lead_status / lead_stage
+                newCust = await this.prisma.customer.create({
+                    data: {
+                        fullName: body.fullName || (id.startsWith('cand-') ? 'Ứng viên mới' : 'Khách hàng'),
+                        phone: body.phone || null,
+                        email: body.email || null,
+                        channelIdentities: {
+                            socialId: cleanSocialId,
+                            facebook: cleanSocialId,
+                            leadStatus: body.leadStatus || 'NEW',
+                            leadStage: body.leadStage || 'STAGE_NEW',
+                            ...(body.interestCourses !== undefined ? { interestCourses: body.interestCourses } : {}),
+                            ...(body.estimatedValue !== undefined ? { estimatedValue: body.estimatedValue } : {}),
+                        },
+                    },
+                });
+            }
+
+            if (body.leadStage !== undefined || body.leadStatus !== undefined) {
+                try {
+                    this.realtime?.broadcastPipelineChange({
+                        customerId: newCust.id,
+                        customerName: newCust.fullName,
+                        newStage: (body.leadStage || body.leadStatus || 'STAGE_NEW') as string,
+                        previousStage: 'STAGE_NEW',
+                        updatedBy: body.updatedBy || 'Hệ thống CRM',
+                    });
+                } catch {}
+            }
+
+            return {
+                ...newCust,
+                leadStatus: newCust.leadStatus || body.leadStatus || 'NEW',
+                leadStage: newCust.leadStage || body.leadStage || 'STAGE_NEW',
+                interestCourses: body.interestCourses || [],
+                estimatedValue: body.estimatedValue || 0,
+            };
         }
 
         const currentIdentities = (existing.channelIdentities as any) || {};
@@ -115,16 +213,50 @@ export class CustomerController {
             ...(body.leadStatus !== undefined ? { leadStatus: body.leadStatus } : {}),
         };
 
-        const updated = await this.prisma.customer.update({
-            where: { id: existing.id },
-            data: {
-                ...(body.fullName ? { fullName: body.fullName } : {}),
-                ...(body.phone !== undefined ? { phone: body.phone } : {}),
-                ...(body.email !== undefined ? { email: body.email } : {}),
-                channelIdentities: updatedIdentities,
-            },
-        });
+        let updated: any;
+        try {
+            updated = await this.prisma.customer.update({
+                where: { id: existing.id },
+                data: {
+                    ...(body.fullName ? { fullName: body.fullName } : {}),
+                    ...(body.phone !== undefined ? { phone: body.phone } : {}),
+                    ...(body.email !== undefined ? { email: body.email } : {}),
+                    ...(body.leadStatus !== undefined ? { leadStatus: body.leadStatus } : {}),
+                    ...(body.leadStage !== undefined ? { leadStage: body.leadStage } : {}),
+                    channelIdentities: updatedIdentities,
+                },
+            });
+        } catch {
+            // Fallback an toàn nếu cột lead_status / lead_stage chưa có trong CSDL
+            updated = await this.prisma.customer.update({
+                where: { id: existing.id },
+                data: {
+                    ...(body.fullName ? { fullName: body.fullName } : {}),
+                    ...(body.phone !== undefined ? { phone: body.phone } : {}),
+                    ...(body.email !== undefined ? { email: body.email } : {}),
+                    channelIdentities: updatedIdentities,
+                },
+            });
+        }
 
-        return updated;
+        if (body.leadStage !== undefined || body.leadStatus !== undefined) {
+            try {
+                this.realtime?.broadcastPipelineChange({
+                    customerId: existing.id,
+                    customerName: updated.fullName,
+                    newStage: (body.leadStage || body.leadStatus || 'STAGE_NEW') as string,
+                    previousStage: (existing.leadStage || existing.leadStatus || 'STAGE_NEW') as string,
+                    updatedBy: body.updatedBy || 'Hệ thống CRM',
+                });
+            } catch {}
+        }
+
+        return {
+            ...updated,
+            leadStatus: updated.leadStatus || updatedIdentities.leadStatus || 'NEW',
+            leadStage: updated.leadStage || updatedIdentities.leadStage || null,
+            interestCourses: updatedIdentities.interestCourses || [],
+            estimatedValue: updatedIdentities.estimatedValue || 0,
+        };
     }
 }

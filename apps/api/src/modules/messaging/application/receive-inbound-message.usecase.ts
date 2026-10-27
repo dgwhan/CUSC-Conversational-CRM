@@ -77,6 +77,8 @@ export class ReceiveInboundMessage {
                                         workspaceId: event.workspaceId || null,
                                         fullName: customerName,
                                         avatarUrl: customerAvatar,
+                                        leadStatus: 'NEW',
+                                        leadStage: 'STAGE_NEW',
                                         channelIdentities: { [event.channel.toLowerCase()]: event.senderExternalId, channel: event.channel },
                                     },
                                 });

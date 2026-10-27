@@ -54,6 +54,8 @@ model Customer {
     phone             String?
     email             String?
     avatarUrl         String?        @map("avatar_url")
+    leadStatus        String         @default("NEW") @map("lead_status") @db.VarChar(50)
+    leadStage         String?        @map("lead_stage") @db.VarChar(50)
     channelIdentities Json?          @map("channel_identities") @db.JsonB
     createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
     updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -64,6 +66,8 @@ model Customer {
     @@index([workspaceId])
     @@index([phone])
     @@index([email])
+    @@index([leadStatus])
+    @@index([leadStage])
     @@map("customers")
 }
 

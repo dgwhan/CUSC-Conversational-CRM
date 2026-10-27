@@ -1,5 +1,6 @@
 import { Logger, Module, Provider } from '@nestjs/common';
 import { PrismaModule } from '../../platform/database/prisma.module.js';
+import { RealtimeModule } from '../realtime/realtime.module.js';
 import { ChannelAdapterRegistry, CHANNEL_ADAPTERS } from './application/channel-adapter.registry.js';
 import { ReceiveInboundMessage } from './application/receive-inbound-message.usecase.js';
 import { ProcessMessageReceived } from './application/process-message-received.usecase.js';
@@ -49,7 +50,7 @@ const adaptersProvider: Provider = {
 };
 
 @Module({
-    imports: [PrismaModule],
+    imports: [PrismaModule, RealtimeModule],
     controllers: [WebhookController, MessageImportController, CustomerController],
     providers: [
         MessageRepository,

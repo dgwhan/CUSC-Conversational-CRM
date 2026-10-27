@@ -424,6 +424,8 @@ export class ChannelManagerService {
                 fullName: customerName,
                 email: customer.email || null,
                 avatarUrl: customerAvatar,
+                leadStatus: 'NEW',
+                leadStage: 'STAGE_NEW',
                 channelIdentities: { facebook: customer.id, channel: 'FACEBOOK', pageId },
               },
             });

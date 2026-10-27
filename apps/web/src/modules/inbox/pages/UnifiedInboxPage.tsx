@@ -16,6 +16,7 @@ import { QuickReplyModal } from '../components/QuickReplyModal.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useRealtime } from '../../realtime/RealtimeContext.js';
 import { useUserRole } from '../../auth/index.js';
+import { useWorkspaceConfig } from '../../workspace/WorkspaceConfigContext.js';
 import { apiClient } from '../../../lib/api-client.js';
 import { MessageSquare } from 'lucide-react';
 
@@ -28,8 +29,9 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   onNavigateToKanban,
   initialConversationId,
 }) => {
-  const { onNewMessage, staffPresences, setUnreadCount } = useRealtime();
+  const { onNewMessage, onPipelineChange, staffPresences, setUnreadCount } = useRealtime();
   const { staffName } = useUserRole();
+  const { config } = useWorkspaceConfig();
 
   // Quản lý mẫu câu trả lời nhanh (Quick Replies) với persistence trong LocalStorage
   const [quickReplies, setQuickReplies] = useState<QuickReplyItem[]>(() => {
@@ -103,12 +105,14 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           if (fbId) customerMap.set(String(fbId), cust);
           const zaloId = cust.channelIdentities?.zalo;
           if (zaloId) customerMap.set(String(zaloId), cust);
+          if (cust.fullName) customerMap.set(cust.fullName, cust);
+          if (cust.phone) customerMap.set(cust.phone, cust);
         }
       }
 
       const groups: Record<string, typeof messagesRes.items> = {};
       for (const item of messagesRes.items) {
-        const senderId = String(item.senderExternalId || 'anonymous');
+        const senderId = String(item.senderExternalId || (item as any).rawPayload?.senderExternalId || (item as any).rawPayload?.sender_id || 'anonymous');
         const convId = item.channel === 'FACEBOOK' && item.channelAccount?.externalAccountId
           ? `FACEBOOK_${item.channelAccount.externalAccountId}_${senderId}`
           : `${item.channel}_${senderId}`;
@@ -126,9 +130,14 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           const firstInbound = sorted.find((m) => m.direction === 'INBOUND') || latest;
           const channelName = latest.channelAccount?.displayName || `Kênh ${latest.channel}`;
 
-          const latestSenderId = String(latest.senderExternalId || 'khách');
+          const latestSenderId = String(latest.senderExternalId || (latest as any).rawPayload?.senderExternalId || (latest as any).rawPayload?.sender_id || 'khách');
           const latestSuffix = latestSenderId.length > 4 ? latestSenderId.slice(-4) : latestSenderId;
-          const matchedCust = customerMap.get(latestSenderId) || customerMap.get((latest as any).conversation?.customerId);
+          const convCustomer = (latest as any).conversation?.customer;
+          const matchedCust =
+            convCustomer ||
+            customerMap.get((latest as any).conversation?.customerId) ||
+            customerMap.get(latestSenderId) ||
+            (convCustomer?.fullName ? customerMap.get(convCustomer.fullName) : null);
 
           const rawCustomerName =
             matchedCust?.fullName ||
@@ -178,6 +187,8 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                     avatarUrl: rawCustomerAvatar,
                     phone: matchedCust?.phone || existing.customer.phone,
                     email: matchedCust?.email || existing.customer.email,
+                    leadStatus: (matchedCust?.leadStatus as any) || existing.customer.leadStatus,
+                    leadStage: matchedCust?.leadStage || existing.customer.leadStage,
                     interestCourses: existing.customer.interestCourses?.length
                       ? existing.customer.interestCourses
                       : (matchedCust?.interestCourses || []),
@@ -185,6 +196,8 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                   }
                 : {
                     ...existing.customer,
+                    leadStatus: (matchedCust?.leadStatus as any) || existing.customer.leadStatus,
+                    leadStage: matchedCust?.leadStage || existing.customer.leadStage,
                     interestCourses: existing.customer.interestCourses?.length
                       ? existing.customer.interestCourses
                       : (matchedCust?.interestCourses || []),
@@ -204,7 +217,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
               tags: ['Facebook Lead'],
               status: 'OPEN',
               customer: {
-                id: matchedCust?.id || `cust-${latestSenderId}`,
+                id: matchedCust?.id || convCustomer?.id || (latestSenderId !== 'anonymous' && latestSenderId !== 'khách' ? `cust-${latestSenderId}` : `cust-${convId}`),
                 fullName: rawCustomerName,
                 phone: matchedCust?.phone || 'Chưa có SĐT',
                 email: matchedCust?.email || 'Chưa có Email',
@@ -213,6 +226,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                 channel: latest.channel as any,
                 channelAccountName: channelName,
                 leadStatus: (matchedCust?.leadStatus as any) || 'NEW',
+                leadStage: matchedCust?.leadStage || undefined,
                 tags: ['Facebook Lead'],
                 interestCourses: matchedCust?.interestCourses || [],
                 estimatedValue: matchedCust?.estimatedValue || 0,
@@ -357,6 +371,80 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     return unsubscribe;
   }, [onNewMessage, selectedId]);
 
+  // Lắng nghe sự kiện Realtime cập nhật Phễu / Trạng thái Lead từ Kanban & Socket SSE
+  useEffect(() => {
+    const unsubscribe = onPipelineChange((event) => {
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (
+            c.customer.id === event.customerId ||
+            c.customer.fullName === event.customerName ||
+            (event.customerId && c.id.includes(event.customerId))
+          ) {
+            let legacyStatus: LeadStatus = 'NEW';
+            const upper = String(event.newStage).toUpperCase();
+            if (upper.includes('ENROLLED') || upper.includes('WON') || upper.includes('CONVERTED')) {
+              legacyStatus = 'CONVERTED';
+            } else if (upper.includes('LOST') || upper.includes('UNQUALIFIED')) {
+              legacyStatus = 'UNQUALIFIED';
+            } else if (upper.includes('NEW')) {
+              legacyStatus = 'NEW';
+            } else {
+              legacyStatus = 'POTENTIAL';
+            }
+
+            return {
+              ...c,
+              customer: {
+                ...c.customer,
+                leadStage: event.newStage,
+                leadStatus: legacyStatus,
+              },
+            };
+          }
+          return c;
+        })
+      );
+    });
+    return unsubscribe;
+  }, [onPipelineChange]);
+
+  // Lắng nghe sự kiện cập nhật trạng thái Lead nội bộ từ Kanban (cùng tab / window)
+  useEffect(() => {
+    const handleLeadUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        customerId?: string;
+        fullName?: string;
+        conversationId?: string;
+        leadStage?: LeadStage;
+        leadStatus?: LeadStatus;
+      }>;
+      if (!customEvent.detail) return;
+      const { customerId, fullName, conversationId, leadStage, leadStatus } = customEvent.detail;
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (
+            (customerId && c.customer.id === customerId) ||
+            (conversationId && c.id === conversationId) ||
+            (fullName && c.customer.fullName === fullName)
+          ) {
+            return {
+              ...c,
+              customer: {
+                ...c.customer,
+                ...(leadStage !== undefined ? { leadStage } : {}),
+                ...(leadStatus !== undefined ? { leadStatus } : {}),
+              },
+            };
+          }
+          return c;
+        })
+      );
+    };
+    window.addEventListener('crm:lead-updated', handleLeadUpdated);
+    return () => window.removeEventListener('crm:lead-updated', handleLeadUpdated);
+  }, []);
+
   // Lưu danh sách hội thoại vào LocalStorage để không bị mất khi chuyển tab
   useEffect(() => {
     try {
@@ -447,22 +535,163 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         };
       })
     );
+
+    let stageForKanban: LeadStage = currentConv.customer.leadStage || 'STAGE_NEW';
+    if (!currentConv.customer.leadStage) {
+      if (status === 'CONVERTED') stageForKanban = 'STAGE_ENROLLED';
+      else if (status === 'POTENTIAL') stageForKanban = 'STAGE_QUALIFIED';
+      else if (status === 'UNQUALIFIED') stageForKanban = 'STAGE_LOST';
+    }
+
+    // Đồng bộ sang phễu Kanban trong LocalStorage để bên Kanban nhận ngay
+    try {
+      const kanbanRaw = localStorage.getItem('polarisx_crm_kanban_candidates') || localStorage.getItem('cusc_crm_kanban_candidates');
+      if (kanbanRaw) {
+        const kanbanList = JSON.parse(kanbanRaw);
+        if (Array.isArray(kanbanList)) {
+          const updatedKanban = kanbanList.map((cand: any) => {
+            if (
+              cand.conversationId === currentConv.id ||
+              cand.id === currentConv.customer.id ||
+              cand.fullName === currentConv.customer.fullName
+            ) {
+              return {
+                ...cand,
+                stage: stageForKanban,
+              };
+            }
+            return cand;
+          });
+          localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
+        }
+      }
+    } catch {}
+
+    // Lưu vào Backend Database Customer qua API
+    if (currentConv.customer.id) {
+      apiClient.updateCustomer(currentConv.customer.id, {
+        fullName: currentConv.customer.fullName,
+        phone: currentConv.customer.phone,
+        email: currentConv.customer.email,
+        leadStatus: status,
+        updatedBy: staffName || undefined,
+      }).catch((err) => {
+        console.warn('Lỗi cập nhật leadStatus vào DB:', err);
+      });
+    }
+
+    // Phát sự kiện đồng bộ toàn cục cho Kanban nếu đang hiển thị
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('crm:lead-updated', {
+          detail: {
+            customerId: currentConv.customer.id,
+            fullName: currentConv.customer.fullName,
+            conversationId: currentConv.id,
+            leadStatus: status,
+            leadStage: stageForKanban,
+          },
+        })
+      );
+    }
+
     notify.success(`Đã cập nhật trạng thái khách hàng sang "${status}".`);
   };
 
   // 5. Chuyển giai đoạn tuyển sinh Kanban
   const handleUpdateLeadStage = (stage: LeadStage) => {
     if (!currentConv) return;
+
+    const targetStageConfig = config.pipelineStages.find(
+      (s) => s.id === stage || s.id === `STAGE_${stage}` || s.id.replace('STAGE_', '') === stage
+    );
+    const stageIdx = config.pipelineStages.findIndex(
+      (s) => s.id === stage || s.id === `STAGE_${stage}` || s.id.replace('STAGE_', '') === stage
+    );
+    const isFirstStage = stageIdx === 0 || targetStageConfig?.order === 1;
+
+    let computedStatus: LeadStatus = 'POTENTIAL';
+    if (targetStageConfig?.isWon) {
+      computedStatus = 'CONVERTED';
+    } else if (targetStageConfig?.isLost) {
+      computedStatus = 'UNQUALIFIED';
+    } else if (isFirstStage || stage === 'STAGE_NEW' || stage === 'NEW') {
+      computedStatus = 'NEW';
+    } else {
+      const upper = String(stage).toUpperCase();
+      if (upper.includes('ENROLLED') || upper.includes('WON') || upper.includes('CONVERTED')) {
+        computedStatus = 'CONVERTED';
+      } else if (upper.includes('LOST') || upper.includes('UNQUALIFIED')) {
+        computedStatus = 'UNQUALIFIED';
+      } else {
+        computedStatus = 'POTENTIAL';
+      }
+    }
+
     setConversations((prev) =>
       prev.map((c) => {
         if (c.id !== currentConv.id) return c;
         return {
           ...c,
-          customer: { ...c.customer, leadStage: stage },
+          customer: { ...c.customer, leadStage: stage, leadStatus: computedStatus },
         };
       })
     );
-    notify.success(`Đã cập nhật phễu tuyển sinh sang "${stage}".`);
+
+    // Đồng bộ sang phễu Kanban trong LocalStorage để bên Kanban lập tức cập nhật
+    try {
+      const kanbanRaw = localStorage.getItem('polarisx_crm_kanban_candidates') || localStorage.getItem('cusc_crm_kanban_candidates');
+      if (kanbanRaw) {
+        const kanbanList = JSON.parse(kanbanRaw);
+        if (Array.isArray(kanbanList)) {
+          const updatedKanban = kanbanList.map((cand: any) => {
+            if (
+              cand.conversationId === currentConv.id ||
+              cand.id === currentConv.customer.id ||
+              cand.fullName === currentConv.customer.fullName
+            ) {
+              return {
+                ...cand,
+                stage,
+              };
+            }
+            return cand;
+          });
+          localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
+        }
+      }
+    } catch {}
+
+    // Lưu vào Backend Database Customer qua API
+    if (currentConv.customer.id) {
+      apiClient.updateCustomer(currentConv.customer.id, {
+        fullName: currentConv.customer.fullName,
+        phone: currentConv.customer.phone,
+        email: currentConv.customer.email,
+        leadStage: stage,
+        leadStatus: computedStatus,
+        updatedBy: staffName || undefined,
+      }).catch((err) => {
+        console.warn('Lỗi cập nhật leadStage vào DB:', err);
+      });
+    }
+
+    // Phát sự kiện đồng bộ toàn cục cho Kanban nếu đang hiển thị
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('crm:lead-updated', {
+          detail: {
+            customerId: currentConv.customer.id,
+            fullName: currentConv.customer.fullName,
+            conversationId: currentConv.id,
+            leadStage: stage,
+            leadStatus: computedStatus,
+          },
+        })
+      );
+    }
+
+    notify.success(`Đã chuyển sang giai đoạn "${targetStageConfig?.name || stage}".`);
   };
 
   // 6. Gán / Gỡ nhãn (Tags)

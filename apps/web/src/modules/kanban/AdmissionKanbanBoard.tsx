@@ -88,7 +88,9 @@ const { isOwner, isAgent, staffId } = useUserRole();
     const unsubscribe = onPipelineChange((event) => {
       setCandidates((prev) =>
         prev.map((c) =>
-          c.id === event.customerId ? { ...c, stage: event.newStage as LeadStage } : c
+          c.id === event.customerId || c.fullName === event.customerName || (event.customerId && c.conversationId?.includes(event.customerId))
+            ? { ...c, stage: event.newStage as LeadStage }
+            : c
         )
       );
       notify.info(
@@ -98,6 +100,27 @@ const { isOwner, isAgent, staffId } = useUserRole();
     });
     return unsubscribe;
   }, [onPipelineChange, config.terminology.entityName]);
+
+  // Lắng nghe sự kiện cập nhật trạng thái Lead nội bộ từ Inbox
+  useEffect(() => {
+    const handleLeadUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ customerId?: string; fullName?: string; conversationId?: string; leadStage?: LeadStage }>;
+      if (!customEvent.detail) return;
+      const { customerId, fullName, conversationId, leadStage } = customEvent.detail;
+      if (!leadStage) return;
+      setCandidates((prev) =>
+        prev.map((c) =>
+          (customerId && c.id === customerId) ||
+          (conversationId && c.conversationId === conversationId) ||
+          (fullName && c.fullName === fullName)
+            ? { ...c, stage: leadStage }
+            : c
+        )
+      );
+    };
+    window.addEventListener('crm:lead-updated', handleLeadUpdated);
+    return () => window.removeEventListener('crm:lead-updated', handleLeadUpdated);
+  }, []);
 
   // Tự động tải danh sách khách hàng từ CSDL vào Phễu Kanban
   useEffect(() => {
@@ -116,20 +139,21 @@ const { isOwner, isAgent, staffId } = useUserRole();
             const existingIdx = updated.findIndex(
               (c) => c.id === cust.id || (latestConv?.id && c.conversationId === latestConv.id) || c.fullName === cust.fullName
             );
+            const dbStage = cust.leadStage || cust.channelIdentities?.leadStage;
             if (existingIdx >= 0) {
               const existing = updated[existingIdx];
               // Cập nhật lại các mục đã gán từ DB nếu có thay đổi
-              if (
+              const shouldUpdateTuition =
                 cust.interestCourses &&
                 cust.interestCourses.length > 0 &&
-                (!existing.interestCourses || existing.interestCourses.length === 0 || existing.estimatedTuition === 0)
-              ) {
-                updated[existingIdx] = {
-                  ...existing,
-                  interestCourses: cust.interestCourses,
-                  estimatedTuition: cust.estimatedValue || existing.estimatedTuition,
-                };
-              }
+                (!existing.interestCourses || existing.interestCourses.length === 0 || existing.estimatedTuition === 0);
+
+              updated[existingIdx] = {
+                ...existing,
+                stage: (dbStage as LeadStage) || existing.stage,
+                interestCourses: shouldUpdateTuition ? (cust.interestCourses || []) : existing.interestCourses,
+                estimatedTuition: shouldUpdateTuition ? (cust.estimatedValue || existing.estimatedTuition) : existing.estimatedTuition,
+              };
             } else {
               const avatar = cust.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(cust.fullName)}&background=0284c7&color=fff&bold=true`;
               const chType = (latestConv?.channelAccount?.channel as ChannelType) || 'FACEBOOK';
@@ -144,7 +168,7 @@ const { isOwner, isAgent, staffId } = useUserRole();
                 avatarUrl: avatar,
                 channel: chType,
                 channelAccountName: chName,
-                stage: firstStageId as LeadStage,
+                stage: (dbStage as LeadStage) || (firstStageId as LeadStage),
                 estimatedTuition: cust.estimatedValue || 0,
                 priority: 'MEDIUM',
                 interestCourses: cust.interestCourses || [],
@@ -323,8 +347,30 @@ const { isOwner, isAgent, staffId } = useUserRole();
     if (!candidate || candidate.stage === nextStage) return;
 
     const targetStageConfig = config.pipelineStages.find(
-      (s) => s.id === nextStage || s.id === `STAGE_${nextStage}`
+      (s) => s.id === nextStage || s.id === `STAGE_${nextStage}` || s.id.replace('STAGE_', '') === nextStage
     );
+    const stageIdx = config.pipelineStages.findIndex(
+      (s) => s.id === nextStage || s.id === `STAGE_${nextStage}` || s.id.replace('STAGE_', '') === nextStage
+    );
+    const isFirstStage = stageIdx === 0 || targetStageConfig?.order === 1;
+
+    let computedStatus: 'NEW' | 'POTENTIAL' | 'CONVERTED' | 'UNQUALIFIED' = 'POTENTIAL';
+    if (targetStageConfig?.isWon) {
+      computedStatus = 'CONVERTED';
+    } else if (targetStageConfig?.isLost) {
+      computedStatus = 'UNQUALIFIED';
+    } else if (isFirstStage || nextStage === 'STAGE_NEW' || nextStage === 'NEW') {
+      computedStatus = 'NEW';
+    } else {
+      const upper = String(nextStage).toUpperCase();
+      if (upper.includes('ENROLLED') || upper.includes('WON') || upper.includes('CONVERTED')) {
+        computedStatus = 'CONVERTED';
+      } else if (upper.includes('LOST') || upper.includes('UNQUALIFIED')) {
+        computedStatus = 'UNQUALIFIED';
+      } else {
+        computedStatus = 'POTENTIAL';
+      }
+    }
 
     setCandidates((prev) =>
       prev.map((c) =>
@@ -337,6 +383,63 @@ const { isOwner, isAgent, staffId } = useUserRole();
           : c
       )
     );
+
+    // Đồng bộ sang hội thoại Inbox trong LocalStorage
+    try {
+      const inboxRaw = localStorage.getItem('crm_inbox_conversations_v1');
+      if (inboxRaw) {
+        const convList = JSON.parse(inboxRaw);
+        if (Array.isArray(convList)) {
+          const updatedInbox = convList.map((conv: any) => {
+            if (
+              conv.id === candidate.conversationId ||
+              conv.customer?.id === candidate.id ||
+              conv.customer?.fullName === candidate.fullName
+            ) {
+              return {
+                ...conv,
+                customer: {
+                  ...conv.customer,
+                  leadStage: nextStage,
+                  leadStatus: computedStatus,
+                },
+              };
+            }
+            return conv;
+          });
+          localStorage.setItem('crm_inbox_conversations_v1', JSON.stringify(updatedInbox));
+        }
+      }
+    } catch {}
+
+    // Gọi API cập nhật vào Database Customer
+    if (candidate.id) {
+      apiClient.updateCustomer(candidate.id, {
+        fullName: candidate.fullName,
+        phone: candidate.phone,
+        email: candidate.email,
+        leadStage: nextStage,
+        leadStatus: computedStatus,
+        updatedBy: staffId ? 'Tư vấn viên' : 'Hệ thống CRM',
+      }).catch((err) => {
+        console.warn('Could not update customer in DB from Kanban:', err);
+      });
+    }
+
+    // Phát sự kiện đồng bộ toàn cục cho Inbox nếu đang mở
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('crm:lead-updated', {
+          detail: {
+            customerId: candidate.id,
+            fullName: candidate.fullName,
+            conversationId: candidate.conversationId,
+            leadStage: nextStage,
+            leadStatus: computedStatus,
+          },
+        })
+      );
+    }
 
     notify.success(
       `Đã chuyển "${candidate.fullName}" sang giai đoạn "${targetStageConfig?.name || nextStage}".`,

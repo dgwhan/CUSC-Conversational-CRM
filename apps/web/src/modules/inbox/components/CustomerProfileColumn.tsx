@@ -69,17 +69,35 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
       ? 'STAGE_LOST'
       : 'STAGE_NEW');
 
-  const handleStageSelect = (stageItem: { id: string; name: string; isWon?: boolean; isLost?: boolean }) => {
-    let legacyStatus: LeadStatus = 'NEW';
-    if (stageItem.isWon) legacyStatus = 'CONVERTED';
-    else if (stageItem.isLost) legacyStatus = 'UNQUALIFIED';
-    else legacyStatus = 'POTENTIAL';
+  const handleStageSelect = (stageItem: { id: string; name: string; isWon?: boolean; isLost?: boolean; order?: number }) => {
+    // Tự động suy luận leadStatus theo cấu hình giai đoạn phễu mà owner đã thiết lập
+    const stages = config.pipelineStages || [];
+    const stageIdx = stages.findIndex((s) => s.id === stageItem.id);
+    const isFirstStage = stageIdx === 0 || stageItem.order === 1;
 
-    onUpdateLeadStatus(legacyStatus);
+    let computedStatus: LeadStatus = 'POTENTIAL';
+    if (stageItem.isWon) {
+      computedStatus = 'CONVERTED';
+    } else if (stageItem.isLost) {
+      computedStatus = 'UNQUALIFIED';
+    } else if (isFirstStage || stageItem.id === 'STAGE_NEW' || stageItem.id === 'NEW') {
+      computedStatus = 'NEW';
+    } else {
+      const upper = stageItem.id.toUpperCase();
+      if (upper.includes('ENROLLED') || upper.includes('WON') || upper.includes('CONVERTED')) {
+        computedStatus = 'CONVERTED';
+      } else if (upper.includes('LOST') || upper.includes('UNQUALIFIED')) {
+        computedStatus = 'UNQUALIFIED';
+      } else {
+        computedStatus = 'POTENTIAL';
+      }
+    }
+
+    onUpdateLeadStatus(computedStatus);
     if (onUpdateLeadStage) {
       onUpdateLeadStage(stageItem.id);
     }
-    notify.success(`Đã cập nhật giai đoạn: "${stageItem.name}".`);
+    notify.success(`Đã chuyển sang giai đoạn "${stageItem.name}".`);
   };
 
   const handleCopy = (text: string, fieldName: string) => {
