@@ -26,8 +26,11 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "node prisma/seed.ts",
-    "db:reset": "prisma db push --force-reset && prisma generate && node prisma/seed.ts"
+    "prisma:seed": "node --experimental-strip-types prisma/seed.ts",
+    "db:reset": "prisma db push --force-reset && prisma generate && node --experimental-strip-types prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "node --experimental-strip-types prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/bullmq": "^12.0.0",

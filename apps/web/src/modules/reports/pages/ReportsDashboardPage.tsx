@@ -63,41 +63,28 @@ export const ReportsDashboardPage: React.FC = () => {
     }
   }, [currentDomain]);
 
-  // Sinh dữ liệu xu hướng theo ngày/tháng giả lập thực tế nếu cần fallback
+  // Sinh các mốc thời gian với số liệu mặc định 0 nếu chưa có dữ liệu giao dịch
   const generateTrendData = useCallback((range: TimeRangeFilter): TrendDataPoint[] => {
     const days = range === '7days' ? 7 : range === '30days' ? 14 : range === 'thisMonth' ? 10 : 8;
     const now = new Date();
     const result: TrendDataPoint[] = [];
-
-    const basePrice =
-      currentDomain === 'REAL_ESTATE'
-        ? 2500000000
-        : currentDomain === 'BEAUTY_SPA'
-          ? 6500000
-          : currentDomain === 'RETAIL'
-            ? 1200000
-            : 18000000;
 
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i * (range === '7days' ? 1 : range === '30days' ? 2 : 3));
       const dateStr = `${d.getDate()}/${d.getMonth() + 1}`;
 
-      const newLeads = Math.floor(Math.random() * 8) + 4;
-      const enrolled = Math.floor(newLeads * (0.2 + Math.random() * 0.25));
-      const revenue = enrolled * basePrice;
-
       result.push({
         date: dateStr,
-        newLeads,
-        won: enrolled,
-        enrolled,
-        revenue,
+        newLeads: 0,
+        won: 0,
+        enrolled: 0,
+        revenue: 0,
       });
     }
 
     return result;
-  }, [currentDomain]);
+  }, []);
 
   // Tính toán dữ liệu thống kê fallback theo cấu hình Domain của Workspace
   const computeLocalFallbackData = useCallback((): ReportsData => {
@@ -129,32 +116,9 @@ export const ReportsDashboardPage: React.FC = () => {
           { id: '3', name: 'Gói dịch vụ tiêu chuẩn C', defaultPrice: 8000000 },
         ];
 
-    // Nếu localStorage trống, tạo tập dữ liệu mẫu tương ứng với Domain đang hoạt động
+    // Nếu localStorage trống, không tạo dữ liệu giả
     if (!localCandidates || localCandidates.length === 0) {
-      const names = [
-        'Nguyễn Thanh Tùng', 'Lê Hoàng Yến', 'Phạm Minh Khoa', 'Đặng Quốc Bảo',
-        'Võ Mai Phương', 'Bùi Gia Huy', 'Trương Khánh Linh', 'Hồ Hoàng Khang',
-        'Nguyễn Đức Trí', 'Phan Thị Ngọc Hà', 'Đỗ Văn Cường', 'Huỳnh Mỹ Duyên',
-      ];
-      const channels = ['FACEBOOK', 'ZALO', 'TIKTOK', 'MANUAL'];
-      const staffNames = ['Trần Minh Tâm', 'Nguyễn Thị Ánh Tuyết', 'Lê Văn Nam'];
-
-      localCandidates = names.map((fullName, idx) => {
-        const prod = catalog[idx % catalog.length];
-        const assignedStage = stages[idx % stages.length];
-        return {
-          id: `demo-${idx + 1}`,
-          fullName,
-          channel: channels[idx % channels.length],
-          stage: assignedStage.id,
-          stageName: assignedStage.name,
-          estimatedTuition: prod.defaultPrice || 15000000,
-          estimatedValue: prod.defaultPrice || 15000000,
-          interestCourses: [prod.name],
-          products: [prod.name],
-          assignedStaffName: staffNames[idx % staffNames.length],
-        };
-      });
+      localCandidates = [];
     }
 
     // Lọc theo kênh nếu người dùng chọn
@@ -289,7 +253,7 @@ export const ReportsDashboardPage: React.FC = () => {
         revenue: item.revenue,
         conversionRate:
           item.leadsCount > 0 ? Number(((item.wonCount / item.leadsCount) * 100).toFixed(1)) : 0,
-        avgResponseTime: `${(2.1 + idx * 0.4).toFixed(1)} phút`,
+        avgResponseTime: '0 phút',
       }))
       .sort((a, b) => b.wonCount - a.wonCount || b.revenue - a.revenue);
 
@@ -298,7 +262,7 @@ export const ReportsDashboardPage: React.FC = () => {
       terminology: config.terminology,
       overview: {
         totalLeads,
-        newLeadsGrowth: 15.4,
+        newLeadsGrowth: 0,
         wonCount,
         enrolledCount: wonCount,
         conversionRate,
@@ -307,7 +271,7 @@ export const ReportsDashboardPage: React.FC = () => {
         totalEstimatedTuition: totalEstimated,
         totalCollectedValue: totalCollected,
         totalCollectedTuition: totalCollected,
-        avgResponseTimeMinutes: 2.8,
+        avgResponseTimeMinutes: 0,
       },
       funnelStages,
       channels,
@@ -332,7 +296,7 @@ export const ReportsDashboardPage: React.FC = () => {
         skipToast: true,
       });
 
-      if (response && response.overview && response.overview.totalLeads > 0) {
+      if (response && response.overview) {
         const wonCount = response.overview.wonCount ?? response.overview.enrolledCount ?? 0;
         const totalEstimatedValue = response.overview.totalEstimatedValue ?? response.overview.totalEstimatedTuition ?? 0;
         const totalCollectedValue = response.overview.totalCollectedValue ?? response.overview.totalCollectedTuition ?? 0;
@@ -348,7 +312,8 @@ export const ReportsDashboardPage: React.FC = () => {
             totalEstimatedTuition: totalEstimatedValue,
             totalCollectedValue,
             totalCollectedTuition: totalCollectedValue,
-            newLeadsGrowth: response.overview.newLeadsGrowth ?? 14.8,
+            newLeadsGrowth: response.overview.newLeadsGrowth ?? 0,
+            avgResponseTimeMinutes: response.overview.avgResponseTimeMinutes ?? 0,
           },
           funnelStages: response.funnelStages || [],
           channels: response.channels || [],

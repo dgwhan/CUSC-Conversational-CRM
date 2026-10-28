@@ -817,11 +817,11 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
       })
     );
 
-    let stageForKanban: LeadStage = currentConv.customer.leadStage || 'STAGE_NEW';
+    let stageForKanban: LeadStage = currentConv.customer.leadStage || (config.pipelineStages[0]?.id as LeadStage) || 'STAGE_NEW';
     if (!currentConv.customer.leadStage) {
-      if (status === 'CONVERTED') stageForKanban = 'STAGE_ENROLLED';
-      else if (status === 'POTENTIAL') stageForKanban = 'STAGE_QUALIFIED';
-      else if (status === 'UNQUALIFIED') stageForKanban = 'STAGE_LOST';
+      if (status === 'CONVERTED') stageForKanban = (config.pipelineStages.find((s) => s.isWon)?.id as LeadStage) || 'STAGE_ENROLLED';
+      else if (status === 'POTENTIAL') stageForKanban = (config.pipelineStages[1]?.id as LeadStage) || 'STAGE_CONTACTED';
+      else if (status === 'UNQUALIFIED') stageForKanban = (config.pipelineStages.find((s) => s.isLost)?.id as LeadStage) || 'STAGE_LOST';
     }
 
     // Đồng bộ sang phễu Kanban trong LocalStorage để bên Kanban nhận ngay
@@ -855,6 +855,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         phone: currentConv.customer.phone,
         email: currentConv.customer.email,
         leadStatus: status,
+        leadStage: stageForKanban,
         updatedBy: staffName || undefined,
       }).catch((err) => {
         console.warn('Lỗi cập nhật leadStatus vào DB:', err);
@@ -884,11 +885,20 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     if (!currentConv) return;
 
     const targetStageConfig = config.pipelineStages.find(
-      (s) => s.id === stage || s.id === `STAGE_${stage}` || s.id.replace('STAGE_', '') === stage
+      (s) =>
+        s.id === stage ||
+        s.id === `STAGE_${stage}` ||
+        s.id.replace('STAGE_', '') === stage ||
+        s.name.toLowerCase() === String(stage).toLowerCase()
     );
     const stageIdx = config.pipelineStages.findIndex(
-      (s) => s.id === stage || s.id === `STAGE_${stage}` || s.id.replace('STAGE_', '') === stage
+      (s) =>
+        s.id === stage ||
+        s.id === `STAGE_${stage}` ||
+        s.id.replace('STAGE_', '') === stage ||
+        s.name.toLowerCase() === String(stage).toLowerCase()
     );
+    const resolvedStageId = targetStageConfig ? (targetStageConfig.id as LeadStage) : stage;
     const isFirstStage = stageIdx === 0 || targetStageConfig?.order === 1;
 
     let computedStatus: LeadStatus = 'POTENTIAL';
@@ -896,10 +906,10 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
       computedStatus = 'CONVERTED';
     } else if (targetStageConfig?.isLost) {
       computedStatus = 'UNQUALIFIED';
-    } else if (isFirstStage || stage === 'STAGE_NEW' || stage === 'NEW') {
+    } else if (isFirstStage || resolvedStageId === 'STAGE_NEW' || resolvedStageId === 'NEW') {
       computedStatus = 'NEW';
     } else {
-      const upper = String(stage).toUpperCase();
+      const upper = String(resolvedStageId).toUpperCase();
       if (upper.includes('ENROLLED') || upper.includes('WON') || upper.includes('CONVERTED')) {
         computedStatus = 'CONVERTED';
       } else if (upper.includes('LOST') || upper.includes('UNQUALIFIED')) {
@@ -914,7 +924,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         if (c.id !== currentConv.id) return c;
         return {
           ...c,
-          customer: { ...c.customer, leadStage: stage, leadStatus: computedStatus },
+          customer: { ...c.customer, leadStage: resolvedStageId, leadStatus: computedStatus },
         };
       })
     );
@@ -933,7 +943,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
             ) {
               return {
                 ...cand,
-                stage,
+                stage: resolvedStageId,
               };
             }
             return cand;
@@ -949,7 +959,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         fullName: currentConv.customer.fullName,
         phone: currentConv.customer.phone,
         email: currentConv.customer.email,
-        leadStage: stage,
+        leadStage: resolvedStageId,
         leadStatus: computedStatus,
         updatedBy: staffName || undefined,
       }).catch((err) => {
@@ -965,14 +975,14 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
             customerId: currentConv.customer.id,
             fullName: currentConv.customer.fullName,
             conversationId: currentConv.id,
-            leadStage: stage,
+            leadStage: resolvedStageId,
             leadStatus: computedStatus,
           },
         })
       );
     }
 
-    notify.success(`Đã chuyển sang giai đoạn "${targetStageConfig?.name || stage}".`);
+    notify.success(`Đã chuyển sang giai đoạn "${targetStageConfig?.name || resolvedStageId}".`);
   };
 
   // 6. Gán / Gỡ nhãn (Tags)

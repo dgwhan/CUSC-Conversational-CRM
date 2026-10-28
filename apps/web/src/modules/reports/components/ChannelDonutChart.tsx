@@ -72,12 +72,23 @@ export const ChannelDonutChart: React.FC<ChannelDonutChartProps> = ({ channels }
         </div>
       </div>
       <div className="relative flex-1 min-h-[280px] flex items-center justify-center">
-        <Doughnut data={data} options={options} />
-        {/* Center label inside Doughnut */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
-          <span className="text-2xl font-bold text-slate-900">{totalLeads}</span>
-          <span className="text-xs text-slate-500 font-medium">Tổng hồ sơ</span>
-        </div>
+        {totalLeads > 0 ? (
+          <>
+            <Doughnut data={data} options={options} />
+            {/* Center label inside Doughnut */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
+              <span className="text-2xl font-bold text-slate-900">{totalLeads}</span>
+              <span className="text-xs text-slate-500 font-medium">Tổng tiếp nhận</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center text-slate-400 py-10">
+            <div className="w-24 h-24 rounded-full border-4 border-dashed border-slate-200 flex items-center justify-center mb-3">
+              <span className="text-lg font-bold text-slate-400">0</span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">Chưa có dữ liệu kênh trong kỳ</p>
+          </div>
+        )}
       </div>
     </div>
   );

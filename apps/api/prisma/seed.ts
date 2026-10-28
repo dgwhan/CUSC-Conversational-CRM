@@ -32,6 +32,15 @@ const accounts = [
 
 const client = await pool.connect();
 
+// Đảm bảo các giá trị Enum cần thiết tồn tại trong Database
+try {
+  await client.query(`ALTER TYPE "StaffRole" ADD VALUE IF NOT EXISTS 'OWNER'`);
+} catch {}
+
+try {
+  await client.query(`ALTER TYPE "workspace_member_role" ADD VALUE IF NOT EXISTS 'STAFF'`);
+} catch {}
+
 try {
   await client.query('BEGIN');
 

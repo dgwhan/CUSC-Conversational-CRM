@@ -121,4 +121,59 @@ describe('ReportsService', () => {
     expect(result.staffList[0].wonCount).toBe(1);
     expect(result.staffList[0].revenue).toBe(3200000000);
   });
+
+  it('xử lý chính xác trạng thái không có dữ liệu (0 leads, 0 VNĐ, không gán cứng số liệu giả)', async () => {
+    mockPrisma.customer.findMany.mockResolvedValue([]);
+    mockPrisma.customer.count.mockResolvedValue(0);
+
+    const result = await service.getOverview({
+      workspaceId: '11111111-1111-1111-1111-111111111111',
+      timeRange: '30days',
+    });
+
+    expect(result.overview.totalLeads).toBe(0);
+    expect(result.overview.wonCount).toBe(0);
+    expect(result.overview.conversionRate).toBe(0);
+    expect(result.overview.dropOffRate).toBe(0);
+    expect(result.overview.totalEstimatedValue).toBe(0);
+    expect(result.overview.totalCollectedValue).toBe(0);
+    expect(result.overview.avgResponseTimeMinutes).toBe(0);
+    expect(result.products).toEqual([]);
+    expect(result.staffList).toEqual([]);
+    expect(result.funnelStages.every((s) => s.count === 0)).toBe(true);
+  });
+
+  it('tính toán tốc độ phản hồi tin nhắn thực tế từ hội thoại giữa khách và nhân viên', async () => {
+    const custTime = new Date('2026-10-28T10:00:00.000Z');
+    const staffReplyTime = new Date('2026-10-28T10:05:00.000Z'); // cách nhau 5 phút
+
+    const mockCustomers = [
+      {
+        id: 'c1',
+        leadStage: 'stage-lead',
+        leadStatus: 'NEW',
+        createdAt: new Date(),
+        channelIdentities: { channel: 'FACEBOOK' },
+        conversations: [
+          {
+            lastCustomerMessageAt: custTime,
+            lastMessageAt: staffReplyTime,
+            channelAccount: { channel: 'FACEBOOK' },
+            assignedMember: { staff: { id: 's1', fullName: 'Lê Văn Sales', avatarUrl: null } },
+          },
+        ],
+      },
+    ];
+
+    mockPrisma.customer.findMany.mockResolvedValue(mockCustomers);
+    mockPrisma.customer.count.mockResolvedValue(0);
+
+    const result = await service.getOverview({
+      workspaceId: '11111111-1111-1111-1111-111111111111',
+      timeRange: '30days',
+    });
+
+    expect(result.overview.avgResponseTimeMinutes).toBe(5);
+    expect(result.staffList[0].avgResponseTime).toBe('5.0 phút');
+  });
 });

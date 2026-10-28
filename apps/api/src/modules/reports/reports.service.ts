@@ -174,6 +174,9 @@ export class ReportsService {
     let totalCollectedValue = 0;
     let wonCount = 0;
     let lostCount = 0;
+    let totalResponseMinutes = 0;
+    let responseCount = 0;
+    const staffResponseMap: Record<string, { total: number; count: number }> = {};
 
     const channelMap: Record<string, { count: number; value: number }> = {
       FACEBOOK: { count: 0, value: 0 },
@@ -374,6 +377,25 @@ export class ReportsService {
           staffMap[assignedStaff.id].revenue += val;
         }
       }
+
+      // Tốc độ phản hồi tin nhắn từ hội thoại (nếu có dữ liệu tin nhắn)
+      if (conv?.lastCustomerMessageAt && conv?.lastMessageAt) {
+        const custMsgTime = new Date(conv.lastCustomerMessageAt).getTime();
+        const lastMsgTime = new Date(conv.lastMessageAt).getTime();
+        if (lastMsgTime > custMsgTime) {
+          const diffMin = (lastMsgTime - custMsgTime) / (1000 * 60);
+          totalResponseMinutes += diffMin;
+          responseCount++;
+
+          if (assignedStaff) {
+            if (!staffResponseMap[assignedStaff.id]) {
+              staffResponseMap[assignedStaff.id] = { total: 0, count: 0 };
+            }
+            staffResponseMap[assignedStaff.id].total += diffMin;
+            staffResponseMap[assignedStaff.id].count++;
+          }
+        }
+      }
     }
 
     // Tỉ lệ chuyển đổi & Tỉ lệ rơi rụng
@@ -445,13 +467,20 @@ export class ReportsService {
 
     // Danh sách Hiệu suất Nhân viên
     const staffList = Object.values(staffMap)
-      .map((s, idx) => ({
-        ...s,
-        enrolledCount: s.wonCount, // backward compat
-        conversionRate: s.leadsCount > 0 ? Number(((s.wonCount / s.leadsCount) * 100).toFixed(1)) : 0,
-        avgResponseTime: s.avgResponseTime || `${(2.0 + idx * 0.3).toFixed(1)} phút`,
-      }))
+      .map((s) => {
+        const stat = staffResponseMap[s.staffId];
+        const staffAvg = stat && stat.count > 0 ? `${(stat.total / stat.count).toFixed(1)} phút` : '0 phút';
+        return {
+          ...s,
+          enrolledCount: s.wonCount, // backward compat
+          conversionRate: s.leadsCount > 0 ? Number(((s.wonCount / s.leadsCount) * 100).toFixed(1)) : 0,
+          avgResponseTime: s.avgResponseTime || staffAvg,
+        };
+      })
       .sort((a, b) => b.wonCount - a.wonCount || b.revenue - a.revenue);
+
+    const avgResponseTimeMinutes =
+      responseCount > 0 ? Number((totalResponseMinutes / responseCount).toFixed(1)) : 0;
 
     // 7. Tổng hợp biểu đồ xu hướng (Trends) theo ngày từ DB thực tế
     const trends = this.computeRealTrends(customers, timeRange);
@@ -471,7 +500,7 @@ export class ReportsService {
         totalCollectedValue,
         totalCollectedTuition: totalCollectedValue, // backward compat
         newLeadsGrowth,
-        avgResponseTimeMinutes: 2.8,
+        avgResponseTimeMinutes,
       },
       funnelStages,
       channels,

@@ -105,11 +105,11 @@ export const CoursePopularityChart: React.FC<CoursePopularityChartProps> = ({
         </div>
       </div>
       <div className="relative flex-1 min-h-[280px]">
-        {topItems.length > 0 ? (
+        {topItems.length > 0 && topItems.some((c) => c.count > 0) ? (
           <Bar data={data} options={options} />
         ) : (
-          <div className="flex items-center justify-center h-full text-slate-400 text-sm">
-            Chưa có dữ liệu {displayLabel.toLowerCase()}
+          <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm py-12">
+            <p className="font-medium text-slate-500">Chưa có dữ liệu {displayLabel.toLowerCase()} trong kỳ</p>
           </div>
         )}
       </div>

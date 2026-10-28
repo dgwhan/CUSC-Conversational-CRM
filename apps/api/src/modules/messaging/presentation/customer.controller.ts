@@ -193,7 +193,7 @@ export class CustomerController {
                     this.realtime?.broadcastPipelineChange({
                         customerId: newCust.id,
                         customerName: newCust.fullName,
-                        newStage: (body.leadStage || body.leadStatus || 'STAGE_NEW') as string,
+                        newStage: (body.leadStage || 'STAGE_NEW') as string,
                         previousStage: 'STAGE_NEW',
                         updatedBy: body.updatedBy || 'Hệ thống CRM',
                     });
@@ -248,8 +248,8 @@ export class CustomerController {
                 this.realtime?.broadcastPipelineChange({
                     customerId: existing.id,
                     customerName: updated.fullName,
-                    newStage: (body.leadStage || body.leadStatus || 'STAGE_NEW') as string,
-                    previousStage: (existing.leadStage || existing.leadStatus || 'STAGE_NEW') as string,
+                    newStage: (body.leadStage || existing.leadStage || 'STAGE_NEW') as string,
+                    previousStage: (existing.leadStage || 'STAGE_NEW') as string,
                     updatedBy: body.updatedBy || 'Hệ thống CRM',
                 });
             } catch { }

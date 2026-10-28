@@ -86,20 +86,29 @@ const { isOwner, isAgent, staffId } = useUserRole();
   // Lắng nghe sự kiện cập nhật Kanban từ Realtime SSE
   useEffect(() => {
     const unsubscribe = onPipelineChange((event) => {
+      const matchedStage = config.pipelineStages.find(
+        (s) =>
+          s.id === event.newStage ||
+          s.id === `STAGE_${event.newStage}` ||
+          s.id.replace('STAGE_', '') === event.newStage ||
+          s.name.toLowerCase() === String(event.newStage).toLowerCase()
+      );
+      const stageToSet = matchedStage ? (matchedStage.id as LeadStage) : (event.newStage as LeadStage);
+
       setCandidates((prev) =>
         prev.map((c) =>
           c.id === event.customerId || c.fullName === event.customerName || (event.customerId && c.conversationId?.includes(event.customerId))
-            ? { ...c, stage: event.newStage as LeadStage }
+            ? { ...c, stage: stageToSet }
             : c
         )
       );
       notify.info(
-        `${event.updatedBy} đã chuyển ${config.terminology.entityName.toLowerCase()} "${event.customerName}" sang giai đoạn "${event.newStage}".`,
+        `${event.updatedBy} đã chuyển ${config.terminology.entityName.toLowerCase()} "${event.customerName}" sang giai đoạn "${matchedStage?.name || event.newStage}".`,
         'Đồng bộ Phễu Realtime'
       );
     });
     return unsubscribe;
-  }, [onPipelineChange, config.terminology.entityName]);
+  }, [onPipelineChange, config.pipelineStages, config.terminology.entityName]);
 
   // Lắng nghe sự kiện cập nhật trạng thái Lead nội bộ từ Inbox
   useEffect(() => {
@@ -108,19 +117,29 @@ const { isOwner, isAgent, staffId } = useUserRole();
       if (!customEvent.detail) return;
       const { customerId, fullName, conversationId, leadStage } = customEvent.detail;
       if (!leadStage) return;
+
+      const matchedStage = config.pipelineStages.find(
+        (s) =>
+          s.id === leadStage ||
+          s.id === `STAGE_${leadStage}` ||
+          s.id.replace('STAGE_', '') === leadStage ||
+          s.name.toLowerCase() === String(leadStage).toLowerCase()
+      );
+      const targetStage = matchedStage ? (matchedStage.id as LeadStage) : leadStage;
+
       setCandidates((prev) =>
         prev.map((c) =>
           (customerId && c.id === customerId) ||
           (conversationId && c.conversationId === conversationId) ||
           (fullName && c.fullName === fullName)
-            ? { ...c, stage: leadStage }
+            ? { ...c, stage: targetStage }
             : c
         )
       );
     };
     window.addEventListener('crm:lead-updated', handleLeadUpdated);
     return () => window.removeEventListener('crm:lead-updated', handleLeadUpdated);
-  }, []);
+  }, [config.pipelineStages]);
 
   // Tự động tải danh sách khách hàng từ CSDL vào Phễu Kanban
   useEffect(() => {
@@ -140,8 +159,17 @@ const { isOwner, isAgent, staffId } = useUserRole();
               (c) => c.id === cust.id || (latestConv?.id && c.conversationId === latestConv.id) || c.fullName === cust.fullName
             );
             const dbStage = cust.leadStage || cust.channelIdentities?.leadStage;
+            const matchedConfig = config.pipelineStages.find(
+              (s) =>
+                s.id === dbStage ||
+                s.id === `STAGE_${dbStage}` ||
+                s.id.replace('STAGE_', '') === dbStage ||
+                s.name.toLowerCase() === String(dbStage).toLowerCase()
+            );
+
             if (existingIdx >= 0) {
               const existing = updated[existingIdx];
+              const resolvedStage = matchedConfig ? (matchedConfig.id as LeadStage) : ((dbStage as LeadStage) || existing.stage);
               // Cập nhật lại các mục đã gán từ DB nếu có thay đổi
               const shouldUpdateTuition =
                 cust.interestCourses &&
@@ -150,11 +178,12 @@ const { isOwner, isAgent, staffId } = useUserRole();
 
               updated[existingIdx] = {
                 ...existing,
-                stage: (dbStage as LeadStage) || existing.stage,
+                stage: resolvedStage,
                 interestCourses: shouldUpdateTuition ? (cust.interestCourses || []) : existing.interestCourses,
                 estimatedTuition: shouldUpdateTuition ? (cust.estimatedValue || existing.estimatedTuition) : existing.estimatedTuition,
               };
             } else {
+              const resolvedStage = matchedConfig ? (matchedConfig.id as LeadStage) : ((dbStage as LeadStage) || (firstStageId as LeadStage));
               const avatar = cust.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(cust.fullName)}&background=0284c7&color=fff&bold=true`;
               const chType = (latestConv?.channelAccount?.channel as ChannelType) || 'FACEBOOK';
               const chName = latestConv?.channelAccount?.displayName || `Kênh ${chType}`;
@@ -168,7 +197,7 @@ const { isOwner, isAgent, staffId } = useUserRole();
                 avatarUrl: avatar,
                 channel: chType,
                 channelAccountName: chName,
-                stage: (dbStage as LeadStage) || (firstStageId as LeadStage),
+                stage: resolvedStage || (firstStageId as LeadStage),
                 estimatedTuition: cust.estimatedValue || 0,
                 priority: 'MEDIUM',
                 interestCourses: cust.interestCourses || [],
@@ -467,9 +496,11 @@ const { isOwner, isAgent, staffId } = useUserRole();
   // Map ứng viên vào các stage của workspace config
   // (hỗ trợ cả stage id mới lẫn legacy id như NEW -> STAGE_NEW)
   const isCandidateInStage = (candidateStage: string, stageConfigId: string) => {
+    if (!candidateStage || !stageConfigId) return false;
     if (candidateStage === stageConfigId) return true;
     if (`STAGE_${candidateStage}` === stageConfigId) return true;
     if (stageConfigId.replace('STAGE_', '') === candidateStage) return true;
+    if (candidateStage.toLowerCase() === stageConfigId.toLowerCase()) return true;
     return false;
   };
 

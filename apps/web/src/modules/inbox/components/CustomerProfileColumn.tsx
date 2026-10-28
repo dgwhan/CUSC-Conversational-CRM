@@ -61,23 +61,24 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   const [triggerEditPhone, setTriggerEditPhone] = useState(false);
   const [triggerEditEmail, setTriggerEditEmail] = useState(false);
 
-  // Xác định giai đoạn hiện tại (Mặc định: "STAGE_CONTACTED" - Đã liên hệ / Tư vấn)
+  // Xác định giai đoạn hiện tại (Mặc định linh hoạt theo cấu hình Workspace)
   const currentStageKey =
     customer.leadStage ||
     (customer.leadStatus === LEAD_STATUS.CONVERTED
-      ? PIPELINE_STAGE_ID.STAGE_ENROLLED
+      ? (config.pipelineStages.find((s) => s.isWon)?.id || PIPELINE_STAGE_ID.STAGE_ENROLLED)
       : customer.leadStatus === LEAD_STATUS.UNQUALIFIED
-      ? PIPELINE_STAGE_ID.STAGE_LOST
+      ? (config.pipelineStages.find((s) => s.isLost)?.id || PIPELINE_STAGE_ID.STAGE_LOST)
       : customer.leadStatus === LEAD_STATUS.NEW
-      ? PIPELINE_STAGE_ID.STAGE_NEW
-      : PIPELINE_STAGE_ID.STAGE_CONTACTED);
+      ? (config.pipelineStages[0]?.id || PIPELINE_STAGE_ID.STAGE_NEW)
+      : (config.pipelineStages[1]?.id || PIPELINE_STAGE_ID.STAGE_CONTACTED));
 
   const handleStageSelect = (stageItem: StageDefinition) => {
-    onUpdateLeadStatus(stageItem.status);
+    // Chuyển giai đoạn thống nhất 1 luồng: ưu tiên gọi onUpdateLeadStage để cập nhật cả Stage và Status đồng bộ
     if (onUpdateLeadStage) {
       onUpdateLeadStage(stageItem.id);
+    } else {
+      onUpdateLeadStatus(stageItem.status);
     }
-    notify.success(`Đã chuyển sang: ${stageItem.name}`);
   };
 
   const handleCopy = (text: string, fieldName: string) => {
@@ -136,9 +137,10 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
       />
 
       <div className="flat-sidebar-body">
-        {/* B. PHỄU TUYỂN SINH & ĐÀO TẠO */}
+        {/* B. PHỄU BÁN HÀNG & CHĂM SÓC THEO WORKSPACE */}
         <PipelineStagesSection
           pipelineName={config.terminology.pipelineName}
+          stages={config.pipelineStages}
           currentStageKey={currentStageKey}
           onNavigateToKanban={onNavigateToKanban}
           onSelectStage={handleStageSelect}

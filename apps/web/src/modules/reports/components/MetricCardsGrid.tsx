@@ -116,8 +116,8 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
     },
     {
       title: 'Tốc Độ Phản Hồi Tin Nhắn',
-      value: `${metrics.avgResponseTimeMinutes} phút`,
-      subtext: 'Thời gian phản hồi khách đầu tiên',
+      value: metrics.avgResponseTimeMinutes > 0 ? `${metrics.avgResponseTimeMinutes} phút` : 'Chưa có dữ liệu',
+      subtext: metrics.avgResponseTimeMinutes > 0 ? 'Thời gian phản hồi khách đầu tiên' : 'Chưa ghi nhận tin nhắn phản hồi',
       isPositive: true,
       icon: <Clock size={22} className="text-teal-600" />,
       bgIcon: 'bg-teal-50 border-teal-200',

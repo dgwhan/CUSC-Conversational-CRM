@@ -1,21 +1,41 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import { STANDARD_7_STAGES, type StageDefinition } from './contactDetail.types.js';
-import { LEAD_STATUS, PIPELINE_STAGE_ID } from '../../types.js';
+import { LEAD_STATUS, type LeadStatus } from '../../types.js';
 
 interface PipelineStagesSectionProps {
   pipelineName?: string;
+  stages?: Array<{ id: string; name: string; color?: string; bgColor?: string; isWon?: boolean; isLost?: boolean }>;
   currentStageKey: string;
   onNavigateToKanban?: () => void;
   onSelectStage: (stage: StageDefinition) => void;
 }
 
 export const PipelineStagesSection: React.FC<PipelineStagesSectionProps> = ({
-  pipelineName = 'Phễu Tuyển Sinh & Đào Tạo',
+  pipelineName = 'Phễu Chăm Sóc Khách Hàng',
+  stages,
   currentStageKey,
   onNavigateToKanban,
   onSelectStage,
 }) => {
+  const stageList: StageDefinition[] =
+    stages && stages.length > 0
+      ? stages.map((s, idx) => {
+          let status: LeadStatus = LEAD_STATUS.POTENTIAL;
+          if (s.isWon) status = LEAD_STATUS.CONVERTED;
+          else if (s.isLost) status = LEAD_STATUS.UNQUALIFIED;
+          else if (idx === 0 || s.id === 'STAGE_NEW' || s.id === 'NEW') status = LEAD_STATUS.NEW;
+
+          return {
+            id: s.id,
+            name: s.name,
+            status,
+            isWon: s.isWon,
+            isLost: s.isLost,
+          };
+        })
+      : STANDARD_7_STAGES;
+
   return (
     <section className="flat-section">
       <div className="flat-section-header">
@@ -33,13 +53,15 @@ export const PipelineStagesSection: React.FC<PipelineStagesSectionProps> = ({
         )}
       </div>
 
-      <div className="flat-pipeline-list" role="listbox" aria-label="Giai đoạn phễu tuyển sinh">
-        {STANDARD_7_STAGES.map((stage) => {
+      <div className="flat-pipeline-list" role="listbox" aria-label="Giai đoạn phễu chăm sóc">
+        {stageList.map((stage) => {
           const isSelected =
             currentStageKey === stage.id ||
+            currentStageKey.toLowerCase() === stage.id.toLowerCase() ||
             currentStageKey === stage.id.replace('STAGE_', '') ||
-            (currentStageKey === PIPELINE_STAGE_ID.STAGE_CONTACTED && stage.id === PIPELINE_STAGE_ID.STAGE_CONTACTED) ||
-            (currentStageKey === LEAD_STATUS.POTENTIAL && stage.id === PIPELINE_STAGE_ID.STAGE_CONTACTED);
+            `STAGE_${currentStageKey}` === stage.id ||
+            (currentStageKey === LEAD_STATUS.CONVERTED && stage.isWon) ||
+            (currentStageKey === LEAD_STATUS.UNQUALIFIED && stage.isLost);
 
           return (
             <button
