@@ -62,9 +62,11 @@ export class ReceiveInboundMessage {
                         : `conv_${item.id}`;
 
                     let customerName = isOutbound
-                        ? 'Trang (Page Meta)'
-                        : `Khách hàng (${customerExternalId?.slice(-4) || event.channel})`;
-                    let customerAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName)}&background=0284c7&color=fff&bold=true`;
+                        ? (event.channel === 'ZALO' ? 'Zalo Official Account' : 'Trang (Page Meta)')
+                        : (raw.customerName || `Khách hàng (${customerExternalId?.slice(-4) || event.channel})`);
+                    let customerAvatar =
+                        raw.customerAvatar ||
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName)}&background=0284c7&color=fff&bold=true`;
                     let dbCustomer: any = null;
 
                     // TỰ ĐỘNG TÌM HOẶC TẠO CONTACT & IDENTITY THEO (KÊNH, EXTERNAL_USER_ID)

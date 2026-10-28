@@ -316,7 +316,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
             matchedCust?.fullName ||
             (latest as any).customerName ||
             (latest as any).rawPayload?.customerName ||
-            `Khách hàng Facebook #${latestSuffix}`;
+            `Khách hàng ${latest.channel === 'ZALO' ? 'Zalo' : latest.channel === 'FACEBOOK' ? 'Facebook' : latest.channel} #${latestSuffix}`;
 
           const rawCustomerAvatar =
             matchedCust?.avatarUrl ||
@@ -474,15 +474,17 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     notify.info('Đang kết nối Meta Graph API để kéo tin nhắn từ các Fanpage...', 'Đồng bộ Facebook');
     try {
       const channels = await apiClient.getChannels();
-      const fbChannels = channels.filter((c: any) => c.channel === 'FACEBOOK' && c.isActive);
+      const activeChannels = channels.filter(
+        (c: any) => (c.channel === 'FACEBOOK' || c.channel === 'ZALO') && c.isActive,
+      );
 
-      if (fbChannels.length === 0) {
-        notify.warning('Chưa có Fanpage Facebook nào được kích hoạt trong Workspace. Vui lòng kết nối Fanpage trước.');
+      if (activeChannels.length === 0) {
+        notify.warning('Chưa có kênh Zalo hoặc Facebook nào được kích hoạt trong Workspace. Vui lòng kết nối kênh trước.');
         return;
       }
 
       let totalSynced = 0;
-      for (const ch of fbChannels) {
+      for (const ch of activeChannels) {
         try {
           const res = await apiClient.syncChannel(ch.id as string);
           totalSynced += res.syncedCount;
@@ -493,9 +495,9 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
 
       if (totalSynced > 0) {
         await loadSavedMessages();
-        notify.success(`Đã kéo thành công ${totalSynced} tin nhắn từ Fanpage Facebook vào Hộp thư!`, 'Đồng bộ hoàn tất');
+        notify.success(`Đã kéo thành công ${totalSynced} tin nhắn từ Zalo & Facebook vào Hộp thư!`, 'Đồng bộ hoàn tất');
       } else {
-        notify.info('Đã quét Fanpage: Hiện chưa có tin nhắn khách hàng mới nào cần kéo về.');
+        notify.info('Đã quét các kênh: Hiện chưa có tin nhắn khách hàng mới nào cần kéo về.');
       }
     } catch (err) {
       notify.error(`Lỗi khi đồng bộ: ${(err as Error).message}`);
@@ -748,12 +750,13 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     );
   };
 
-  // 1. Gửi tin nhắn phản hồi (Outbound)
-  const handleSendMessage = (text: string, attachments?: MessageAttachment[]) => {
+  // 1. Gửi tin nhắn phản hồi (Outbound) qua Zalo OA API / Facebook Graph API
+  const handleSendMessage = async (text: string, attachments?: MessageAttachment[]) => {
     if (!currentConv) return;
 
-    const newMsg = {
-      id: `msg-${Date.now()}`,
+    const tempId = `msg-${Date.now()}`;
+    const newMsg: ChatMessage = {
+      id: tempId,
       conversationId: currentConv.id,
       direction: 'OUTBOUND' as const,
       content: text,
@@ -763,6 +766,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
       attachments,
     };
 
+    // Cập nhật optimistic UI ngay lập tức
     setConversations((prev) =>
       prev.map((c) => {
         if (c.id !== currentConv.id) return c;
@@ -772,8 +776,37 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           lastMessageAt: 'Vừa xong',
           messages: [...c.messages, newMsg],
         };
-      })
+      }),
     );
+
+    // Gửi thực tế qua API Outbound của kênh tương ứng (ZALO, FACEBOOK...)
+    try {
+      const recipientId = currentConv.customer.socialId || currentConv.customer.id;
+      const res = await apiClient.sendMessage({
+        channel: currentConv.channel,
+        recipientId,
+        content: text,
+        conversationId: currentConv.id,
+      });
+
+      // Cập nhật trạng thái tin nhắn thành DELIVERED
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id !== currentConv.id) return c;
+          return {
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === tempId ? { ...m, id: res.messageId || m.id, status: 'DELIVERED' as const } : m,
+            ),
+          };
+        }),
+      );
+    } catch (err) {
+      notify.error(
+        `Không thể gửi tin nhắn qua ${currentConv.channel}: ${(err as Error).message}`,
+        'Lỗi gửi tin',
+      );
+    }
   };
 
   // 2. Phân công nhân sự

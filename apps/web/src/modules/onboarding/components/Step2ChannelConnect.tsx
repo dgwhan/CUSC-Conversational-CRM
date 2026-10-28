@@ -160,7 +160,30 @@ export const Step2ChannelConnect: React.FC<Step2ChannelConnectProps> = ({
               <p className="channel-desc">{ch.description}</p>
 
               <div className="channel-card-action">
-                {isConnected ? (
+                {ch.key === 'ZALO' && isConnected ? (
+                  <button
+                    type="button"
+                    className="crm-btn crm-btn-secondary crm-btn-sm"
+                    style={{
+                      width: '100%',
+                      background: '#f8fafc',
+                      color: '#334155',
+                      borderColor: '#cbd5e1',
+                      cursor: 'not-allowed',
+                      opacity: 0.9,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      fontWeight: 600,
+                    }}
+                    disabled
+                    title="Tài khoản Zalo đã được kết nối và đang hoạt động. Mỗi Workspace chỉ liên kết 1 tài khoản Zalo. Để đổi tài khoản khác, vui lòng bấm nút Xóa ở danh sách bên dưới."
+                  >
+                    <CheckCircle2 size={15} color="#16a34a" />
+                    Đã kết nối Zalo
+                  </button>
+                ) : isConnected ? (
                   <button
                     type="button"
                     className="crm-btn crm-btn-secondary crm-btn-sm"

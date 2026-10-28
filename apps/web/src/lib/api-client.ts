@@ -271,6 +271,97 @@ class ApiClient {
     );
   }
 
+  sendMessage(data: {
+    channel: string;
+    recipientId: string;
+    content: string;
+    channelAccountId?: string;
+    conversationId?: string;
+    workspaceId?: string;
+  }) {
+    return this.post<{
+      success: boolean;
+      messageId: string;
+      sentAt: string;
+      content: string;
+      recipientId: string;
+      channel: string;
+    }>('/channels/send-message', data, {
+      headers: data.workspaceId ? { 'x-workspace-id': data.workspaceId } : {},
+    });
+  }
+
+  initZaloPersonalQr() {
+    return this.post<{
+      sessionId: string;
+      qrCodeUrl: string;
+      status: 'PENDING' | 'SCANNED' | 'SUCCESS' | 'EXPIRED';
+      createdAt: number;
+      expiresAt: number;
+    }>('/channels/zalo-personal/qr-init', {});
+  }
+
+  getZaloPersonalQrStatus(sessionId: string) {
+    return this.get<{
+      sessionId: string;
+      status: 'PENDING' | 'SCANNED' | 'SUCCESS' | 'EXPIRED';
+      expiresAt: number;
+      account?: {
+        id: string;
+        externalAccountId: string;
+        displayName: string;
+        avatarUrl: string;
+        phone?: string;
+        accessToken: string;
+      };
+    }>('/channels/zalo-personal/qr-status', {
+      params: { sessionId },
+    });
+  }
+
+  confirmZaloPersonalQr(data: {
+    sessionId: string;
+    displayName?: string;
+    phone?: string;
+    avatarUrl?: string;
+    externalAccountId?: string;
+  }) {
+    return this.post<{
+      sessionId: string;
+      status: 'SUCCESS' | 'EXPIRED';
+      account?: {
+        id: string;
+        externalAccountId: string;
+        displayName: string;
+        avatarUrl: string;
+        phone?: string;
+        accessToken: string;
+      };
+    }>('/channels/zalo-personal/qr-confirm', data);
+  }
+
+  getZaloSafetyConfig() {
+    return this.get<{
+      enabled: boolean;
+      minIntervalMs: number;
+      maxIntervalMs: number;
+      maxMessagesPerMinute: number;
+      maxStrangerPerDay: number;
+      autoCooldownMinutes: number;
+    }>('/channels/zalo-personal/safety-config');
+  }
+
+  updateZaloSafetyConfig(config: Record<string, unknown>) {
+    return this.patch<{
+      enabled: boolean;
+      minIntervalMs: number;
+      maxIntervalMs: number;
+      maxMessagesPerMinute: number;
+      maxStrangerPerDay: number;
+      autoCooldownMinutes: number;
+    }>('/channels/zalo-personal/safety-config', config);
+  }
+
   getMessages(params?: {
     page?: number;
     limit?: number;

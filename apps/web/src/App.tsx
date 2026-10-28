@@ -108,6 +108,12 @@ function CRMMainContent() {
     // Giao diện chính điều hướng theo Tab
     return (
       <MainLayout currentTab={activeTab} onTabChange={setActiveTab}>
+        {activeTab === 'onboarding' && (
+          <OnboardingWizardPage
+            onComplete={() => setActiveTab('inbox')}
+            onSkipToInbox={() => setActiveTab('inbox')}
+          />
+        )}
         {activeTab === 'inbox' && (
           <UnifiedInboxPage
             onNavigateToKanban={() => setActiveTab('kanban')}
@@ -122,12 +128,6 @@ function CRMMainContent() {
         )}
         {activeTab === 'reports' && <ReportsDashboardPage />}
         {activeTab === 'workspace-settings' && <WorkspaceSettingsPage />}
-        {activeTab === 'onboarding' && (
-          <OnboardingWizardPage
-            onComplete={() => setActiveTab('inbox')}
-            onSkipToInbox={() => setActiveTab('inbox')}
-          />
-        )}
         {activeTab === 'import' && <MessagingImportPage />}
       </MainLayout>
     );

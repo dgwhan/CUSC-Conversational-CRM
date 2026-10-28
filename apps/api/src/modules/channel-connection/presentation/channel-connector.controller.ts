@@ -12,9 +12,11 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Optional,
 } from '@nestjs/common';
 import { OAuthService } from '../application/oauth.service.js';
 import { ChannelManagerService } from '../application/channel-manager.service.js';
+import { ZcaPersonalService } from '../application/zca-personal.service.js';
 import { Roles } from '../../../common/decorators/roles.decorator.js';
 import { WorkspaceRolesGuard } from '../../../common/guards/workspace-roles.guard.js';
 import {
@@ -35,6 +37,7 @@ export class ChannelConnectorController {
   constructor(
     private readonly oauthService: OAuthService,
     private readonly channelManager: ChannelManagerService,
+    @Optional() private readonly zcaService?: ZcaPersonalService,
   ) {}
 
   /**
@@ -159,7 +162,7 @@ export class ChannelConnectorController {
 
   /**
    * POST /api/channels/:id/sync
-   * Đồng bộ tin nhắn từ Fanpage Facebook về CRM (Chỉ OWNER / ADMIN)
+   * Đồng bộ tin nhắn từ kênh (Zalo OA, Zalo Cá nhân zca-js, Facebook Fanpage) về CRM (Chỉ OWNER / ADMIN)
    */
   @Post('channels/:id/sync')
   @Roles('OWNER', 'ADMIN')
@@ -170,7 +173,117 @@ export class ChannelConnectorController {
     @Query('workspaceId') queryWorkspaceId?: string,
   ) {
     const effectiveWorkspaceId = queryWorkspaceId || headerWorkspaceId;
-    return this.channelManager.syncFacebookMessages(id, effectiveWorkspaceId);
+    return this.channelManager.syncChannel(id, effectiveWorkspaceId);
+  }
+
+  /**
+   * POST /api/channels/send-message
+   * Gửi tin nhắn Outbound đến khách hàng qua Zalo OA hoặc Facebook Fanpage
+   */
+  @Post('channels/send-message')
+  @HttpCode(HttpStatus.OK)
+  async sendMessage(
+    @Body()
+    body: {
+      channel: ChannelType;
+      recipientId: string;
+      content: string;
+      channelAccountId?: string;
+      conversationId?: string;
+      workspaceId?: string;
+    },
+    @Headers('x-workspace-id') headerWorkspaceId?: string,
+  ) {
+    if (!body.recipientId?.trim()) {
+      throw new BadRequestException('recipientId (ID người nhận trên kênh) không được để trống');
+    }
+    if (!body.content?.trim()) {
+      throw new BadRequestException('Nội dung tin nhắn không được để trống');
+    }
+
+    const effectiveWorkspaceId = body.workspaceId || headerWorkspaceId;
+    return this.channelManager.sendMessage({
+      channel: body.channel || 'ZALO',
+      recipientId: body.recipientId.trim(),
+      content: body.content.trim(),
+      channelAccountId: body.channelAccountId,
+      conversationId: body.conversationId,
+      workspaceId: effectiveWorkspaceId,
+    });
+  }
+
+  private getZcaService(): ZcaPersonalService {
+    if (!this.zcaService) {
+      throw new BadRequestException('ZCA Personal service is not available');
+    }
+    return this.zcaService;
+  }
+
+  /**
+   * POST /api/channels/zalo-personal/qr-init
+   * Khởi tạo phiên quét mã QR Đăng nhập Zalo Cá nhân (zca-js Engine)
+   */
+  @Post('channels/zalo-personal/qr-init')
+  @Roles('OWNER', 'ADMIN')
+  @HttpCode(HttpStatus.OK)
+  async initZaloPersonalQr() {
+    return this.getZcaService().createQrSession();
+  }
+
+  /**
+   * GET /api/channels/zalo-personal/qr-status
+   * Kiểm tra trạng thái phiên quét mã QR
+   */
+  @Get('channels/zalo-personal/qr-status')
+  @Roles('OWNER', 'ADMIN')
+  async getZaloPersonalQrStatus(@Query('sessionId') sessionId: string) {
+    if (!sessionId) {
+      throw new BadRequestException('sessionId is required');
+    }
+    return this.getZcaService().getQrSessionStatus(sessionId);
+  }
+
+  /**
+   * POST /api/channels/zalo-personal/qr-confirm
+   * Xác nhận / Mô phỏng đăng nhập thành công sau khi quét mã
+   */
+  @Post('channels/zalo-personal/qr-confirm')
+  @Roles('OWNER', 'ADMIN')
+  @HttpCode(HttpStatus.OK)
+  async confirmZaloPersonalQr(
+    @Body()
+    body: {
+      sessionId: string;
+      displayName?: string;
+      phone?: string;
+      avatarUrl?: string;
+      externalAccountId?: string;
+    },
+  ) {
+    if (!body?.sessionId) {
+      throw new BadRequestException('sessionId is required');
+    }
+    return this.getZcaService().simulateOrConfirmQrLogin(body.sessionId, body);
+  }
+
+  /**
+   * GET /api/channels/zalo-personal/safety-config
+   * Lấy cấu hình giới hạn tần suất & an toàn chống khóa nick
+   */
+  @Get('channels/zalo-personal/safety-config')
+  @Roles('OWNER', 'ADMIN')
+  getSafetyConfig() {
+    return this.getZcaService().getSafetyConfig();
+  }
+
+  /**
+   * PATCH /api/channels/zalo-personal/safety-config
+   * Cập nhật cấu hình bảo vệ tần suất
+   */
+  @Patch('channels/zalo-personal/safety-config')
+  @Roles('OWNER', 'ADMIN')
+  updateSafetyConfig(@Body() body: Record<string, unknown>) {
+    return this.getZcaService().updateSafetyConfig(body as any);
   }
 
   /**

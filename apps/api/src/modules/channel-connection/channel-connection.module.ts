@@ -6,12 +6,13 @@ import { RealtimeModule } from '../realtime/realtime.module.js';
 import { TokenEncryptionService } from './infrastructure/token-encryption.service.js';
 import { OAuthService } from './application/oauth.service.js';
 import { ChannelManagerService } from './application/channel-manager.service.js';
+import { ZcaPersonalService } from './application/zca-personal.service.js';
 import { ChannelConnectorController } from './presentation/channel-connector.controller.js';
 
 @Module({
   imports: [AppConfigModule, PrismaModule, forwardRef(() => MessagingModule), RealtimeModule],
   controllers: [ChannelConnectorController],
-  providers: [TokenEncryptionService, OAuthService, ChannelManagerService],
-  exports: [TokenEncryptionService, OAuthService, ChannelManagerService],
+  providers: [TokenEncryptionService, OAuthService, ChannelManagerService, ZcaPersonalService],
+  exports: [TokenEncryptionService, OAuthService, ChannelManagerService, ZcaPersonalService],
 })
 export class ChannelConnectionModule {}
