@@ -9,6 +9,7 @@ import { notify } from '../components/feedback/toastEmitter.js';
 export interface ApiRequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
   skipToast?: boolean;
+  _retry?: boolean;
 }
 
 export class ApiError extends Error {
@@ -38,11 +39,45 @@ export class ApiError extends Error {
 class ApiClient {
   private baseUrl: string = '/api';
   private activeWorkspaceId: string = '';
+  private accessToken: string | null = null;
+  private refreshPromise: Promise<string | null> | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.activeWorkspaceId = localStorage.getItem('polarisx_crm_active_workspace_id') || '';
+      try {
+        const saved =
+          localStorage.getItem('polarisx_crm_auth_session') ||
+          localStorage.getItem('cusc_crm_auth_session');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed.accessToken === 'string') {
+            this.accessToken = parsed.accessToken;
+          }
+        }
+      } catch {}
     }
+  }
+
+  setAccessToken(token: string | null) {
+    this.accessToken = token;
+  }
+
+  getAccessToken(): string | null {
+    if (!this.accessToken && typeof window !== 'undefined') {
+      try {
+        const saved =
+          localStorage.getItem('polarisx_crm_auth_session') ||
+          localStorage.getItem('cusc_crm_auth_session');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed.accessToken === 'string') {
+            this.accessToken = parsed.accessToken;
+          }
+        }
+      } catch {}
+    }
+    return this.accessToken;
   }
 
   setActiveWorkspaceId(id: string) {
@@ -61,8 +96,78 @@ class ApiClient {
     return this.baseUrl;
   }
 
+  /**
+   * Cơ chế tự động làm mới Access Token khi token bị hỏng hoặc hết hạn (Transparent Silent Refresh).
+   * Sử dụng Mutex / Promise Queue để gom tất cả các request song song bị 401 lại vào 1 lần gọi duy nhất.
+   */
+  private async refreshAccessToken(): Promise<string | null> {
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.refreshPromise = (async () => {
+      try {
+        const refreshUrl = `${this.baseUrl}/auth/refresh`;
+        const res = await fetch(refreshUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+
+        if (!res.ok) {
+          throw new Error(`Token refresh rejected with HTTP ${res.status}`);
+        }
+
+        const data = await res.json().catch(() => null);
+        if (!data || typeof data !== 'object' || typeof data.accessToken !== 'string') {
+          throw new Error('Invalid refresh response payload');
+        }
+
+        const newAccessToken = data.accessToken as string;
+        this.accessToken = newAccessToken;
+
+        // Cập nhật session storage đồng bộ
+        try {
+          const saved =
+            localStorage.getItem('polarisx_crm_auth_session') ||
+            localStorage.getItem('cusc_crm_auth_session');
+          const prev = saved ? JSON.parse(saved) : {};
+          const updated = {
+            ...prev,
+            accessToken: newAccessToken,
+            staff: data.staff ?? prev.staff,
+          };
+          localStorage.setItem('polarisx_crm_auth_session', JSON.stringify(updated));
+        } catch {}
+
+        // Phát sự kiện thông báo cho UI và các module cập nhật
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('crm:token-refreshed', {
+              detail: { accessToken: newAccessToken, staff: data.staff },
+            }),
+          );
+        }
+
+        return newAccessToken;
+      } catch {
+        this.accessToken = null;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('crm:session-expired'));
+        }
+        return null;
+      } finally {
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
   async request<T>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
-    const { params, headers, skipToast, method = 'GET', ...restOptions } = options;
+    const { params, headers, skipToast, method = 'GET', _retry, ...restOptions } = options;
 
     let url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
@@ -75,13 +180,21 @@ class ApiClient {
       if (query) url += `?${query}`;
     }
 
+    // Tự động đính kèm Bearer token nếu đã có
+    const token = this.getAccessToken();
+    const defaultHeaders: Record<string, string> = {
+      ...(this.activeWorkspaceId ? { 'x-workspace-id': this.activeWorkspaceId } : {}),
+      ...(restOptions.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
     let response: Response;
     try {
       response = await fetch(url, {
         method,
+        credentials: 'include',
         headers: {
-          ...(this.activeWorkspaceId ? { 'x-workspace-id': this.activeWorkspaceId } : {}),
-          ...(restOptions.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          ...defaultHeaders,
           ...headers,
         },
         ...restOptions,
@@ -103,6 +216,29 @@ class ApiClient {
       }
 
       throw err;
+    }
+
+    // CƠ CHẾ CHỐNG BROKEN ACCESS TOKEN MINH BẠCH:
+    // Nếu token bị hết hạn, sai lệch hoặc bị từ chối 401 trên các endpoint bảo vệ,
+    // tự động kích hoạt refresh token và thử lại request mà không làm gián đoạn người dùng.
+    const isAuthEndpoint =
+      endpoint.includes('/auth/login') ||
+      endpoint.includes('/auth/register') ||
+      endpoint.includes('/auth/refresh') ||
+      endpoint.includes('/auth/logout');
+
+    if (response.status === 401 && !_retry && !isAuthEndpoint) {
+      const refreshedToken = await this.refreshAccessToken();
+      if (refreshedToken) {
+        return this.request<T>(endpoint, {
+          ...options,
+          _retry: true,
+          headers: {
+            ...headers,
+            Authorization: `Bearer ${refreshedToken}`,
+          },
+        });
+      }
     }
 
     // Xử lý các loại Content-Type trả về

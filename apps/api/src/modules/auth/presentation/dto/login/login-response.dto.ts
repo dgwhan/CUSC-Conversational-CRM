@@ -12,3 +12,9 @@ export type LoginResponseDto = {
         phoneNumber?: string | null;
     };
 };
+
+export type AuthLoginResult = {
+    response: LoginResponseDto;
+    refreshToken: string;
+    refreshTokenMaxAgeSeconds: number;
+};

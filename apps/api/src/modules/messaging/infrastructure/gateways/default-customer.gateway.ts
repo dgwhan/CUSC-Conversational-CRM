@@ -158,12 +158,12 @@ export class DefaultCustomerGateway implements CustomerGateway {
         displayName?: string | null;
         rawPayload?: unknown;
     }): Promise<string | null> {
-        // Priority 1: Explicit displayName
+        //Explicit displayName
         if (params.displayName && params.displayName.trim()) {
             return params.displayName.trim();
         }
 
-        // Priority 2: Extract from raw payload
+        //Extract from raw payload
         if (params.rawPayload && typeof params.rawPayload === 'object') {
             const raw = params.rawPayload as Record<string, unknown>;
             if (typeof raw.customerName === 'string' && raw.customerName.trim()) {
@@ -191,7 +191,7 @@ export class DefaultCustomerGateway implements CustomerGateway {
             }
         }
 
-        // Priority 3: Fetch from channel API
+        //Fetch from channel API
         if (!this.prisma) return null;
 
         try {

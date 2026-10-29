@@ -14,7 +14,7 @@ describe('WorkspaceRolesGuard', () => {
       getHandler: () => {},
       getClass: () => {},
       switchToHttp: () => ({
-        getRequest: () => ({ user: { role: 'AGENT' } }),
+        getRequest: () => ({ user: { role: 'STAFF' } }),
       }),
     } as unknown as ExecutionContext;
 
@@ -23,7 +23,7 @@ describe('WorkspaceRolesGuard', () => {
 
   it('should allow OWNER access when OWNER is required', () => {
     const reflector = new Reflector();
-    reflector.getAllAndOverride = (key) => (key === ROLES_KEY ? ['OWNER', 'ADMIN'] : undefined);
+    reflector.getAllAndOverride = (key) => (key === ROLES_KEY ? ['OWNER'] : undefined);
 
     const guard = new WorkspaceRolesGuard(reflector);
     const mockContext = {
@@ -39,9 +39,9 @@ describe('WorkspaceRolesGuard', () => {
     expect(guard.canActivate(mockContext)).toBe(true);
   });
 
-  it('should throw ForbiddenException when AGENT tries to access OWNER endpoint', () => {
+  it('should throw ForbiddenException when STAFF tries to access OWNER endpoint', () => {
     const reflector = new Reflector();
-    reflector.getAllAndOverride = (key) => (key === ROLES_KEY ? ['OWNER', 'ADMIN'] : undefined);
+    reflector.getAllAndOverride = (key) => (key === ROLES_KEY ? ['OWNER'] : undefined);
 
     const guard = new WorkspaceRolesGuard(reflector);
     const mockContext = {
@@ -49,7 +49,7 @@ describe('WorkspaceRolesGuard', () => {
       getClass: () => {},
       switchToHttp: () => ({
         getRequest: () => ({
-          headers: { 'x-user-role': 'AGENT' },
+          headers: { 'x-user-role': 'STAFF' },
         }),
       }),
     } as unknown as ExecutionContext;

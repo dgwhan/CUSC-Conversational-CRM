@@ -60,7 +60,7 @@ export class WorkspaceConfigController {
    * Cập nhật cấu hình workspace theo ownerId (Chỉ Chủ Doanh Nghiệp hoặc Admin)
    */
   @Put('config')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async updateConfig(
     @Body() payload: Partial<WorkspaceConfig>,
     @Headers('x-workspace-id') workspaceId?: string,
@@ -74,7 +74,7 @@ export class WorkspaceConfigController {
    * Áp dụng mẫu ngành nghề 1-click (Chỉ Chủ Doanh Nghiệp hoặc Admin)
    */
   @Post('config/apply-preset')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async applyPreset(
     @Body() body: { presetKey: BusinessDomain; workspaceName?: string },
     @Headers('x-workspace-id') workspaceId?: string,
@@ -94,7 +94,7 @@ export class WorkspaceConfigController {
    * Thêm giai đoạn mới vào phễu (Chỉ Chủ Doanh Nghiệp hoặc Admin)
    */
   @Post('config/stages')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async addStage(
     @Body() stage: Omit<PipelineStageConfig, 'id' | 'order'>,
     @Headers('x-workspace-id') workspaceId?: string,
@@ -108,7 +108,7 @@ export class WorkspaceConfigController {
    * Thêm sản phẩm / khóa học / ngành đào tạo mới (Chỉ Chủ Doanh Nghiệp hoặc Admin)
    */
   @Post('config/products')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async addProduct(
     @Body() product: Omit<ProductItemConfig, 'id'>,
     @Headers('x-workspace-id') workspaceId?: string,
@@ -122,7 +122,7 @@ export class WorkspaceConfigController {
    * Thêm tiêu chí đánh giá / phân loại mới (Chỉ Chủ Doanh Nghiệp hoặc Admin)
    */
   @Post('config/criteria')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async addCriteria(
     @Body() criteria: Omit<LeadQualificationCriteria, 'id'>,
     @Headers('x-workspace-id') workspaceId?: string,
@@ -136,7 +136,7 @@ export class WorkspaceConfigController {
    * Xóa tiêu chí (Chỉ Chủ Doanh Nghiệp hoặc Admin)
    */
   @Delete('config/criteria/:criteriaId')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async deleteCriteria(
     @Param('criteriaId') criteriaId: string,
     @Headers('x-workspace-id') workspaceId?: string,

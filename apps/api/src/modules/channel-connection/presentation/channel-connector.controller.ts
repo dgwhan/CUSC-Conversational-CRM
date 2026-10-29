@@ -45,7 +45,7 @@ export class ChannelConnectorController {
    * Sinh URL đăng nhập OAuth kèm state token chống CSRF (Chỉ OWNER / ADMIN)
    */
   @Get('oauth/:channel/authorize-url')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   getAuthorizeUrl(
     @Param('channel') rawChannel: string,
     @Query() rawQuery: Record<string, unknown>,
@@ -74,7 +74,7 @@ export class ChannelConnectorController {
    * Trao đổi Authorization Code lấy token và danh sách Fanpage / OA (Chỉ OWNER / ADMIN)
    */
   @Post('oauth/:channel/exchange-token')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   @HttpCode(HttpStatus.OK)
   async exchangeToken(
     @Param('channel') rawChannel: string,
@@ -110,7 +110,7 @@ export class ChannelConnectorController {
    * Kích hoạt danh sách Fanpage vào Workspace & Mã hóa AES-256 Token (Chỉ OWNER / ADMIN)
    */
   @Post('channels/activate')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   @HttpCode(HttpStatus.OK)
   async activateChannels(
     @Body() rawBody: unknown,
@@ -149,7 +149,7 @@ export class ChannelConnectorController {
    * Bật / Tắt hoạt động của kênh (Chỉ OWNER / ADMIN)
    */
   @Patch('channels/:id/toggle')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async toggleChannel(
     @Param('id') id: string,
     @Body('isActive') isActive?: boolean,
@@ -165,7 +165,7 @@ export class ChannelConnectorController {
    * Đồng bộ tin nhắn từ kênh (Zalo OA, Zalo Cá nhân zca-js, Facebook Fanpage) về CRM (Chỉ OWNER / ADMIN)
    */
   @Post('channels/:id/sync')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   @HttpCode(HttpStatus.OK)
   async syncChannel(
     @Param('id') id: string,
@@ -224,7 +224,7 @@ export class ChannelConnectorController {
    * Khởi tạo phiên quét mã QR Đăng nhập Zalo Cá nhân (zca-js Engine)
    */
   @Post('channels/zalo-personal/qr-init')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   @HttpCode(HttpStatus.OK)
   async initZaloPersonalQr() {
     return this.getZcaService().createQrSession();
@@ -235,7 +235,7 @@ export class ChannelConnectorController {
    * Kiểm tra trạng thái phiên quét mã QR
    */
   @Get('channels/zalo-personal/qr-status')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async getZaloPersonalQrStatus(@Query('sessionId') sessionId: string) {
     if (!sessionId) {
       throw new BadRequestException('sessionId is required');
@@ -248,7 +248,7 @@ export class ChannelConnectorController {
    * Xác nhận / Mô phỏng đăng nhập thành công sau khi quét mã
    */
   @Post('channels/zalo-personal/qr-confirm')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   @HttpCode(HttpStatus.OK)
   async confirmZaloPersonalQr(
     @Body()
@@ -271,7 +271,7 @@ export class ChannelConnectorController {
    * Lấy cấu hình giới hạn tần suất & an toàn chống khóa nick
    */
   @Get('channels/zalo-personal/safety-config')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   getSafetyConfig() {
     return this.getZcaService().getSafetyConfig();
   }
@@ -281,7 +281,7 @@ export class ChannelConnectorController {
    * Cập nhật cấu hình bảo vệ tần suất
    */
   @Patch('channels/zalo-personal/safety-config')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   updateSafetyConfig(@Body() body: Record<string, unknown>) {
     return this.getZcaService().updateSafetyConfig(body as any);
   }
@@ -291,7 +291,7 @@ export class ChannelConnectorController {
    * Ngắt kết nối kênh (Chỉ OWNER / ADMIN)
    */
   @Delete('channels/:id')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async disconnectChannel(
     @Param('id') id: string,
     @Headers('x-workspace-id') headerWorkspaceId?: string,

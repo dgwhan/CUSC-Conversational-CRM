@@ -88,6 +88,7 @@ export const ActivatePageItemSchema = z.object({
   refreshToken: z.string().optional(),
   tokenExpiresAt: z.string().datetime().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  id: z.string().optional(),
 });
 export type ActivatePageItem = z.infer<typeof ActivatePageItemSchema>;
 

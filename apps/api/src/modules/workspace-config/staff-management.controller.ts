@@ -24,7 +24,7 @@ export class StaffManagementController {
    * Lấy danh sách nhân viên thuộc Owner quản lý
    */
   @Get()
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async getStaffList(
     @Headers('x-owner-id') ownerId?: string,
     @Headers('x-staff-id') staffId?: string,
@@ -36,7 +36,7 @@ export class StaffManagementController {
    * Tạo nhân viên mới dưới quyền Owner (hoặc mời nhân viên đã có tài khoản vào Workspace)
    */
   @Post()
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async createStaff(
     @Body() dto: CreateStaffDto,
     @Headers('x-owner-id') ownerId?: string,
@@ -50,7 +50,7 @@ export class StaffManagementController {
    * Cập nhật thông tin nhân viên
    */
   @Put(':id')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async updateStaff(
     @Param('id') targetStaffId: string,
     @Body() dto: UpdateStaffDto,
@@ -64,7 +64,7 @@ export class StaffManagementController {
    * Khóa / Mở khóa tài khoản nhân viên
    */
   @Patch(':id/lock')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async toggleLock(
     @Param('id') targetStaffId: string,
     @Body() body: { lock: boolean },
@@ -78,7 +78,7 @@ export class StaffManagementController {
    * Xóa nhân viên khỏi hệ thống của Owner
    */
   @Delete(':id')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('OWNER')
   async deleteStaff(
     @Param('id') targetStaffId: string,
     @Headers('x-owner-id') ownerId?: string,

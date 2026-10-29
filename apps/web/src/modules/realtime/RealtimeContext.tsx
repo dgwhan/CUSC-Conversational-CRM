@@ -72,16 +72,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
   const [myPresence, setMyPresence] = useState<StaffPresenceStatus>('ONLINE');
   const [soundActive, setSoundActiveState] = useState<boolean>(isSoundEnabled());
-  const [unreadCount, setUnreadCount] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('crm_inbox_conversations_v1');
-      if (saved) {
-        const convs = JSON.parse(saved);
-        return Array.isArray(convs) ? convs.reduce((acc: number, c: any) => acc + (c.unreadCount || 0), 0) : 0;
-      }
-    } catch {}
-    return 0;
-  });
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const messageListenersRef = useRef<Set<(msg: InboundMessageEventData) => void>>(new Set());
   const pipelineListenersRef = useRef<Set<(evt: PipelineChangeEventData) => void>>(new Set());

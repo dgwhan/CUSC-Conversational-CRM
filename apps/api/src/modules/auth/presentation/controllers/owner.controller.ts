@@ -15,7 +15,7 @@ import {
 import { AuditAction } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../../../platform/database/prisma.service.js';
-import { StaffRoleSchema, type StaffRole } from '../../../../contracts/iam.js';
+import { StaffRoleSchema } from '../../../../contracts/iam.js';
 import { AuditService } from '../../../audit/audit.service.js';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe.js';
 import { Roles } from '../decorators/roles.decorator.js';

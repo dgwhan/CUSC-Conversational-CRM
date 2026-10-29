@@ -19,3 +19,8 @@ export const loginRequestSchema = z
   );
 
 export type LoginRequestDto = z.infer<typeof loginRequestSchema>;
+
+export type LoginRequestContext = {
+    ip: string;
+    userAgent?: string;
+};

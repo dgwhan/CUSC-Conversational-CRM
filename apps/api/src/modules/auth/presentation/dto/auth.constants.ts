@@ -5,7 +5,7 @@ export const AUTH_VALIDATION = {
   MAX_FULLNAME_LENGTH: 100,
   EMAIL_REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   PHONE_REGEX: /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/,
-  DEFAULT_ROLE: 'STAFF' as const,
+  DEFAULT_ROLE: 'OWNER' as const,
   MESSAGES: {
     EMAIL_REQUIRED: 'Vui lòng nhập email.',
     EMAIL_INVALID: 'Email không đúng định dạng.',
@@ -23,3 +23,9 @@ export const AUTH_VALIDATION = {
     PHONE_EXISTS: 'Số điện thoại đã được đăng ký trong hệ thống.',
   },
 } as const;
+
+export const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+export const LOGIN_LOCK_DURATION_MS = 15 * 60 * 1000;
+export const MAX_SERIALIZATION_RETRIES = 3;
+export const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+export const SECONDS_PER_DAY = 24 * 60 * 60;

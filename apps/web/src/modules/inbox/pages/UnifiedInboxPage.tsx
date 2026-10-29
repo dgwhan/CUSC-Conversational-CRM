@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type {
   ConversationItem,
   LeadStatus,
@@ -8,7 +8,7 @@ import type {
   ChatMessage,
   QuickReplyItem,
 } from '../types.js';
-import { INITIAL_CONVERSATIONS, MOCK_QUICK_REPLIES } from '../mockData.js';
+import { MOCK_QUICK_REPLIES } from '../mockData.js';
 import { ConversationListColumn } from '../components/ConversationListColumn.js';
 import { ChatWindowColumn } from '../components/ChatWindowColumn.js';
 import { CustomerProfileColumn } from '../components/CustomerProfileColumn.js';
@@ -34,7 +34,7 @@ export const formatMessageTime = (timeStr?: string): string => {
       if (!isNaN(d.getTime())) {
         return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       }
-    } catch {}
+    } catch { }
   }
   return timeStr;
 };
@@ -225,8 +225,8 @@ export const mergeDuplicateConversations = (conversations: ConversationItem[]): 
       const finalFullName = isRealName(target.customer.fullName)
         ? target.customer.fullName
         : isRealName(conv.customer.fullName)
-        ? conv.customer.fullName
-        : target.customer.fullName;
+          ? conv.customer.fullName
+          : target.customer.fullName;
 
       const latestMsg = combinedMessages[combinedMessages.length - 1];
 
@@ -260,8 +260,13 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   initialConversationId,
 }) => {
   const { onNewMessage, onPipelineChange, staffPresences, setUnreadCount } = useRealtime();
-  const { staffName } = useUserRole();
-  const { config } = useWorkspaceConfig();
+  const { staffName, staffId, ownerId, isOwner } = useUserRole();
+  const { config, activeWorkspaceId } = useWorkspaceConfig();
+
+  const effectiveOwnerId = ownerId || (isOwner ? staffId : '');
+  const storageKey = activeWorkspaceId
+    ? `crm_inbox_conversations_${activeWorkspaceId}`
+    : (effectiveOwnerId ? `crm_inbox_conversations_${effectiveOwnerId}` : 'crm_inbox_conversations_v1');
 
   // Quản lý mẫu câu trả lời nhanh (Quick Replies) với persistence trong LocalStorage
   const [quickReplies, setQuickReplies] = useState<QuickReplyItem[]>(() => {
@@ -271,7 +276,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch {}
+    } catch { }
     return MOCK_QUICK_REPLIES;
   });
   const [isQuickReplyModalOpen, setIsQuickReplyModalOpen] = useState(false);
@@ -280,20 +285,19 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     setQuickReplies(replies);
     try {
       localStorage.setItem('polarisx_crm_quick_replies_v1', JSON.stringify(replies));
-    } catch {}
+    } catch { }
   };
 
   const [conversations, setConversations] = useState<ConversationItem[]>(() => {
     try {
-      const saved = localStorage.getItem('crm_inbox_conversations_v1');
+      const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           const isSelfName = (n?: string) => {
             const lower = n?.trim()?.toLowerCase() || '';
             return lower === 'ngnphú cường' || lower === 'ngnph cuong' || lower === 'ngnphú cuong' || lower === 'ngnph cường';
           };
-          // Loại bỏ cuộc hội thoại tự sinh của chính tư vấn viên và làm sạch dữ liệu
           const cleaned = parsed
             .filter((c: ConversationItem) => !isSelfName(c.customer?.fullName))
             .map((c: ConversationItem) => {
@@ -308,31 +312,49 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
               }
               return c;
             });
-          // Tự động gộp các cuộc hội thoại trùng lặp của cùng một khách hàng
           return mergeDuplicateConversations(cleaned);
         }
       }
-    } catch {}
-    return INITIAL_CONVERSATIONS;
+    } catch { }
+    return [];
   });
-  const [selectedId, setSelectedId] = useState<string | null>(() => {
-    if (initialConversationId) return initialConversationId;
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      return null;
-    }
-    return INITIAL_CONVERSATIONS[0]?.id || null;
-  });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isProfileMobileOpen, setIsProfileMobileOpen] = useState(false);
   const [isSyncingFb, setIsSyncingFb] = useState(false);
 
+  // Khi chuyển đổi Workspace hoặc tài khoản, tự động nạp danh sách hội thoại của Workspace đó
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setConversations(mergeDuplicateConversations(parsed));
+          setSelectedId(initialConversationId || parsed[0]?.id || null);
+          return;
+        }
+      }
+    } catch { }
+    setConversations([]);
+    setSelectedId(null);
+  }, [storageKey, initialConversationId]);
+
   // Tải các tin nhắn đã lưu trong CSDL khi vào trang Inbox & ánh xạ khớp với dữ liệu khách hàng
-  const loadSavedMessages = async () => {
+  const loadSavedMessages = useCallback(async () => {
     try {
       const [messagesRes, customersRes] = await Promise.all([
-        apiClient.getMessages({ limit: 100 }),
-        apiClient.getCustomers().catch(() => null),
+        apiClient.getMessages({ limit: 100, workspaceId: activeWorkspaceId || undefined }),
+        apiClient.getCustomers({ workspaceId: activeWorkspaceId || undefined }).catch(() => null),
       ]);
-      if (!messagesRes?.items || messagesRes.items.length === 0) return;
+      if (!messagesRes?.items || messagesRes.items.length === 0) {
+        // Workspace này chưa có tin nhắn nào trong DB -> Xóa sạch danh sách hiển thị
+        setConversations([]);
+        setSelectedId(null);
+        try {
+          localStorage.removeItem(storageKey);
+        } catch { }
+        return;
+      }
 
       // Xây dựng bản đồ khách hàng từ cơ sở dữ liệu để gán chuẩn tên thật & avatar thật (đồng bộ với Kanban)
       const customerMap = new Map<string, any>();
@@ -495,31 +517,31 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
               lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toISOString() : new Date().toISOString(),
               customer: shouldUpdateCustomer
                 ? {
-                    ...existing.customer,
-                    contactId: matchedCust?.contact?.id || existing.customer.contactId,
-                    channelIdentities: identitiesList.length ? identitiesList : existing.customer.channelIdentities,
-                    fullName: rawCustomerName,
-                    avatarUrl: rawCustomerAvatar,
-                    phone: matchedCust?.phone || existing.customer.phone,
-                    email: matchedCust?.email || existing.customer.email,
-                    leadStatus: (matchedCust?.leadStatus as any) || existing.customer.leadStatus,
-                    leadStage: matchedCust?.leadStage || existing.customer.leadStage,
-                    interestCourses: existing.customer.interestCourses?.length
-                      ? existing.customer.interestCourses
-                      : (matchedCust?.interestCourses || []),
-                    estimatedValue: existing.customer.estimatedValue || matchedCust?.estimatedValue || 0,
-                  }
+                  ...existing.customer,
+                  contactId: matchedCust?.contact?.id || existing.customer.contactId,
+                  channelIdentities: identitiesList.length ? identitiesList : existing.customer.channelIdentities,
+                  fullName: rawCustomerName,
+                  avatarUrl: rawCustomerAvatar,
+                  phone: matchedCust?.phone || existing.customer.phone,
+                  email: matchedCust?.email || existing.customer.email,
+                  leadStatus: (matchedCust?.leadStatus as any) || existing.customer.leadStatus,
+                  leadStage: matchedCust?.leadStage || existing.customer.leadStage,
+                  interestCourses: existing.customer.interestCourses?.length
+                    ? existing.customer.interestCourses
+                    : (matchedCust?.interestCourses || []),
+                  estimatedValue: existing.customer.estimatedValue || matchedCust?.estimatedValue || 0,
+                }
                 : {
-                    ...existing.customer,
-                    contactId: matchedCust?.contact?.id || existing.customer.contactId,
-                    channelIdentities: identitiesList.length ? identitiesList : existing.customer.channelIdentities,
-                    leadStatus: (matchedCust?.leadStatus as any) || existing.customer.leadStatus,
-                    leadStage: matchedCust?.leadStage || existing.customer.leadStage,
-                    interestCourses: existing.customer.interestCourses?.length
-                      ? existing.customer.interestCourses
-                      : (matchedCust?.interestCourses || []),
-                    estimatedValue: existing.customer.estimatedValue || matchedCust?.estimatedValue || 0,
-                  },
+                  ...existing.customer,
+                  contactId: matchedCust?.contact?.id || existing.customer.contactId,
+                  channelIdentities: identitiesList.length ? identitiesList : existing.customer.channelIdentities,
+                  leadStatus: (matchedCust?.leadStatus as any) || existing.customer.leadStatus,
+                  leadStage: matchedCust?.leadStage || existing.customer.leadStage,
+                  interestCourses: existing.customer.interestCourses?.length
+                    ? existing.customer.interestCourses
+                    : (matchedCust?.interestCourses || []),
+                  estimatedValue: existing.customer.estimatedValue || matchedCust?.estimatedValue || 0,
+                },
               messages: deduplicateMessages([...existing.messages, ...formattedMessages]),
             };
           } else {
@@ -541,8 +563,8 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                 Array.isArray((latest as any).tags) && (latest as any).tags.length > 0
                   ? (latest as any).tags
                   : Array.isArray((latest as any).rawPayload?.tags) && (latest as any).rawPayload.tags.length > 0
-                  ? (latest as any).rawPayload.tags
-                  : ['Facebook Lead'],
+                    ? (latest as any).rawPayload.tags
+                    : ['Facebook Lead'],
               status: 'OPEN',
               customer: {
                 id: matchedCust?.id || convCustomer?.id || (latestSenderId !== 'anonymous' && latestSenderId !== 'khách' ? `cust-${latestSenderId}` : `cust-${convId}`),
@@ -561,8 +583,8 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                   Array.isArray((latest as any).tags) && (latest as any).tags.length > 0
                     ? (latest as any).tags
                     : Array.isArray((latest as any).rawPayload?.tags) && (latest as any).rawPayload.tags.length > 0
-                    ? (latest as any).rawPayload.tags
-                    : ['Facebook Lead'],
+                      ? (latest as any).rawPayload.tags
+                      : ['Facebook Lead'],
                 interestCourses: matchedCust?.interestCourses || [],
                 estimatedValue: matchedCust?.estimatedValue || 0,
                 notes: [],
@@ -577,11 +599,11 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     } catch {
       // Backend có thể chưa khởi động hoặc chưa có tin nhắn
     }
-  };
+  }, [activeWorkspaceId, storageKey]);
 
   useEffect(() => {
     loadSavedMessages();
-  }, []);
+  }, [loadSavedMessages, activeWorkspaceId]);
 
   // Kéo các cuộc trò chuyện và tin nhắn mới nhất từ Meta Graph API của các Fanpage đã kết nối
   const handleSyncFacebook = async () => {
@@ -865,12 +887,16 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     return () => window.removeEventListener('crm:lead-updated', handleLeadUpdated);
   }, []);
 
-  // Lưu danh sách hội thoại vào LocalStorage để không bị mất khi chuyển tab
+  // Lưu danh sách hội thoại vào LocalStorage theo từng Workspace để không bị lẫn giữa các tài khoản
   useEffect(() => {
     try {
-      localStorage.setItem('crm_inbox_conversations_v1', JSON.stringify(conversations));
-    } catch {}
-  }, [conversations]);
+      if (conversations.length > 0) {
+        localStorage.setItem(storageKey, JSON.stringify(conversations));
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+    } catch { }
+  }, [conversations, storageKey]);
 
   // Đồng bộ số lượng tin nhắn chưa đọc tổng thể với RealtimeContext (dùng cho chấm đỏ Sidebar & Navbar)
   const totalUnread = conversations.reduce((acc, curr) => acc + (curr.unreadCount || 0), 0);
@@ -1032,7 +1058,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
         }
       }
-    } catch {}
+    } catch { }
 
     // Lưu vào Backend Database Customer qua API
     if (currentConv.customer.id) {
@@ -1137,7 +1163,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
         }
       }
-    } catch {}
+    } catch { }
 
     // Lưu vào Backend Database Customer qua API
     if (currentConv.customer.id) {
@@ -1286,14 +1312,14 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
         }
       }
-    } catch {}
+    } catch { }
 
     // Lưu vào Backend Database Customer qua API
     if (currentConv.customer.id) {
       apiClient.updateCustomer(currentConv.customer.id, {
         interestCourses: courses,
         estimatedValue,
-      }).catch(() => {});
+      }).catch(() => { });
     }
   };
 
@@ -1339,7 +1365,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
         }
       }
-    } catch {}
+    } catch { }
 
     if (currentConv.customer.id) {
       apiClient.updateCustomer(currentConv.customer.id, {

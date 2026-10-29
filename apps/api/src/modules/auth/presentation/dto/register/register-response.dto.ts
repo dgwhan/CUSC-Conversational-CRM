@@ -11,3 +11,10 @@ export type RegisterResponseDto = {
         ownerId?: string | null;
     };
 };
+
+export type AuthRegisterResult = {
+    response: RegisterResponseDto;
+    refreshToken: string;
+    refreshTokenMaxAgeSeconds: number;
+};
+
