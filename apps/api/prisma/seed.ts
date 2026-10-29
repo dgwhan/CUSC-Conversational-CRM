@@ -17,14 +17,14 @@ const pool = new pg.Pool({ connectionString });
 
 const accounts = [
   {
-    email: 'owner@cusc.com',
-    password: 'ownerCusc123!',
+    email: 'owner@polarisx.com',
+    password: 'ownerPolarisX123!',
     role: 'OWNER',
     fullName: 'Owner PolarisX',
   },
   {
-    email: 'staff@cusc.com',
-    password: 'staffCusc123!',
+    email: 'staff@polarisx.com',
+    password: 'staffPolarisX123!',
     role: 'STAFF',
     fullName: 'Staff PolarisX',
   },
@@ -62,12 +62,12 @@ try {
   }
 
   //Lấy owner user để làm owner cho Default Workspace
-  const ownerRes = await client.query(`SELECT id FROM staff WHERE email = 'owner@cusc.com' LIMIT 1`);
+  const ownerRes = await client.query(`SELECT id FROM staff WHERE email = 'owner@polarisx.com' LIMIT 1`);
   const ownerId = ownerRes.rows[0]?.id;
 
   if (ownerId) {
     // Cập nhật owner_id cho tài khoản staff demo
-    await client.query(`UPDATE staff SET owner_id = $1 WHERE email = 'staff@cusc.com'`, [ownerId]);
+    await client.query(`UPDATE staff SET owner_id = $1 WHERE email = 'staff@polarisx.com'`, [ownerId]);
 
     const workspaceId = randomUUID();
     await client.query(
@@ -85,7 +85,7 @@ try {
 
     if (actualWsId) {
       // Gán các staff vào workspace_members
-      const staffRows = await client.query(`SELECT id, email, role FROM staff WHERE email IN ('owner@cusc.com', 'staff@cusc.com')`);
+      const staffRows = await client.query(`SELECT id, email, role FROM staff WHERE email IN ('owner@polarisx.com', 'staff@polarisx.com')`);
       for (const row of staffRows.rows) {
         const memberRole = row.role === 'OWNER' ? 'OWNER' : 'STAFF';
         await client.query(
@@ -113,7 +113,7 @@ try {
   }
 
   await client.query('COMMIT');
-  console.log('Seeded 2 demo staff accounts (OWNER & STAFF) and Default Workspace: CUSC');
+  console.log('Seeded 2 demo staff accounts (OWNER & STAFF) and Default Workspace: PolarisX');
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;
