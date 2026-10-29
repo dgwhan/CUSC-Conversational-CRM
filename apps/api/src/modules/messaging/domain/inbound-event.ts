@@ -10,4 +10,7 @@ export interface InboundEvent {
     readonly content: string | null;
     readonly sentAt: Date;
     readonly rawPayload: unknown;
+    readonly conversationId?: string | null;
+    readonly attachments?: unknown;
+    readonly processedAt?: Date | null;
 }

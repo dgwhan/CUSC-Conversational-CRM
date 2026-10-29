@@ -25,6 +25,95 @@ interface UnifiedInboxPageProps {
   initialConversationId?: string | null;
 }
 
+// Hàm tiện ích chuẩn hóa hiển thị thời gian
+export const formatMessageTime = (timeStr?: string): string => {
+  if (!timeStr || timeStr === 'Vừa xong') return 'Vừa xong';
+  if (timeStr.includes('T') || (!timeStr.includes(':') && !isNaN(Date.parse(timeStr)))) {
+    try {
+      const d = new Date(timeStr);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+    } catch {}
+  }
+  return timeStr;
+};
+
+// Hàm tiện ích khử trùng lặp danh sách tin nhắn một cách triệt để
+export const deduplicateMessages = (messages: ChatMessage[]): ChatMessage[] => {
+  const result: ChatMessage[] = [];
+
+  for (const msg of messages) {
+    // 1. Khớp ID chính xác (khác tiền tố tạm thời)
+    const isTempId = (id?: string) => !id || id.startsWith('temp-') || id.startsWith('msg-');
+    const existingByIdIdx = result.findIndex(
+      (m) => !isTempId(m.id) && !isTempId(msg.id) && m.id === msg.id
+    );
+    if (existingByIdIdx >= 0) {
+      if (msg.status === 'DELIVERED' || msg.status === 'SEEN') {
+        result[existingByIdIdx] = { ...result[existingByIdIdx], status: msg.status };
+      }
+      continue;
+    }
+
+    // 2. Kiểm tra trùng lặp tin OUTBOUND (tin gửi đi từ nhân viên hoặc từ Fanpage Echo)
+    if (msg.direction === 'OUTBOUND') {
+      const matchingOutboundIdx = result.findIndex((m) => {
+        if (m.direction !== 'OUTBOUND') return false;
+        const contentA = (m.content || '').trim();
+        const contentB = (msg.content || '').trim();
+        if (contentA !== contentB) return false;
+
+        const isMTemp = isTempId(m.id) || m.sentAt === 'Vừa xong';
+        const isMsgTemp = isTempId(msg.id) || msg.sentAt === 'Vừa xong';
+
+        // Nếu một trong 2 là tin tạm hoặc cả 2 là tin OUTBOUND cùng nội dung: đều coi là cùng một tin
+        if (isMTemp || isMsgTemp) return true;
+        return true;
+      });
+
+      if (matchingOutboundIdx >= 0) {
+        const existing = result[matchingOutboundIdx];
+        const isExistingTemp = isTempId(existing.id) || existing.sentAt === 'Vừa xong';
+        const isMsgReal = !isTempId(msg.id) && msg.sentAt !== 'Vừa xong';
+
+        // Nếu tin cũ trong danh sách là tin tạm còn tin mới là tin chính thức có ID/thời gian thực: thay thế tin tạm
+        if (isExistingTemp && isMsgReal) {
+          result[matchingOutboundIdx] = {
+            ...existing,
+            id: msg.id,
+            sentAt: msg.sentAt,
+            status: msg.status || 'DELIVERED',
+            attachments: msg.attachments || existing.attachments,
+          };
+        } else if (msg.status === 'DELIVERED' && existing.status === 'SENT') {
+          result[matchingOutboundIdx] = { ...existing, status: 'DELIVERED' };
+        }
+        continue;
+      }
+    }
+
+    // 3. Kiểm tra trùng lặp tin INBOUND (tin từ khách gửi đến)
+    if (msg.direction === 'INBOUND') {
+      const isDuplicateInbound = result.some(
+        (m) =>
+          m.direction === 'INBOUND' &&
+          (m.content || '').trim() === (msg.content || '').trim() &&
+          (!isTempId(m.id) && !isTempId(msg.id)
+            ? m.id === msg.id
+            : formatMessageTime(m.sentAt) === formatMessageTime(msg.sentAt))
+      );
+      if (isDuplicateInbound) {
+        continue;
+      }
+    }
+
+    result.push({ ...msg });
+  }
+
+  return result;
+};
+
 // Hàm tiện ích hợp nhất các cuộc hội thoại trùng lặp của cùng một khách hàng
 export const mergeDuplicateConversations = (conversations: ConversationItem[]): ConversationItem[] => {
   const isRealName = (name?: string) =>
@@ -100,20 +189,12 @@ export const mergeDuplicateConversations = (conversations: ConversationItem[]): 
     });
 
     if (existingIdx === -1) {
-      merged.push({ ...conv });
+      merged.push({ ...conv, messages: deduplicateMessages(conv.messages) });
     } else {
       const target = merged[existingIdx];
 
       // Gộp và khử trùng lặp toàn bộ tin nhắn, sắp xếp theo thời gian
-      const seenMsgIds = new Set<string>();
-      const combinedMessages: ChatMessage[] = [];
-      for (const msg of [...target.messages, ...conv.messages]) {
-        const msgKey = msg.id || `${msg.direction}_${msg.content}_${msg.sentAt}`;
-        if (!seenMsgIds.has(msgKey)) {
-          seenMsgIds.add(msgKey);
-          combinedMessages.push(msg);
-        }
-      }
+      const combinedMessages = deduplicateMessages([...target.messages, ...conv.messages]);
 
       // Gộp các nhãn phân loại (tags), ưu tiên giữ nhãn cụ thể như 'Facebook Lead', 'lead'
       const allTags = Array.from(new Set([...(target.tags || []), ...(conv.tags || [])]));
@@ -208,19 +289,25 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          // Làm sạch dữ liệu rác nếu trước đó bị lưu tên "#hách" vào cache trình duyệt
-          const cleaned = parsed.map((c: ConversationItem) => {
-            if (c.customer?.fullName?.includes('#hách')) {
-              return {
-                ...c,
-                customer: {
-                  ...c.customer,
-                  fullName: 'Khách hàng Facebook',
-                },
-              };
-            }
-            return c;
-          });
+          const isSelfName = (n?: string) => {
+            const lower = n?.trim()?.toLowerCase() || '';
+            return lower === 'ngnphú cường' || lower === 'ngnph cuong' || lower === 'ngnphú cuong' || lower === 'ngnph cường';
+          };
+          // Loại bỏ cuộc hội thoại tự sinh của chính tư vấn viên và làm sạch dữ liệu
+          const cleaned = parsed
+            .filter((c: ConversationItem) => !isSelfName(c.customer?.fullName))
+            .map((c: ConversationItem) => {
+              if (c.customer?.fullName?.includes('#hách')) {
+                return {
+                  ...c,
+                  customer: {
+                    ...c.customer,
+                    fullName: 'Khách hàng Facebook',
+                  },
+                };
+              }
+              return c;
+            });
           // Tự động gộp các cuộc hội thoại trùng lặp của cùng một khách hàng
           return mergeDuplicateConversations(cleaned);
         }
@@ -254,7 +341,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           if (cust.id) customerMap.set(cust.id, cust);
           const fbId = cust.channelIdentities?.facebook || cust.channelIdentities?.socialId;
           if (fbId) customerMap.set(String(fbId), cust);
-          const zaloId = cust.channelIdentities?.zalo;
+          const zaloId = cust.channelIdentities?.zalo?.id || cust.channelIdentities?.zalo;
           if (zaloId) customerMap.set(String(zaloId), cust);
           if (cust.fullName) customerMap.set(cust.fullName, cust);
           if (cust.phone) customerMap.set(cust.phone, cust);
@@ -265,20 +352,33 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
       for (const item of messagesRes.items) {
         const raw = (item as any).rawPayload || {};
         const isOut = item.direction === 'OUTBOUND';
-        // Đối với tin OUTBOUND, người đối thoại là recipient chứ không phải Page
-        const recipientId = raw.recipient?.id || raw.to?.data?.[0]?.id || raw.to?.id;
-        const senderId = String(
+        const channelAccountExtId = item.channelAccount?.externalAccountId;
+        // Đối với tin OUTBOUND, người đối thoại là recipient chứ không phải Page/Tư vấn viên
+        const recipientId = raw.recipient?.id || raw.to?.data?.[0]?.id || raw.to?.id || raw.idTo;
+        let senderId = String(
           (isOut && recipientId) ||
+          (raw.uidFrom && raw.uidFrom !== channelAccountExtId ? raw.uidFrom : '') ||
           item.senderExternalId ||
           raw.senderExternalId ||
           raw.sender?.id ||
           raw.from?.id ||
+          (item as any).conversation?.customer?.channelIdentities?.zalo?.id ||
+          (item as any).conversation?.customer?.channelIdentities?.zalo ||
           (item as any).conversation?.customer?.channelIdentities?.facebook ||
           (item as any).conversation?.customerId ||
           'anonymous'
         );
 
-        const channelAccountExtId = item.channelAccount?.externalAccountId;
+        // Đảm bảo không gom nhóm theo chính tài khoản của tư vấn viên
+        if (channelAccountExtId && senderId === channelAccountExtId) {
+          if (recipientId && String(recipientId) !== channelAccountExtId) {
+            senderId = String(recipientId);
+          } else {
+            // Tin nhắn tự gửi cho chính mình, bỏ qua
+            continue;
+          }
+        }
+
         const convId = item.channel === 'FACEBOOK' && channelAccountExtId
           ? `FACEBOOK_${channelAccountExtId}_${senderId}`
           : `${item.channel}_${senderId}`;
@@ -297,13 +397,25 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           const firstInbound = sorted.find((m) => m.direction === 'INBOUND') || latest;
           const channelName = latest.channelAccount?.displayName || `Kênh ${latest.channel}`;
 
-          const latestSenderId = String(
+          const isLatestOut = latest.direction === 'OUTBOUND';
+          const myExtId = latest.channelAccount?.externalAccountId;
+          const outRecipient =
+            (latest as any).rawPayload?.recipient?.id ||
+            (latest as any).rawPayload?.to?.id ||
+            (latest as any).rawPayload?.idTo;
+
+          let latestSenderId = String(
+            (isLatestOut && outRecipient) ||
+            firstInbound?.senderExternalId ||
+            (firstInbound as any)?.rawPayload?.uidFrom ||
+            (firstInbound as any)?.rawPayload?.senderExternalId ||
             latest.senderExternalId ||
-            (latest as any).rawPayload?.senderExternalId ||
-            (latest as any).rawPayload?.sender?.id ||
-            (latest as any).rawPayload?.from?.id ||
             'khách'
           );
+          if (myExtId && latestSenderId === myExtId && outRecipient && outRecipient !== myExtId) {
+            latestSenderId = String(outRecipient);
+          }
+
           const latestSuffix = latestSenderId.length > 4 ? latestSenderId.slice(-4) : latestSenderId;
           const convCustomer = (latest as any).conversation?.customer;
           const matchedCust =
@@ -312,16 +424,21 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
             customerMap.get(latestSenderId) ||
             (convCustomer?.fullName ? customerMap.get(convCustomer.fullName) : null);
 
+          // Không lấy tên của tư vấn viên làm tên của khách hàng
+          const candidateName = (latest as any).customerName || (latest as any).rawPayload?.customerName;
+          const isCounselorName =
+            candidateName &&
+            (candidateName.toLowerCase().includes('cường') ||
+              candidateName.toLowerCase() === latest.channelAccount?.displayName?.toLowerCase());
+
           const rawCustomerName =
             matchedCust?.fullName ||
-            (latest as any).customerName ||
-            (latest as any).rawPayload?.customerName ||
+            (!isCounselorName && candidateName) ||
             `Khách hàng ${latest.channel === 'ZALO' ? 'Zalo' : latest.channel === 'FACEBOOK' ? 'Facebook' : latest.channel} #${latestSuffix}`;
 
           const rawCustomerAvatar =
             matchedCust?.avatarUrl ||
-            (latest as any).customerAvatar ||
-            (latest as any).rawPayload?.customerAvatar ||
+            (!isCounselorName && ((latest as any).customerAvatar || (latest as any).rawPayload?.customerAvatar)) ||
             `https://ui-avatars.com/api/?name=${encodeURIComponent(rawCustomerName)}&background=0284c7&color=fff&bold=true`;
 
           const formattedMessages: ChatMessage[] = sorted.map((m) => {
@@ -333,7 +450,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
               conversationId: convId,
               direction: m.direction,
               content: m.content || '',
-              sentAt: m.sentAt ? new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
+              sentAt: m.sentAt ? new Date(m.sentAt).toISOString() : new Date().toISOString(),
               senderName: m.direction === 'OUTBOUND' ? channelName : (itemCustomerName || `Khách (${suffix})`),
               status: 'DELIVERED',
             };
@@ -361,8 +478,6 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
 
           if (existingIndex >= 0) {
             const existing = updated[existingIndex];
-            const existingIds = new Set(existing.messages.map((m) => m.id));
-            const newMsgs = formattedMessages.filter((m) => !existingIds.has(m.id));
 
             const shouldUpdateCustomer =
               (matchedCust || (latest as any).customerName) &&
@@ -377,7 +492,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
             updated[existingIndex] = {
               ...existing,
               snippet: latest.content || existing.snippet,
-              lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
+              lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toISOString() : new Date().toISOString(),
               customer: shouldUpdateCustomer
                 ? {
                     ...existing.customer,
@@ -405,7 +520,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                       : (matchedCust?.interestCourses || []),
                     estimatedValue: existing.customer.estimatedValue || matchedCust?.estimatedValue || 0,
                   },
-              messages: newMsgs.length > 0 ? [...existing.messages, ...newMsgs] : existing.messages,
+              messages: deduplicateMessages([...existing.messages, ...formattedMessages]),
             };
           } else {
             const identitiesList =
@@ -419,7 +534,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
               channel: latest.channel as any,
               channelAccountName: channelName,
               snippet: latest.content || 'Tin nhắn mới',
-              lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong',
+              lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toISOString() : new Date().toISOString(),
               lastCustomerMessageAt: firstInbound.sentAt,
               unreadCount: 0,
               tags:
@@ -574,12 +689,15 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         });
 
         const matchedConvId = existingIdx >= 0 ? prev[existingIdx].id : targetId;
-        const newChatMsg = {
+        const sentAtIso = msg.sentAt && !isNaN(Date.parse(msg.sentAt))
+          ? new Date(msg.sentAt).toISOString()
+          : new Date().toISOString();
+        const newChatMsg: ChatMessage = {
           id: msg.id || `msg-${Date.now()}`,
           conversationId: matchedConvId,
           direction: msg.direction || ('INBOUND' as const),
           content: msg.content,
-          sentAt: msg.sentAt || 'Vừa xong',
+          sentAt: sentAtIso,
           senderName: msg.senderName,
           senderAvatar: msg.senderAvatar,
           status: 'DELIVERED' as const,
@@ -589,12 +707,15 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           const existing = prev[existingIdx];
           const isCurrentlyOpen = existing.id === selectedId;
 
+          const updatedMessages = deduplicateMessages([...existing.messages, newChatMsg]);
+          const latestMsg = updatedMessages[updatedMessages.length - 1];
+
           const updatedTarget: ConversationItem = {
             ...existing,
-            snippet: msg.content,
-            lastMessageAt: 'Vừa xong',
-            lastCustomerMessageAt: new Date().toISOString(),
-            unreadCount: isCurrentlyOpen ? 0 : (existing.unreadCount || 0) + 1,
+            snippet: latestMsg?.content || msg.content,
+            lastMessageAt: latestMsg?.sentAt || sentAtIso,
+            lastCustomerMessageAt: msg.direction === 'INBOUND' ? new Date().toISOString() : existing.lastCustomerMessageAt,
+            unreadCount: isCurrentlyOpen || msg.direction === 'OUTBOUND' ? 0 : (existing.unreadCount || 0) + 1,
             customer: {
               ...existing.customer,
               avatarUrl:
@@ -602,7 +723,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                   ? msg.senderAvatar
                   : existing.customer.avatarUrl,
             },
-            messages: [...existing.messages, newChatMsg],
+            messages: updatedMessages,
           };
 
           // Đưa hội thoại vừa có tương tác mới lên đầu danh sách
@@ -613,6 +734,21 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         // Tự động tạo cuộc hội thoại mới khi nhận được tin nhắn từ khách hàng mới chưa từng có trong hệ thống
         const isFb = msg.channel === 'FACEBOOK';
         const defaultTags = isFb ? ['Facebook Lead'] : ['Khách hàng mới'];
+
+        const isCounselorName = (n?: string) => {
+          const lower = n?.trim()?.toLowerCase() || '';
+          return (
+            lower.includes('cường') ||
+            lower.includes('(bạn)') ||
+            lower === 'tư vấn viên' ||
+            Boolean(staffName && lower === staffName.toLowerCase())
+          );
+        };
+
+        const resolvedCustomerName =
+          msg.direction === 'OUTBOUND'
+            ? (msg as any).recipientName || (msg as any).customerName || `Khách hàng (${msg.channel})`
+            : (!isCounselorName(msg.senderName) ? msg.senderName : `Khách hàng (${msg.channel})`);
 
         const newConv: ConversationItem = {
           id: targetId,
@@ -626,13 +762,14 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           status: 'OPEN',
           customer: {
             id: `cust-${Date.now()}`,
-            fullName: msg.senderName || `Khách hàng (${msg.channel})`,
+            fullName: resolvedCustomerName,
             phone: msg.customerPhone || 'Chưa có SĐT',
             email: msg.customerEmail || 'Chưa có Email',
             avatarUrl:
-              msg.senderAvatar ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.senderName || 'Lead')}&background=0284c7&color=fff&bold=true`,
-            socialId: msg.id,
+              msg.direction === 'INBOUND' && msg.senderAvatar
+                ? msg.senderAvatar
+                : `https://ui-avatars.com/api/?name=${encodeURIComponent(resolvedCustomerName)}&background=0284c7&color=fff&bold=true`,
+            socialId: (msg as any).senderExternalId || (msg as any).senderId || (msg as any).rawPayload?.uidFrom || (msg as any).rawPayload?.sender?.id || msg.id,
             channel: msg.channel,
             channelAccountName: `Kênh ${msg.channel}`,
             leadStatus: isFb ? 'POTENTIAL' : 'NEW',
@@ -754,13 +891,14 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   const handleSendMessage = async (text: string, attachments?: MessageAttachment[]) => {
     if (!currentConv) return;
 
-    const tempId = `msg-${Date.now()}`;
+    const tempId = `temp-${Date.now()}`;
+    const nowIso = new Date().toISOString();
     const newMsg: ChatMessage = {
       id: tempId,
       conversationId: currentConv.id,
       direction: 'OUTBOUND' as const,
       content: text,
-      sentAt: 'Vừa xong',
+      sentAt: nowIso,
       senderName: staffName ? `${staffName} (Bạn)` : 'Bạn',
       status: 'SENT' as const,
       attachments,
@@ -773,15 +911,17 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         return {
           ...c,
           snippet: text || (attachments ? `[Đính kèm ${attachments.length} tệp]` : ''),
-          lastMessageAt: 'Vừa xong',
-          messages: [...c.messages, newMsg],
+          lastMessageAt: nowIso,
+          messages: deduplicateMessages([...c.messages, newMsg]),
         };
       }),
     );
 
     // Gửi thực tế qua API Outbound của kênh tương ứng (ZALO, FACEBOOK...)
     try {
-      const recipientId = currentConv.customer.socialId || currentConv.customer.id;
+      const identitiesObj = currentConv.customer.channelIdentities as any;
+      const customerZaloId = identitiesObj?.zalo?.id || (typeof identitiesObj?.zalo === 'string' ? identitiesObj.zalo : undefined) || (Array.isArray(identitiesObj) ? identitiesObj.find((id: any) => id.channel === 'ZALO')?.externalUserId : undefined);
+      const recipientId = (currentConv.channel === 'ZALO' && customerZaloId) || (currentConv.customer.socialId && currentConv.customer.socialId !== 'khách' && !currentConv.customer.socialId.startsWith('cust-') ? currentConv.customer.socialId : '') || currentConv.customer.id;
       const res = await apiClient.sendMessage({
         channel: currentConv.channel,
         recipientId,
@@ -789,15 +929,28 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         conversationId: currentConv.id,
       });
 
-      // Cập nhật trạng thái tin nhắn thành DELIVERED
+      // Cập nhật trạng thái tin nhắn thành DELIVERED và đồng bộ messageId
       setConversations((prev) =>
         prev.map((c) => {
           if (c.id !== currentConv.id) return c;
+
+          // Nếu socket hoặc webhook đã push tin chính thức có res.messageId vào rồi, loại bỏ tin tạm tempId
+          const hasRealMsg = Boolean(
+            res.messageId && c.messages.some((m) => m.id === res.messageId && m.id !== tempId)
+          );
+
+          let updatedMessages: ChatMessage[];
+          if (hasRealMsg) {
+            updatedMessages = c.messages.filter((m) => m.id !== tempId);
+          } else {
+            updatedMessages = c.messages.map((m) =>
+              m.id === tempId ? { ...m, id: res.messageId || m.id, status: 'DELIVERED' as const } : m,
+            );
+          }
+
           return {
             ...c,
-            messages: c.messages.map((m) =>
-              m.id === tempId ? { ...m, id: res.messageId || m.id, status: 'DELIVERED' as const } : m,
-            ),
+            messages: deduplicateMessages(updatedMessages),
           };
         }),
       );

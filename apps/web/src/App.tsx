@@ -44,7 +44,18 @@ function CRMMainContent() {
       }
     }
   }, []);
-  const [activeTab, setActiveTab] = useState<ActiveNavTab>('inbox');
+  const getInitialTab = (): ActiveNavTab => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash.replace('#', '') as ActiveNavTab;
+      const validTabs: ActiveNavTab[] = ['reports', 'inbox', 'kanban', 'onboarding', 'import', 'workspace-settings'];
+      if (validTabs.includes(hash)) {
+        return hash;
+      }
+    }
+    return 'reports';
+  };
+
+  const [activeTab, setActiveTab] = useState<ActiveNavTab>(getInitialTab);
   const [activeChatConvId, setActiveChatConvId] = useState<string | null>(null);
   const [simulatedErrorCode, setSimulatedErrorCode] = useState<number | null>(null);
   const [shouldCrash] = useState(false);

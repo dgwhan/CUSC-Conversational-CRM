@@ -264,6 +264,17 @@ export class FacebookAdapter implements ChannelAdapter {
                             content = msg.quick_reply.payload;
                         }
 
+                        // Trích xuất danh sách tệp/ảnh đính kèm (attachments)
+                        let parsedAttachments: Array<{ id: string; type: string; url: string; name?: string }> | null = null;
+                        if (Array.isArray(msg.attachments) && msg.attachments.length > 0) {
+                            parsedAttachments = msg.attachments.map((att, idx) => ({
+                                id: `fb_att_${Date.now()}_${idx}`,
+                                type: String(att.type || 'FILE').toUpperCase(),
+                                url: att.payload?.url || '',
+                                name: (att.payload as any)?.name || (att.payload as any)?.title || `${att.type}_attachment`,
+                            }));
+                        }
+
                         events.push({
                             channel: this.channel,
                             externalAccountId,
@@ -272,6 +283,7 @@ export class FacebookAdapter implements ChannelAdapter {
                             direction,
                             content,
                             sentAt: new Date(Number(messaging.timestamp || Date.now())),
+                            attachments: parsedAttachments,
                             rawPayload: messaging,
                         });
                         continue;

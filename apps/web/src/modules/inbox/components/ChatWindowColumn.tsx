@@ -35,6 +35,56 @@ export interface ChatWindowColumnProps {
   onOpenQuickReplySettings?: () => void;
 }
 
+const formatMessageTime = (timeStr?: string): string => {
+  if (!timeStr || timeStr === 'Vừa xong') return 'Vừa xong';
+  if (timeStr.includes('T') || (!timeStr.includes(':') && !isNaN(Date.parse(timeStr)))) {
+    try {
+      const d = new Date(timeStr);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+    } catch {}
+  }
+  return timeStr;
+};
+
+const getDateDividerLabel = (timeStr?: string): string => {
+  if (!timeStr || timeStr === 'Vừa xong') return 'Hôm nay';
+
+  let date: Date | null = null;
+  if (timeStr.includes('T') || timeStr.includes('-') || timeStr.includes('/')) {
+    const d = new Date(timeStr);
+    if (!isNaN(d.getTime())) {
+      date = d;
+    }
+  }
+
+  if (!date) return 'Hôm nay';
+
+  const now = new Date();
+  const isSameDay = (d1: Date, d2: Date) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
+
+  if (isSameDay(now, date)) {
+    return 'Hôm nay';
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (isSameDay(yesterday, date)) {
+    return 'Hôm qua';
+  }
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${day}/${month}`;
+  }
+  return `${day}/${month}/${date.getFullYear()}`;
+};
+
 export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
   conversation,
   staffList,
@@ -267,14 +317,20 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
 
       {/* 2. Luồng Tin Nhắn (Message Stream) */}
       <div className="chat-messages-stream">
-        <div className="chat-date-divider">
-          <span>{t('common.today')}</span>
-        </div>
-
-        {conversation.messages.map((msg) => {
+        {conversation.messages.map((msg, index) => {
           const isOutbound = msg.direction === 'OUTBOUND';
+          const currentDateLabel = getDateDividerLabel(msg.sentAt);
+          const prevMsg = index > 0 ? conversation.messages[index - 1] : null;
+          const prevDateLabel = prevMsg ? getDateDividerLabel(prevMsg.sentAt) : null;
+          const showDateDivider = index === 0 || currentDateLabel !== prevDateLabel;
 
           return (
+            <React.Fragment key={msg.id}>
+              {showDateDivider && (
+                <div className="chat-date-divider">
+                  <span>{currentDateLabel}</span>
+                </div>
+              )}
             <div
               key={msg.id}
               className={`chat-bubble-row ${isOutbound ? 'outbound' : 'inbound'}`}
@@ -332,7 +388,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
 
                   {/* Thời gian và Trạng thái đã gửi / đã xem */}
                   <div className="bubble-meta-row">
-                    <span className="bubble-time">{msg.sentAt}</span>
+                    <span className="bubble-time">{formatMessageTime(msg.sentAt)}</span>
                     {isOutbound && (
                       <span className="bubble-status-icon">
                         {msg.status === 'SEEN' ? (
@@ -348,6 +404,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
                 </div>
               </div>
             </div>
+          </React.Fragment>
           );
         })}
         <div ref={messagesEndRef} />

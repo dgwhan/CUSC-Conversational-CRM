@@ -148,6 +148,7 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
       avatarUrl: dp.avatarUrl || '',
       category: dp.category || `Kênh ${channel}`,
       accessToken: dp.accessToken,
+      metadata: (dp as any).metadata || {},
     }));
 
     try {

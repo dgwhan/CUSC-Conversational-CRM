@@ -415,25 +415,131 @@ export class ChannelManagerService {
     let rawPayload: Record<string, unknown> = {};
 
     // Áp dụng cơ chế Giới hạn tần suất & Anti-Ban Rate Limiter cho kênh Zalo
+    const isPersonalZalo = Boolean(
+      (account.metadata as any)?.isPersonal ||
+      (account.metadata as any)?.engine === 'zca-js' ||
+      token.trim().startsWith('{') ||
+      token.startsWith('zca_') ||
+      account.externalAccountId.startsWith('zca_'),
+    );
+
+    // Tự động cập nhật metadata nếu tài khoản cá nhân trước đó bị thiếu cờ isPersonal
+    if (isPersonalZalo && !(account.metadata as any)?.isPersonal && this.prisma?.channelAccount) {
+      this.prisma.channelAccount.update({
+        where: { id: account.id },
+        data: {
+          metadata: {
+            ...((account.metadata as any) || {}),
+            isPersonal: true,
+            engine: 'zca-js',
+          },
+        },
+      }).catch(() => null);
+    }
+
     if ((channelEnum === Channel.ZALO || input.channel === 'ZALO') && this.zcaService) {
-      const isStranger = Boolean((account.metadata as any)?.isPersonal);
-      await this.zcaService.enforceRateLimitAndSafety(account.id, input.recipientId, isStranger);
+      await this.zcaService.enforceRateLimitAndSafety(account.id, input.recipientId, isPersonalZalo);
     }
 
     // 3. Gửi tin nhắn qua Zalo Open API hoặc zca-js Engine
     if (channelEnum === Channel.ZALO || input.channel === 'ZALO') {
-      const isPersonal = Boolean((account.metadata as any)?.isPersonal || (account.metadata as any)?.engine === 'zca-js');
+      let resolvedRecipientId = input.recipientId ? String(input.recipientId).trim() : '';
 
-      if (isPersonal && this.zcaService) {
-        const personalRes = await this.zcaService.sendPersonalMessage(account, input.recipientId, input.content);
-        externalMessageId = personalRes.messageId;
-        rawPayload = personalRes.rawPayload;
-      } else if (isMock) {
+      // Tự động phân giải recipientId nếu là Customer UUID, 'khách', hoặc chuỗi không phải UID số của Zalo
+      if (!/^\d+$/.test(resolvedRecipientId)) {
+        let customer: any = null;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedRecipientId);
+
+        // a. Thử tìm Customer bằng ID (UUID)
+        if (isUuid && this.prisma?.customer) {
+          try {
+            customer = await this.prisma.customer.findUnique({
+              where: { id: resolvedRecipientId },
+            });
+          } catch {}
+        }
+
+        // b. Nếu chưa có, thử tìm từ conversationId
+        if (!customer && input.conversationId && this.prisma?.conversation) {
+          const isConvUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.conversationId);
+          if (isConvUuid) {
+            try {
+              const conv = await this.prisma.conversation.findUnique({
+                where: { id: input.conversationId },
+                include: { customer: true },
+              });
+              if (conv?.customer) {
+                customer = conv.customer;
+              }
+            } catch {}
+          }
+        }
+
+        // c. Trích xuất UID Zalo từ channelIdentities của Customer
+        if (customer?.channelIdentities) {
+          const identities = customer.channelIdentities as any;
+          const zaloId =
+            identities?.zalo?.id ||
+            (typeof identities?.zalo === 'string' ? identities.zalo : null) ||
+            (Array.isArray(identities) ? identities.find((x: any) => x.channel === 'ZALO')?.externalUserId : null);
+          if (zaloId && /^\d+$/.test(String(zaloId).trim())) {
+            resolvedRecipientId = String(zaloId).trim();
+          }
+        }
+
+        // d. Nếu vẫn chưa ra UID dạng số, thử tìm tin nhắn INBOUND gần nhất trong cuộc trò chuyện
+        if (!/^\d+$/.test(resolvedRecipientId) && input.conversationId && this.prisma?.message) {
+          const isConvUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.conversationId);
+          if (isConvUuid) {
+            try {
+              const lastInbound = await this.prisma.message.findFirst({
+                where: {
+                  conversationId: input.conversationId,
+                  direction: MessageDirection.INBOUND,
+                },
+                orderBy: { sentAt: 'desc' },
+              });
+              if (lastInbound?.rawPayload) {
+                const raw = lastInbound.rawPayload as any;
+                const candidate = raw.uidFrom || raw.sender?.id || raw.from?.id || raw.senderExternalId;
+                if (candidate && /^\d+$/.test(String(candidate).trim())) {
+                  resolvedRecipientId = String(candidate).trim();
+                }
+              }
+            } catch {}
+          }
+        }
+      }
+
+      const isTestOrMockRecipient =
+        isMock ||
+        resolvedRecipientId.startsWith('mock_') ||
+        resolvedRecipientId.startsWith('test_') ||
+        resolvedRecipientId.startsWith('zalo_user_') ||
+        resolvedRecipientId.startsWith('cust-') ||
+        resolvedRecipientId === 'khách' ||
+        resolvedRecipientId === 'anonymous';
+
+      if (isPersonalZalo && this.zcaService) {
+        if (isTestOrMockRecipient && !/^\d+$/.test(resolvedRecipientId)) {
+          // Môi trường test / mock dữ liệu mẫu: mô phỏng thành công để không bị Zalo Web từ chối mã 1001
+          externalMessageId = `zca_sim_${Date.now()}`;
+          rawPayload = {
+            error: 0,
+            message: 'Simulated Personal Zalo message for mock/test customer',
+            data: { message_id: externalMessageId, recipientId: resolvedRecipientId, content: input.content },
+          };
+        } else {
+          const personalRes = await this.zcaService.sendPersonalMessage(account, resolvedRecipientId, input.content);
+          externalMessageId = personalRes.messageId;
+          rawPayload = personalRes.rawPayload;
+        }
+      } else if (isMock || isTestOrMockRecipient) {
         externalMessageId = `mock_zalo_msg_${Date.now()}`;
         rawPayload = {
           error: 0,
           message: 'Success (Mock Simulation)',
-          data: { message_id: externalMessageId },
+          data: { message_id: externalMessageId, recipientId: resolvedRecipientId },
         };
       } else {
         try {
@@ -445,7 +551,7 @@ export class ChannelManagerService {
             },
             body: JSON.stringify({
               recipient: {
-                user_id: input.recipientId,
+                user_id: resolvedRecipientId,
               },
               message: {
                 text: input.content,
@@ -514,9 +620,12 @@ export class ChannelManagerService {
     const sentAt = new Date();
 
     // 4. Lưu tin nhắn OUTBOUND vào MessageRepository
+    let insertedId: string | null = null;
+    let isAlreadyPersistedByWebhook = false;
+
     if (this.messageRepo) {
       try {
-        await this.messageRepo.insertManyIgnoreDuplicate([
+        const inserted = await this.messageRepo.insertManyIgnoreDuplicate([
           {
             channel: channelEnum,
             externalAccountId: account.externalAccountId,
@@ -525,6 +634,8 @@ export class ChannelManagerService {
             direction: MessageDirection.OUTBOUND,
             content: input.content,
             sentAt,
+            conversationId: input.conversationId,
+            processedAt: sentAt,
             rawPayload: {
               ...rawPayload,
               recipient: { id: input.recipientId },
@@ -532,6 +643,12 @@ export class ChannelManagerService {
             },
           },
         ]);
+        if (inserted.length > 0) {
+          insertedId = inserted[0].id;
+        } else {
+          // Bản ghi đã được chèn trước đó (ví dụ Meta webhook echo đến nhanh hơn)
+          isAlreadyPersistedByWebhook = true;
+        }
       } catch (err) {
         this.logger.warn(`Could not persist outbound message: ${(err as Error).message}`);
       }
@@ -559,10 +676,11 @@ export class ChannelManagerService {
     }
 
     // 6. Phát tín hiệu Realtime Socket
-    if (this.realtime) {
+    // Chỉ broadcast nếu webhook echo chưa chèn và broadcast trước đó, tránh nhân đôi tin nhắn ở Frontend
+    if (this.realtime && !isAlreadyPersistedByWebhook) {
       try {
         this.realtime.broadcastNewMessage({
-          id: externalMessageId,
+          id: insertedId || externalMessageId,
           conversationId: input.conversationId || `conv_${externalMessageId}`,
           channel: input.channel as any,
           direction: 'OUTBOUND',
@@ -661,12 +779,30 @@ export class ChannelManagerService {
     }
 
     const targetWsId = account.workspaceId || workspaceId;
-    const isPersonal = Boolean(
-      (account.metadata as any)?.isPersonal || (account.metadata as any)?.engine === 'zca-js',
-    );
     const token = account.encryptedAccessToken
       ? this.encryption.decrypt(account.encryptedAccessToken)
       : '';
+
+    const isPersonal = Boolean(
+      (account.metadata as any)?.isPersonal ||
+      (account.metadata as any)?.engine === 'zca-js' ||
+      token?.trim().startsWith('{') ||
+      token?.startsWith('zca_') ||
+      account.externalAccountId.startsWith('zca_'),
+    );
+
+    if (isPersonal && !(account.metadata as any)?.isPersonal && this.prisma?.channelAccount) {
+      this.prisma.channelAccount.update({
+        where: { id: account.id },
+        data: {
+          metadata: {
+            ...((account.metadata as any) || {}),
+            isPersonal: true,
+            engine: 'zca-js',
+          },
+        },
+      }).catch(() => null);
+    }
 
     this.logger.log(
       `Starting Zalo sync for "${account.displayName}" (${account.externalAccountId}, isPersonal: ${isPersonal})...`,
@@ -699,6 +835,18 @@ export class ChannelManagerService {
       const api = this.zcaService.getActiveApi(account.externalAccountId);
       if (api && typeof this.zcaService.isListenerActive === 'function' && !this.zcaService.isListenerActive(account.externalAccountId)) {
         this.zcaService.startListenerForApi(account.externalAccountId, api, account);
+      }
+
+      // Kéo tin nhắn và danh bạ cuộc trò chuyện từ Zalo Cloud
+      if (typeof (this.zcaService as any).syncCloudMessages === 'function') {
+        const cloudResult = await (this.zcaService as any).syncCloudMessages(account.externalAccountId);
+        if (cloudResult.syncedCount > 0) {
+          return {
+            syncedCount: cloudResult.syncedCount,
+            conversationsCount: cloudResult.conversationsCount,
+            pageName: account.displayName,
+          };
+        }
       }
     }
 
@@ -801,6 +949,8 @@ export class ChannelManagerService {
         content: lastMsgText,
         sentAt: lastMsgTime,
         direction: MessageDirection.INBOUND,
+        conversationId: dbConv?.id,
+        processedAt: lastMsgTime,
         rawPayload: {
           ...item,
           customerName,
@@ -1035,6 +1185,9 @@ export class ChannelManagerService {
           content: m.message,
           sentAt: new Date(m.created_time),
           direction: isOutbound ? MessageDirection.OUTBOUND : MessageDirection.INBOUND,
+          conversationId: dbConv?.id,
+          processedAt: new Date(m.created_time),
+          attachments: m.attachments?.data || undefined,
           rawPayload: {
             ...m,
             customerName,
@@ -1068,7 +1221,7 @@ export class ChannelManagerService {
                 content: ev.content || '',
                 senderName: isOut ? account.displayName : customerName,
                 senderAvatar: isOut ? (account.avatarUrl || '') : customerAvatar,
-                sentAt: new Date(ev.sentAt).toLocaleTimeString(),
+                sentAt: new Date(ev.sentAt).toISOString(),
                 customerPhone: dbCustomer?.phone || '',
                 customerEmail: dbCustomer?.email || customer?.email || '',
               });

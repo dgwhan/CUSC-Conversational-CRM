@@ -4,6 +4,8 @@ services:
     container_name: crm_postgres
     restart: unless-stopped
     environment:
+      TZ: Asia/Ho_Chi_Minh
+      PGTZ: Asia/Ho_Chi_Minh
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-recruitment_crm}
@@ -27,6 +29,7 @@ services:
     container_name: crm_api
     restart: unless-stopped
     environment:
+      TZ: Asia/Ho_Chi_Minh
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-recruitment_crm}?schema=public}

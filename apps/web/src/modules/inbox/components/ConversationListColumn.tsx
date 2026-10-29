@@ -19,6 +19,43 @@ export interface ConversationListColumnProps {
   isSyncing?: boolean;
 }
 
+const formatConversationTime = (timeStr?: string): string => {
+  if (!timeStr || timeStr === 'Vừa xong') return 'Vừa xong';
+
+  let date: Date | null = null;
+  if (timeStr.includes('T') || timeStr.includes('-') || timeStr.includes('/')) {
+    const d = new Date(timeStr);
+    if (!isNaN(d.getTime())) {
+      date = d;
+    }
+  }
+
+  if (!date) return timeStr;
+
+  const now = new Date();
+  const isSameDay = (d1: Date, d2: Date) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
+
+  if (isSameDay(now, date)) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (isSameDay(yesterday, date)) {
+    return 'Hôm qua';
+  }
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${day}/${month}`;
+  }
+  return `${day}/${month}/${date.getFullYear()}`;
+};
+
 export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
   conversations,
   selectedId,
@@ -235,7 +272,7 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
                 <div className="conv-card-body">
                   <div className="conv-card-header">
                     <span className="conv-customer-name">{item.customer.fullName}</span>
-                    <span className="conv-time">{item.lastMessageAt}</span>
+                    <span className="conv-time">{formatConversationTime(item.lastMessageAt)}</span>
                   </div>
 
                   <p className="conv-snippet-text">{item.snippet}</p>

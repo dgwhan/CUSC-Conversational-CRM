@@ -18,12 +18,23 @@ import { CUSTOMER_GATEWAY } from './domain/customer-gateway.port.js';
 import { CLASSIFICATION_GATEWAY } from './domain/classification-gateway.port.js';
 import { DefaultCustomerGateway } from './infrastructure/gateways/default-customer.gateway.js';
 import { DefaultClassificationGateway } from './infrastructure/gateways/default-classification.gateway.js';
+import { Injectable } from '@nestjs/common';
 
+@Injectable()
 class DefaultInboundQueue implements InboundMessageQueue {
     private readonly logger = new Logger(DefaultInboundQueue.name);
 
+    constructor(private readonly processUseCase: ProcessMessageReceived) {}
+
     async enqueue(messageIds: string[]): Promise<void> {
-        this.logger.log(`Enqueued ${messageIds.length} message(s) for processing`);
+        this.logger.log(`Processing ${messageIds.length} message(s) through ProcessMessageReceived pipeline...`);
+        for (const id of messageIds) {
+            try {
+                await this.processUseCase.execute(id);
+            } catch (err) {
+                this.logger.error(`Error processing message ${id}: ${(err as Error).message}`);
+            }
+        }
     }
 }
 

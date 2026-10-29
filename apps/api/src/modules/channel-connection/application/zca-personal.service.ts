@@ -1,7 +1,7 @@
 import { Injectable, Logger, BadRequestException, Optional, OnModuleInit } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 // @ts-ignore
-import { Zalo, LoginQRCallbackEventType } from 'zca-js';
+import { Zalo, LoginQRCallbackEventType, ThreadType } from 'zca-js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { RealtimeService } from '../../realtime/realtime.service.js';
 import { TokenEncryptionService } from '../infrastructure/token-encryption.service.js';
@@ -64,18 +64,27 @@ export class ZcaPersonalService implements OnModuleInit {
 
       for (const ch of activeZaloChannels) {
         const meta = (ch.metadata as any) || {};
-        if (meta.isPersonal && ch.encryptedAccessToken && this.encryption) {
+        if (ch.encryptedAccessToken && this.encryption) {
           try {
             const rawToken = this.encryption.decrypt(ch.encryptedAccessToken);
-            if (rawToken && rawToken.startsWith('{')) {
+            const isPersonal = Boolean(
+              meta.isPersonal ||
+              meta.engine === 'zca-js' ||
+              rawToken?.trim().startsWith('{') ||
+              rawToken?.startsWith('zca_') ||
+              ch.externalAccountId.startsWith('zca_'),
+            );
+
+            if (isPersonal && rawToken && rawToken.startsWith('{')) {
               const creds = JSON.parse(rawToken);
-              if (creds.cookies && creds.imei) {
+              const cookieData = creds.cookie || creds.cookies;
+              if (cookieData && creds.imei) {
                 this.logger.log(
                   `[zca-js] Tự động phục hồi kết nối Zalo cá nhân cho "${ch.displayName}" (${ch.externalAccountId})...`,
                 );
-                const zalo = new Zalo({ selfListen: false, logging: false });
+                const zalo = new Zalo({ selfListen: true, logging: false });
                 const api = await zalo.login({
-                  cookie: creds.cookies,
+                  cookie: cookieData,
                   imei: creds.imei,
                   userAgent:
                     creds.userAgent ||
@@ -84,6 +93,14 @@ export class ZcaPersonalService implements OnModuleInit {
                 if (api) {
                   this.activeApis.set(ch.externalAccountId, api);
                   this.startListenerForApi(ch.externalAccountId, api, ch);
+                  if (!meta.isPersonal && this.prisma?.channelAccount) {
+                    await this.prisma.channelAccount.update({
+                      where: { id: ch.id },
+                      data: {
+                        metadata: { ...meta, isPersonal: true, engine: 'zca-js' },
+                      },
+                    }).catch(() => null);
+                  }
                 }
               }
             }
@@ -141,7 +158,7 @@ export class ZcaPersonalService implements OnModuleInit {
     this.qrSessions.set(sessionId, session);
 
     // Khởi chạy zca-js loginQR thực tế gọi đến Zalo Web
-    const zalo = new Zalo({ selfListen: false, logging: false });
+    const zalo = new Zalo({ selfListen: true, logging: false });
 
     const qrReceivedPromise = new Promise<string>((resolve, reject) => {
       // Hẹn giờ tối đa 8 giây chờ Zalo Web phản hồi mã QR
@@ -338,14 +355,59 @@ export class ZcaPersonalService implements OnModuleInit {
       api = this.activeApis.values().next().value;
     }
 
-    if (api && typeof api.sendMessage === 'function') {
+    // Nếu chưa có API instance trong bộ nhớ (ví dụ sau restart), tự động khôi phục từ encryptedAccessToken
+    if (!api && account?.encryptedAccessToken && this.encryption) {
       try {
-        this.logger.log(`[zca-js] Gửi tin nhắn tới ${recipientId} qua API cá nhân ${extId}...`);
-        const res = await api.sendMessage(content, recipientId, 0 /* ThreadType.User */);
+        const rawToken = this.encryption.decrypt(account.encryptedAccessToken);
+        if (rawToken && rawToken.startsWith('{')) {
+          const creds = JSON.parse(rawToken);
+          const cookieData = creds.cookie || creds.cookies;
+          if (cookieData && creds.imei) {
+            this.logger.log(`[zca-js] Tự động kết nối on-demand từ session cookies cho "${account.displayName}"...`);
+            const zalo = new Zalo({ selfListen: true, logging: false });
+            api = await zalo.login({
+              cookie: cookieData,
+              imei: creds.imei,
+              userAgent: creds.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
+            });
+            if (api) {
+              this.activeApis.set(extId, api);
+              this.startListenerForApi(extId, api, account);
+            }
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`[zca-js] Không thể tự động kết nối lại từ cookies: ${(err as Error).message}`);
+      }
+    }
+
+    if (api && typeof api.sendMessage === 'function') {
+      const cleanRecipientId = String(recipientId).trim();
+      if (!/^\d+$/.test(cleanRecipientId)) {
+        throw new BadRequestException(
+          `ID người nhận "${recipientId}" không phải là dãy số định danh Zalo (UID) hợp lệ. Vui lòng đảm bảo khách hàng có UID Zalo số trước khi gửi tin.`,
+        );
+      }
+
+      try {
+        this.logger.log(`[zca-js] Gửi tin nhắn tới ${cleanRecipientId} qua API cá nhân ${extId}...`);
+        const res = await api.sendMessage(content, cleanRecipientId, ThreadType.User);
         const messageId = String(res?.message?.msgId || `zca_msg_${Date.now()}`);
         return { messageId, rawPayload: res };
       } catch (err) {
         this.logger.warn(`[zca-js] api.sendMessage error: ${(err as Error).message}`);
+        // Nếu lỗi phiên đăng nhập hết hạn hoặc bị kick
+        const errMsg = (err as Error).message || '';
+        if (errMsg.includes('Dang nhap') || errMsg.includes('login') || errMsg.includes('Session')) {
+          await this.handleSessionExpired(extId, errMsg);
+          throw new BadRequestException('Phiên đăng nhập Zalo cá nhân đã hết hạn hoặc bị đăng xuất. Vui lòng quét lại mã QR.');
+        }
+        if (errMsg.includes('Tham số không hợp lệ') || errMsg.includes('1001')) {
+          throw new BadRequestException(
+            `Gửi tin Zalo thất bại: Zalo báo "Tham số không hợp lệ". Người nhận (${cleanRecipientId}) có thể chưa kết bạn với tài khoản Zalo của bạn, đang chặn tin nhắn từ người lạ, hoặc UID không tồn tại trên hệ thống Zalo.`,
+          );
+        }
+        throw new BadRequestException(`Gửi tin nhắn qua Zalo cá nhân thất bại: ${errMsg}`);
       }
     }
 
@@ -400,16 +462,40 @@ export class ZcaPersonalService implements OnModuleInit {
       this.logger.log(`[zca-js] WebSocket kết nối Zalo Web thành công cho tài khoản: ${targetId}`);
     });
 
-    api.listener.on('closed', (code: any, reason: any) => {
+    api.listener.on('closed', async (code: any, reason: any) => {
       this.logger.warn(`[zca-js] WebSocket Zalo Web bị đóng [Mã ${code}]: ${reason}`);
+      // Mã 3000 (DuplicateConnection: đăng nhập nơi khác), 3003 (KickConnection: bị đăng xuất/hết hạn), 1000/1006 (đóng phiên)
+      if (code === 3000 || code === 3003 || code === 1006 || code === 1000) {
+        await this.handleSessionExpired(targetId, `Mã đóng ${code}: ${reason || 'Phiên Zalo Web đã hết hạn hoặc bị đăng xuất'}`);
+      }
     });
 
     api.listener.on('error', (err: any) => {
       this.logger.warn(`[zca-js] Lỗi WebSocket listener: ${err?.message || err}`);
     });
 
+    // Bắt sự kiện tin nhắn lịch sử đồng bộ từ Zalo Cloud (cmd: 510/511 subCmd: 1)
+    api.listener.on('old_messages', async (messages: any[], threadType: any) => {
+      // Chỉ tiếp nhận tin nhắn 1-1 của khách hàng, bỏ qua tin nhóm
+      if (threadType !== ThreadType.User) return;
+      this.logger.log(`[zca-js] Nhận được ${messages?.length || 0} tin nhắn lịch sử 1-1 từ Zalo Cloud cho ${targetId}`);
+      if (Array.isArray(messages)) {
+        for (const msg of messages) {
+          try {
+            await this.handleIncomingPersonalMessage(targetId, msg);
+          } catch (err) {
+            this.logger.warn(`[zca-js] Lỗi xử lý tin nhắn lịch sử cloud: ${(err as Error).message}`);
+          }
+        }
+      }
+    });
+
     // Bắt sự kiện có tin nhắn mới gửi đến nick Zalo cá nhân
     api.listener.on('message', async (message: any) => {
+      // Chỉ nhận tin nhắn 1-1 giữa khách hàng và tư vấn viên, bỏ qua tin nhóm
+      if (message?.type === ThreadType.Group || message?.data?.cmd === 521) {
+        return;
+      }
       try {
         await this.handleIncomingPersonalMessage(targetId, message);
       } catch (err) {
@@ -430,49 +516,12 @@ export class ZcaPersonalService implements OnModuleInit {
    */
   private async handleIncomingPersonalMessage(targetId: string, message: any): Promise<void> {
     if (!message) return;
-
-    const isSelf = Boolean(message.isSelf);
-    const msgData = message.data || {};
-    const externalMessageId = String(msgData.msgId || msgData.cliMsgId || `zca_${Date.now()}`);
-
-    // Nội dung tin nhắn
-    let content = '';
-    if (typeof msgData.content === 'string') {
-      content = msgData.content;
-    } else if (msgData.content && typeof msgData.content === 'object') {
-      content =
-        msgData.content.title ||
-        msgData.content.description ||
-        msgData.content.text ||
-        '[Tập tin đính kèm / media]';
-    } else {
-      content = '[Tin nhắn Zalo]';
-    }
-
-    const sentAt = msgData.ts ? new Date(Number(msgData.ts)) : new Date();
-
-    // Đối tác hội thoại (khách hàng)
-    // Nếu tin do chính mình gửi từ điện thoại (isSelf), người nhận là idTo hoặc threadId
-    const customerZaloId = isSelf
-      ? String(msgData.idTo || message.threadId || '')
-      : String(msgData.uidFrom || message.threadId || '');
-
-    if (!customerZaloId) {
-      this.logger.warn(`[zca-js] Không thể xác định customerZaloId từ tin nhắn`);
+    // Bỏ qua tin nhắn nhóm chat
+    if (message.type === ThreadType.Group || message.data?.cmd === 521) {
       return;
     }
 
-    const customerName = isSelf
-      ? 'Khách hàng Zalo'
-      : (msgData.dName || `Khách hàng Zalo #${customerZaloId.slice(-4)}`);
-
-    const customerAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName)}&background=0068FF&color=fff&bold=true`;
-
-    this.logger.log(
-      `[zca-js] Nhận tin nhắn ${isSelf ? 'OUTBOUND' : 'INBOUND'} [ID: ${externalMessageId}] từ ${customerName} (${customerZaloId}): "${content}"`,
-    );
-
-    // 1. Tìm ChannelAccount trong DB
+    // 1. Tìm ChannelAccount trong DB để lấy chính xác externalAccountId và workspaceId
     let channelAccount: any = null;
     if (this.prisma?.channelAccount) {
       channelAccount = await this.prisma.channelAccount.findFirst({
@@ -499,8 +548,135 @@ export class ZcaPersonalService implements OnModuleInit {
     }
 
     const targetWsId = channelAccount.workspaceId;
+    const api = this.getActiveApi(targetId);
 
-    // 2. Tìm hoặc tạo Customer
+    // Xác định UID chính chủ của tài khoản Zalo cá nhân
+    let myOwnUid = '';
+    try {
+      if (api && typeof api.getOwnId === 'function') {
+        myOwnUid = String(api.getOwnId() || '');
+      }
+    } catch {}
+    if (!myOwnUid) {
+      myOwnUid = String(channelAccount.externalAccountId || targetId || '');
+    }
+
+    // Tự động dọn dẹp nếu trước đó vô tình tạo nhầm Customer bản thân tư vấn viên
+    if (myOwnUid && targetWsId) {
+      this.cleanSelfCustomer(targetWsId, myOwnUid).catch(() => null);
+    }
+
+    const msgData = message.data || {};
+    const externalMessageId = String(msgData.msgId || msgData.cliMsgId || `zca_${Date.now()}`);
+
+    // Nội dung tin nhắn
+    let content = '';
+    if (typeof msgData.content === 'string') {
+      content = msgData.content;
+    } else if (msgData.content && typeof msgData.content === 'object') {
+      content =
+        msgData.content.title ||
+        msgData.content.description ||
+        msgData.content.text ||
+        '[Tập tin đính kèm / media]';
+    } else {
+      content = '[Tin nhắn Zalo]';
+    }
+
+    const sentAt = msgData.ts ? new Date(Number(msgData.ts)) : new Date();
+
+    const senderUid = String(msgData.uidFrom || '');
+    const recipientUid = String(msgData.idTo || '');
+    const threadId = String(message.threadId || '');
+
+    // Tin nhắn do chính tài khoản Zalo của tôi gửi nếu:
+    // - message.isSelf = true
+    // - senderUid = "0"
+    // - senderUid trùng với UID của tài khoản Zalo cá nhân của tôi (myOwnUid)
+    const isSelf = Boolean(
+      message.isSelf ||
+      senderUid === '0' ||
+      (myOwnUid && senderUid === myOwnUid) ||
+      (channelAccount.externalAccountId && senderUid === channelAccount.externalAccountId)
+    );
+
+    // Xác định UID của đối tác hội thoại (Khách hàng)
+    let customerZaloId = '';
+    if (isSelf) {
+      // Khi tôi là người gửi, đối tác nhận tin là recipientUid hoặc threadId
+      if (recipientUid && recipientUid !== '0' && recipientUid !== myOwnUid) {
+        customerZaloId = recipientUid;
+      } else if (threadId && threadId !== '0' && threadId !== myOwnUid) {
+        customerZaloId = threadId;
+      }
+    } else {
+      // Khi khách gửi đến, đối tác là senderUid hoặc threadId
+      if (senderUid && senderUid !== '0' && senderUid !== myOwnUid) {
+        customerZaloId = senderUid;
+      } else if (threadId && threadId !== '0' && threadId !== myOwnUid) {
+        customerZaloId = threadId;
+      }
+    }
+
+    // Bỏ qua tin nhắn không xác định được đối tác hoặc tin nhắn tự gửi cho chính mình (Cloud của tôi / My Cloud)
+    if (!customerZaloId || customerZaloId === myOwnUid || customerZaloId === '0') {
+      this.logger.debug(`[zca-js] Bỏ qua tin nhắn Cloud cá nhân hoặc không có đối tác (UID: ${customerZaloId})`);
+      return;
+    }
+
+    // Xác định Tên & Avatar của khách hàng
+    let customerName = '';
+    let customerAvatar = '';
+
+    if (isSelf) {
+      // Khi tôi gửi tin, msgData.dName là tên của TÔI, tuyệt đối không dùng làm tên khách hàng
+      if (this.prisma?.customer && targetWsId) {
+        try {
+          const existingCust = await this.prisma.customer.findFirst({
+            where: {
+              workspaceId: targetWsId,
+              channelIdentities: {
+                path: ['zalo', 'id'],
+                equals: customerZaloId,
+              },
+            },
+          });
+          if (existingCust?.fullName) {
+            customerName = existingCust.fullName;
+            customerAvatar = existingCust.avatarUrl || '';
+          }
+        } catch {}
+      }
+
+      // Nếu chưa có, thử tra cứu profile người nhận qua Zalo API
+      if (!customerName && api && typeof api.getUserInfo === 'function') {
+        try {
+          const info = await api.getUserInfo(customerZaloId).catch(() => null);
+          const uProfile = info?.profile || info?.[customerZaloId] || info;
+          if (uProfile?.displayName || uProfile?.name) {
+            customerName = uProfile.displayName || uProfile.name;
+            customerAvatar = uProfile.avatar || '';
+          }
+        } catch {}
+      }
+
+      if (!customerName) {
+        customerName = `Khách hàng Zalo #${customerZaloId.slice(-4)}`;
+      }
+    } else {
+      // Khi khách gửi đến, msgData.dName chính là tên của khách
+      customerName = msgData.dName || `Khách hàng Zalo #${customerZaloId.slice(-4)}`;
+    }
+
+    if (!customerAvatar) {
+      customerAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName)}&background=0068FF&color=fff&bold=true`;
+    }
+
+    this.logger.log(
+      `[zca-js] Nhận tin nhắn ${isSelf ? 'OUTBOUND' : 'INBOUND'} [ID: ${externalMessageId}] đối tác: ${customerName} (${customerZaloId}): "${content}"`,
+    );
+
+    // 2. Tìm hoặc tạo Customer (luôn là đối tác, không bao giờ là bản thân tư vấn viên)
     let dbCustomer: any = null;
     if (this.prisma?.customer) {
       try {
@@ -531,6 +707,19 @@ export class ZcaPersonalService implements OnModuleInit {
             },
           });
           this.logger.log(`[zca-js] Đã tạo mới Customer ${customerName} (ID: ${dbCustomer.id})`);
+        } else if (
+          customerName &&
+          !customerName.includes('Khách hàng Zalo #') &&
+          dbCustomer.fullName?.includes('Khách hàng Zalo #')
+        ) {
+          // Cập nhật lại tên thật nếu trước đó bị fallback
+          dbCustomer = await this.prisma.customer.update({
+            where: { id: dbCustomer.id },
+            data: {
+              fullName: customerName,
+              avatarUrl: customerAvatar || dbCustomer.avatarUrl,
+            },
+          });
         }
       } catch (err) {
         this.logger.warn(`[zca-js] Lỗi Customer findOrCreate: ${(err as Error).message}`);
@@ -558,7 +747,7 @@ export class ZcaPersonalService implements OnModuleInit {
               snippet: content,
               unreadCount: isSelf ? 0 : 1,
               lastMessageAt: sentAt,
-              lastCustomerMessageAt: isSelf ? undefined : sentAt,
+              ...(isSelf ? {} : { lastCustomerMessageAt: sentAt }),
             },
           });
         } else {
@@ -566,7 +755,7 @@ export class ZcaPersonalService implements OnModuleInit {
             where: { id: dbConv.id },
             data: {
               snippet: content,
-              unreadCount: isSelf ? dbConv.unreadCount : { increment: 1 },
+              unreadCount: isSelf ? dbConv.unreadCount : dbConv.unreadCount + 1,
               lastMessageAt: sentAt,
               ...(isSelf ? {} : { lastCustomerMessageAt: sentAt }),
             },
@@ -579,6 +768,16 @@ export class ZcaPersonalService implements OnModuleInit {
 
     // 4. Lưu Message vào DB
     if (this.prisma?.message && channelAccount) {
+      const enrichedPayload = {
+        ...msgData,
+        senderExternalId: isSelf ? myOwnUid : customerZaloId,
+        uidFrom: isSelf ? myOwnUid : customerZaloId,
+        idTo: isSelf ? customerZaloId : myOwnUid,
+        recipient: { id: isSelf ? customerZaloId : myOwnUid },
+        customerName,
+        customerAvatar,
+      };
+
       try {
         await this.prisma.message.upsert({
           where: {
@@ -590,7 +789,7 @@ export class ZcaPersonalService implements OnModuleInit {
           update: {
             content,
             sentAt,
-            rawPayload: msgData,
+            rawPayload: enrichedPayload,
           },
           create: {
             channelAccountId: channelAccount.id,
@@ -600,7 +799,7 @@ export class ZcaPersonalService implements OnModuleInit {
             content,
             externalMessageId,
             sentAt,
-            rawPayload: msgData,
+            rawPayload: enrichedPayload,
           },
         });
       } catch (err) {
@@ -613,19 +812,197 @@ export class ZcaPersonalService implements OnModuleInit {
       try {
         this.realtime.broadcastNewMessage({
           id: externalMessageId,
-          conversationId: dbConv?.id || `conv_${externalMessageId}`,
+          conversationId: dbConv?.id || `conv_${customerZaloId}`,
           channel: 'ZALO',
           direction: isSelf ? 'OUTBOUND' : 'INBOUND',
           content,
-          senderName: isSelf ? (channelAccount.displayName || 'Tư vấn viên') : customerName,
+          senderName: isSelf ? `${channelAccount.displayName || 'Tư vấn viên'} (Bạn)` : customerName,
           senderAvatar: isSelf ? channelAccount.avatarUrl : customerAvatar,
           sentAt: sentAt.toISOString(),
         });
-        this.logger.log(`[zca-js] Đã phát sự kiện Realtime Socket message:received cho tin nhắn Zalo`);
+        this.logger.log(`[zca-js] Đã phát sự kiện Realtime Socket message:received cho tin nhắn Zalo (${customerName})`);
       } catch (err) {
         this.logger.warn(`[zca-js] Lỗi realtime broadcast: ${(err as Error).message}`);
       }
     }
+  }
+
+  /**
+   * Tự động xóa Customer và Conversation bị tạo nhầm của chính tư vấn viên
+   */
+  private async cleanSelfCustomer(workspaceId: string, myOwnUid: string): Promise<void> {
+    if (!this.prisma?.customer || !myOwnUid || !workspaceId) return;
+    try {
+      const selfCust = await this.prisma.customer.findFirst({
+        where: {
+          workspaceId,
+          channelIdentities: {
+            path: ['zalo', 'id'],
+            equals: myOwnUid,
+          },
+        },
+      });
+      if (selfCust) {
+        if (this.prisma.conversation?.deleteMany) {
+          await this.prisma.conversation.deleteMany({
+            where: { customerId: selfCust.id },
+          }).catch(() => null);
+        }
+        await this.prisma.customer.delete({
+          where: { id: selfCust.id },
+        }).catch(() => null);
+        this.logger.log(`[zca-js] Đã tự động dọn dẹp Customer bản thân tư vấn viên khỏi DB (UID: ${myOwnUid})`);
+      }
+    } catch (err) {
+      this.logger.warn(`[zca-js] cleanSelfCustomer error: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * Tự động deactive kênh Zalo và bắn cảnh báo khi session/token bị hết hạn hoặc đăng xuất
+   */
+  async handleSessionExpired(targetId: string, reason: string): Promise<void> {
+    this.logger.warn(`[zca-js] Tài khoản Zalo ${targetId} đã hết hạn phiên hoặc bị đăng xuất: ${reason}`);
+
+    // Dừng listener nếu còn
+    if (this.activeListeners.has(targetId)) {
+      try {
+        this.activeListeners.get(targetId)?.stop?.();
+      } catch {}
+      this.activeListeners.delete(targetId);
+    }
+    this.activeApis.delete(targetId);
+
+    // Cập nhật trạng thái trong Database
+    if (this.prisma?.channelAccount) {
+      try {
+        const channelAccount = await this.prisma.channelAccount.findFirst({
+          where: {
+            channel: 'ZALO',
+            externalAccountId: targetId,
+          },
+        });
+
+        if (channelAccount) {
+          await this.prisma.channelAccount.update({
+            where: { id: channelAccount.id },
+            data: {
+              isActive: false,
+              metadata: {
+                ...((channelAccount.metadata as any) || {}),
+                deactivatedReason: 'SESSION_EXPIRED',
+                deactivatedDetails: reason,
+                lastExpiredAt: new Date().toISOString(),
+              } as any,
+            },
+          });
+          this.logger.log(`[zca-js] Đã tự động deactive kênh Zalo "${channelAccount.displayName}" (${channelAccount.id})`);
+
+          // Gửi cảnh báo qua WebSocket Realtime
+          if (this.realtime) {
+            this.realtime.emit('channel:session_expired' as any, {
+              channel: 'ZALO',
+              channelAccountId: channelAccount.id,
+              displayName: channelAccount.displayName,
+              reason,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+      } catch (err) {
+        this.logger.error(`[zca-js] Lỗi khi deactive kênh Zalo hết hạn: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  /**
+   * Đồng bộ tin nhắn và danh bạ cuộc trò chuyện từ Zalo Cloud
+   */
+  async syncCloudMessages(targetId: string): Promise<{ syncedCount: number; conversationsCount: number }> {
+    const api = this.getActiveApi(targetId);
+    if (!api) {
+      this.logger.warn(`[zca-js] Không tìm thấy phiên hoạt động của Zalo ${targetId} để đồng bộ cloud`);
+      return { syncedCount: 0, conversationsCount: 0 };
+    }
+
+    let syncedCount = 0;
+    const conversationsSet = new Set<string>();
+
+    // 1. Gửi lệnh requestOldMessages qua WebSocket để Zalo Cloud đẩy về các gói tin nhắn cũ
+    if (api.listener && typeof api.listener.requestOldMessages === 'function') {
+      try {
+        this.logger.log(`[zca-js] Gửi yêu cầu kéo tin nhắn cũ từ Zalo Cloud qua WebSocket...`);
+        api.listener.requestOldMessages(ThreadType.User);
+      } catch (err) {
+        this.logger.warn(`[zca-js] requestOldMessages error: ${(err as Error).message}`);
+      }
+    }
+
+    // 2. Kéo danh sách bạn bè gần nhất để đồng bộ danh bạ hội thoại vào CRM
+    if (typeof api.getAllFriends === 'function') {
+      try {
+        const friends = await api.getAllFriends().catch(() => []);
+        if (Array.isArray(friends) && friends.length > 0) {
+          const channelAccount = await this.prisma?.channelAccount?.findFirst?.({
+            where: { channel: 'ZALO', externalAccountId: targetId },
+          });
+
+          if (channelAccount && this.prisma?.customer && this.prisma?.conversation) {
+            for (const f of friends.slice(0, 15)) {
+              const friendUid = String(f.userId || f.id);
+              const friendName = f.displayName || f.name || `Bạn Zalo #${friendUid.slice(-4)}`;
+              const friendAvatar = f.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(friendName)}&background=0068FF&color=fff`;
+
+              let customer = await this.prisma.customer.findFirst({
+                where: {
+                  workspaceId: channelAccount.workspaceId,
+                  channelIdentities: { path: ['zalo', 'id'], equals: friendUid },
+                },
+              });
+
+              if (!customer) {
+                customer = await this.prisma.customer.create({
+                  data: {
+                    workspaceId: channelAccount.workspaceId,
+                    fullName: friendName,
+                    avatarUrl: friendAvatar,
+                    leadStatus: 'NEW',
+                    leadStage: 'TIẾP CẬN',
+                    channelIdentities: { zalo: { id: friendUid, name: friendName } },
+                  },
+                });
+              }
+
+              const conv = await this.prisma.conversation.findFirst({
+                where: { channelAccountId: channelAccount.id, customerId: customer.id },
+              });
+
+              if (!conv) {
+                await this.prisma.conversation.create({
+                  data: {
+                    workspaceId: channelAccount.workspaceId,
+                    channelAccountId: channelAccount.id,
+                    customerId: customer.id,
+                    status: 'OPEN',
+                    snippet: 'Đồng bộ từ danh bạ Zalo',
+                    lastMessageAt: new Date(),
+                  },
+                });
+                conversationsSet.add(customer.id);
+                syncedCount++;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`[zca-js] getAllFriends sync error: ${(err as Error).message}`);
+      }
+    }
+
+    return {
+      syncedCount,
+      conversationsCount: conversationsSet.size,
+    };
   }
 
   /**

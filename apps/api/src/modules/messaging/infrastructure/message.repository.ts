@@ -1,12 +1,17 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, OnModuleInit } from "@nestjs/common";
 import { Message, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../platform/database/prisma.service.js";
 import { InboundEvent } from "../domain/inbound-event.js";
 import { Channel, MessageDirection } from "../domain/channel.js";
 
 @Injectable()
-export class MessageRepository {
+export class MessageRepository implements OnModuleInit {
     constructor(private readonly prisma: PrismaService) {}
+
+    async onModuleInit(): Promise<void> {
+        // Tự động quét và chuẩn hóa các cột conversation_id, processed_at, attachments bị null trong DB
+        await this.backfillNullFields();
+    }
 
     async findById(id: string): Promise<Message | null> {
         return this.prisma.message.findUnique({
@@ -169,25 +174,237 @@ export class MessageRepository {
             accountMap.set(key, account.id);
         }
 
-        const messagesData = uniqueEvents.map((e) => {
+        // 3. Chuẩn bị dữ liệu messages và tự động liên kết conversation_id, attachments, processed_at
+        const messagesData: Prisma.MessageCreateManyInput[] = [];
+
+        for (const e of uniqueEvents) {
             const accountId = accountMap.get(`${e.channel}:${e.externalAccountId}`)!;
-            return {
+            const messageSentAt = e.sentAt ? new Date(e.sentAt) : new Date();
+            const raw = (e.rawPayload as any) || {};
+
+            // A. Xác định hoặc tìm/tạo conversationId
+            let conversationId: string | null = e.conversationId || raw.conversationId || null;
+
+            if (!conversationId) {
+                try {
+                    const isOutbound = e.direction === MessageDirection.OUTBOUND;
+                    const customerExternalId = isOutbound
+                        ? (raw.recipient?.id || raw.to?.data?.[0]?.id || raw.to?.id || e.senderExternalId)
+                        : e.senderExternalId;
+
+                    let customerId = raw.customerId || null;
+
+                    // Tìm customer theo channelIdentities
+                    if (!customerId && customerExternalId && customerExternalId !== 'unknown') {
+                        const cust = await this.prisma.customer.findFirst({
+                            where: {
+                                channelIdentities: { path: [e.channel.toLowerCase()], equals: String(customerExternalId) },
+                            },
+                            select: { id: true },
+                        });
+                        if (cust) {
+                            customerId = cust.id;
+                        }
+                    }
+
+                    // Tìm cuộc hội thoại đã có
+                    let conv = await this.prisma.conversation.findFirst({
+                        where: {
+                            channelAccountId: accountId,
+                            ...(customerId ? { customerId } : {}),
+                        },
+                        select: { id: true },
+                    });
+
+                    // Nếu chưa có thì tự động tạo mới cuộc hội thoại
+                    if (!conv) {
+                        const tags = Array.isArray(raw.tags) && raw.tags.length > 0
+                            ? raw.tags
+                            : [e.channel === Channel.FACEBOOK ? 'Facebook Lead' : 'Khách hàng mới'];
+                        conv = await this.prisma.conversation.create({
+                            data: {
+                                workspaceId: e.workspaceId || uniqueAccounts.get(`${e.channel}:${e.externalAccountId}`)?.workspaceId || null,
+                                channelAccountId: accountId,
+                                customerId: customerId || null,
+                                status: 'OPEN',
+                                snippet: e.content || 'Tin nhắn mới',
+                                lastMessageAt: messageSentAt,
+                                lastCustomerMessageAt: !isOutbound ? messageSentAt : undefined,
+                                tags,
+                            },
+                            select: { id: true },
+                        });
+                    } else {
+                        // Cập nhật lại snippet và lastMessageAt của Conversation
+                        await this.prisma.conversation.update({
+                            where: { id: conv.id },
+                            data: {
+                                snippet: e.content || undefined,
+                                lastMessageAt: messageSentAt,
+                                ...(!isOutbound ? { lastCustomerMessageAt: messageSentAt } : {}),
+                            },
+                        });
+                    }
+
+                    conversationId = conv.id;
+                } catch {
+                    // Tiếp tục lưu tin nhắn ngay cả khi tạo Conversation gặp lỗi non-fatal
+                }
+            }
+
+            // B. Trích xuất attachments
+            let attachments: any = e.attachments || raw.attachments || null;
+            if (!attachments && raw.message?.attachments) {
+                const fbAtts = raw.message.attachments;
+                if (Array.isArray(fbAtts) && fbAtts.length > 0) {
+                    attachments = fbAtts.map((att: any, idx: number) => {
+                        const type = String(att.type || 'FILE').toUpperCase();
+                        const url = att.payload?.url || att.url || '';
+                        return {
+                            id: att.id || `att-${Date.now()}-${idx}`,
+                            type: type === 'IMAGE' ? 'IMAGE' : type === 'AUDIO' ? 'AUDIO' : 'FILE',
+                            url,
+                            name: att.payload?.name || att.name || `${type.toLowerCase()}_attachment`,
+                            size: att.payload?.size,
+                            duration: att.payload?.duration,
+                        };
+                    });
+                }
+            }
+
+            // C. Trích xuất processedAt (Outbound và Sync đã hoàn thành xử lý)
+            let processedAt: Date | null = e.processedAt || null;
+            if (!processedAt) {
+                if (e.direction === MessageDirection.OUTBOUND || raw.isSync) {
+                    processedAt = messageSentAt;
+                }
+            }
+
+            messagesData.push({
                 channelAccountId: accountId,
+                conversationId,
                 channel: e.channel,
                 direction: e.direction ?? MessageDirection.INBOUND,
                 content: e.content,
-                sentAt: e.sentAt,
+                attachments: attachments ? (attachments as Prisma.InputJsonValue) : undefined,
+                sentAt: messageSentAt,
+                createdAt: messageSentAt,
+                processedAt,
                 externalMessageId: e.externalMessageId,
                 rawPayload: (e.rawPayload ?? {}) as Prisma.InputJsonValue,
-            };
-        });
+            });
+        }
 
-        // 3. Chèn với skipDuplicates: true (sinh ra SQL: ON CONFLICT DO NOTHING RETURNING id)
+        // 4. Chèn với skipDuplicates: true (sinh ra SQL: ON CONFLICT DO NOTHING RETURNING id)
         // Chỉ các dòng mới được chèn thực sự mới có id trong kết quả trả về
         return this.prisma.message.createManyAndReturn({
             data: messagesData,
             skipDuplicates: true,
             select: { id: true },
         });
+    }
+
+    /**
+     * Tự động quét và cập nhật các cột conversation_id, processed_at, attachments
+     * bị null cho các tin nhắn đã tồn tại trong CSDL
+     */
+    async backfillNullFields(): Promise<{ updatedConversations: number; updatedProcessedAt: number; updatedAttachments: number }> {
+        let updatedConversations = 0;
+        let updatedProcessedAt = 0;
+        let updatedAttachments = 0;
+
+        try {
+            // 1. Tìm các message có conversationId null
+            const nullConvMessages = await this.prisma.message.findMany({
+                where: { conversationId: null },
+                take: 200,
+            });
+
+            for (const msg of nullConvMessages) {
+                const raw = (msg.rawPayload as any) || {};
+                const isOutbound = msg.direction === MessageDirection.OUTBOUND;
+                const customerExternalId = isOutbound
+                    ? (raw.recipient?.id || raw.to?.data?.[0]?.id || raw.to?.id)
+                    : (raw.senderExternalId || raw.sender?.id || raw.from?.id);
+
+                let customerId = raw.customerId || null;
+                if (!customerId && customerExternalId) {
+                    const cust = await this.prisma.customer.findFirst({
+                        where: {
+                            channelIdentities: { path: [msg.channel.toLowerCase()], equals: String(customerExternalId) },
+                        },
+                        select: { id: true },
+                    });
+                    if (cust) customerId = cust.id;
+                }
+
+                // Tìm hoặc tạo conversation
+                let conv = await this.prisma.conversation.findFirst({
+                    where: {
+                        channelAccountId: msg.channelAccountId,
+                        ...(customerId ? { customerId } : {}),
+                    },
+                    select: { id: true },
+                });
+
+                if (!conv) {
+                    conv = await this.prisma.conversation.create({
+                        data: {
+                            channelAccountId: msg.channelAccountId,
+                            customerId: customerId || null,
+                            status: 'OPEN',
+                            snippet: msg.content || 'Tin nhắn',
+                            lastMessageAt: msg.sentAt,
+                            tags: [msg.channel === Channel.FACEBOOK ? 'Facebook Lead' : 'Khách hàng mới'],
+                        },
+                        select: { id: true },
+                    });
+                }
+
+                await this.prisma.message.update({
+                    where: { id: msg.id },
+                    data: { conversationId: conv.id },
+                });
+                updatedConversations++;
+            }
+
+            // 2. Cập nhật processed_at cho các tin nhắn đang bị null
+            const nullProcessed = await this.prisma.message.updateMany({
+                where: { processedAt: null },
+                data: { processedAt: new Date() },
+            });
+            updatedProcessedAt = nullProcessed.count;
+
+            // 3. Cập nhật attachments từ rawPayload cho các tin nhắn bị null
+            const nullAttMessages = await this.prisma.message.findMany({
+                where: { attachments: { equals: Prisma.DbNull } },
+                take: 200,
+            });
+
+            for (const msg of nullAttMessages) {
+                const raw = (msg.rawPayload as any) || {};
+                const fbAtts = raw.message?.attachments || raw.attachments?.data || raw.attachments;
+                if (Array.isArray(fbAtts) && fbAtts.length > 0) {
+                    const parsed = fbAtts.map((att: any, idx: number) => ({
+                        id: att.id || `att-${Date.now()}-${idx}`,
+                        type: String(att.type || 'FILE').toUpperCase(),
+                        url: att.payload?.url || att.url || '',
+                        name: att.payload?.name || att.name || `${att.type}_attachment`,
+                        size: att.payload?.size,
+                        duration: att.payload?.duration,
+                    }));
+
+                    await this.prisma.message.update({
+                        where: { id: msg.id },
+                        data: { attachments: parsed as Prisma.InputJsonValue },
+                    });
+                    updatedAttachments++;
+                }
+            }
+        } catch {
+            // Không ngắt app nếu backfill gặp lỗi
+        }
+
+        return { updatedConversations, updatedProcessedAt, updatedAttachments };
     }
 }

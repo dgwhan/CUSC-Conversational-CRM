@@ -135,7 +135,7 @@ export class ReceiveInboundMessage {
                         content: event.content || (isOutbound ? 'Tin nhắn gửi đi từ Page' : 'Tin nhắn mới'),
                         senderName: customerName,
                         senderAvatar: customerAvatar,
-                        sentAt: new Date(event.sentAt).toLocaleTimeString(),
+                        sentAt: new Date(event.sentAt).toISOString(),
                     });
 
                     // Tự động báo cho Kanban cập nhật ứng viên mới
