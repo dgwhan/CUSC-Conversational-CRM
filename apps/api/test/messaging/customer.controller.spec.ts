@@ -60,6 +60,7 @@ describe('CustomerController', () => {
             expect(result.items[0].leadStatus).toBe('POTENTIAL');
             expect(result.items[0].leadStage).toBe('STAGE_QUALIFIED');
             expect(result.items[0].interestCourses).toEqual(['Lập trình viên']);
+            expect(result.items[0].tags).toEqual(['Lead']);
 
             // Fallback sang channelIdentities nếu cột null
             expect(result.items[1].leadStatus).toBe('CONVERTED');

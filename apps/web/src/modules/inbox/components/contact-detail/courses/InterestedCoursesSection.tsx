@@ -17,6 +17,10 @@ interface InterestedCoursesSectionProps {
   onRemoveCourse: (course: string) => void;
 }
 
+/**
+ * Section: Khóa học / Chương trình đào tạo quan tâm
+ * Thiết kế phẳng bằng Tailwind CSS
+ */
 export const InterestedCoursesSection: React.FC<InterestedCoursesSectionProps> = ({
   productLabel = 'Khóa học / Chương trình đào tạo',
   courses,
@@ -29,44 +33,49 @@ export const InterestedCoursesSection: React.FC<InterestedCoursesSectionProps> =
   const effectiveTuition = estimatedValue && estimatedValue > 0 ? estimatedValue : 32000000;
 
   return (
-    <section className="flat-section">
-      <div className="flat-section-header">
-        <h3 className="flat-section-title">
+    <section className="p-4 border-b border-slate-200">
+      <div className="flex items-center justify-between mb-2.5">
+        <h3 className="text-[13px] font-semibold text-slate-800 m-0">
           {productLabel} ({effectiveCourses.length})
         </h3>
         <button
           type="button"
-          className="flat-link-action"
           onClick={onOpenAssignModal}
+          className="text-[11.5px] font-medium text-blue-600 hover:text-blue-800 bg-transparent border-0 cursor-pointer p-0 transition-colors"
           title="Gán hoặc đổi khóa học"
         >
           <span>Gán</span>
         </button>
       </div>
 
-      <div className="flat-course-container">
+      <div className="flex flex-col gap-2">
         {effectiveCourses.map((course, idx) => {
           const prod = catalog.find((p) => p.name === course || p.id === course);
           const courseType = prod?.category || 'Dài hạn';
           const coursePrice = prod?.defaultPrice || 32000000;
 
           return (
-            <div key={idx} className="flat-course-item">
-              <div className="flat-course-header-row">
-                <span className="flat-course-name">{course}</span>
+            <div
+              key={idx}
+              className="p-2.5 bg-slate-50 border border-slate-200 rounded-md"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <span className="text-[12.5px] font-semibold text-slate-800 leading-snug">
+                  {course}
+                </span>
                 <button
                   type="button"
-                  className="flat-tag-delete-btn"
                   onClick={() => onRemoveCourse(course)}
+                  className="text-slate-400 hover:text-red-500 bg-transparent border-0 cursor-pointer p-0 shrink-0"
                   title="Gỡ bỏ"
                 >
                   <X size={13} />
                 </button>
               </div>
 
-              <div className="flat-course-meta-row">
-                <span className="flat-course-type">Loại: {courseType}</span>
-                <span className="flat-course-price">
+              <div className="flex items-center justify-between text-[11.5px] text-slate-500">
+                <span>Loại: {courseType}</span>
+                <span className="font-semibold text-slate-700">
                   Học phí: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(coursePrice)}
                 </span>
               </div>
@@ -75,9 +84,9 @@ export const InterestedCoursesSection: React.FC<InterestedCoursesSectionProps> =
         })}
 
         {/* Dòng tổng học phí dự kiến */}
-        <div className="flat-tuition-total-row">
-          <span className="flat-tuition-total-label">Học phí dự kiến (VNĐ):</span>
-          <span className="flat-tuition-total-val">
+        <div className="flex items-center justify-between pt-1 text-[12px]">
+          <span className="text-slate-500 font-medium">Học phí dự kiến (VNĐ):</span>
+          <span className="font-bold text-blue-700 font-mono">
             {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(effectiveTuition)}
           </span>
         </div>

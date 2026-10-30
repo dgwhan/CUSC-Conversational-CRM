@@ -13,13 +13,12 @@ import { LogPersonalZaloModal } from './LogPersonalZaloModal.js';
 import { useWorkspaceConfig } from '../../workspace/WorkspaceConfigContext.js';
 import {
   ContactHeader,
-  PipelineStagesSection,
   ChannelIdentitiesSection,
   ContactInfoSection,
+  ContactActivitySection,
   ContactTagsSection,
   InterestedCoursesSection,
   InternalNotesSection,
-  type StageDefinition,
 } from './contact-detail/index.js';
 import '../../../styles/contact-sidebar-flat.css';
 
@@ -68,18 +67,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
       ? (config.pipelineStages.find((s) => s.isWon)?.id || PIPELINE_STAGE_ID.STAGE_ENROLLED)
       : customer.leadStatus === LEAD_STATUS.UNQUALIFIED
       ? (config.pipelineStages.find((s) => s.isLost)?.id || PIPELINE_STAGE_ID.STAGE_LOST)
-      : customer.leadStatus === LEAD_STATUS.NEW
-      ? (config.pipelineStages[0]?.id || PIPELINE_STAGE_ID.STAGE_NEW)
-      : (config.pipelineStages[1]?.id || PIPELINE_STAGE_ID.STAGE_CONTACTED));
-
-  const handleStageSelect = (stageItem: StageDefinition) => {
-    // Chuyển giai đoạn thống nhất 1 luồng: ưu tiên gọi onUpdateLeadStage để cập nhật cả Stage và Status đồng bộ
-    if (onUpdateLeadStage) {
-      onUpdateLeadStage(stageItem.id);
-    } else {
-      onUpdateLeadStatus(stageItem.status);
-    }
-  };
+      : (config.pipelineStages[0]?.id || PIPELINE_STAGE_ID.STAGE_NEW));
 
   const handleCopy = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
@@ -137,16 +125,8 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
       />
 
       <div className="flat-sidebar-body">
-        {/* B. PHỄU BÁN HÀNG & CHĂM SÓC THEO WORKSPACE */}
-        <PipelineStagesSection
-          pipelineName={config.terminology.pipelineName}
-          stages={config.pipelineStages}
-          currentStageKey={currentStageKey}
-          onNavigateToKanban={onNavigateToKanban}
-          onSelectStage={handleStageSelect}
-        />
 
-        {/* C. DANH TÍNH ĐA KÊNH */}
+        {/* B. ĐỊNH DANH KÊNH HỘI THOẠI */}
         <ChannelIdentitiesSection
           identities={effectiveIdentities}
           copiedField={copiedField}
@@ -168,7 +148,19 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           onResetEditingEmailExternal={() => setTriggerEditEmail(false)}
         />
 
-        {/* E. NHÃN PHÂN LOẠI */}
+        {/* E. HOẠT ĐỘNG (Giai đoạn khách hàng tiềm năng & Đánh dấu Lead chuẩn Meta Business Suite) */}
+        <ContactActivitySection
+          customer={customer}
+          currentStageKey={currentStageKey}
+          stages={config.pipelineStages}
+          onUpdateLeadStatus={onUpdateLeadStatus}
+          onUpdateLeadStage={onUpdateLeadStage}
+          onAddTag={onAddTag}
+          onRemoveTag={onRemoveTag}
+          onNavigateToKanban={onNavigateToKanban}
+        />
+
+        {/* F. NHÃN PHÂN LOẠI */}
         <ContactTagsSection
           tags={customer.tags}
           onAddTag={onAddTag}

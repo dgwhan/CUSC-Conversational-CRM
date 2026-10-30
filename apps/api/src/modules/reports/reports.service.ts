@@ -123,7 +123,7 @@ export class ReportsService {
             assignedMember: {
               include: {
                 staff: {
-                  select: { id: true, fullName: true, avatarUrl: true },
+                  select: { id: true, fullName: true, email: true },
                 },
               },
             },
@@ -147,7 +147,7 @@ export class ReportsService {
     const workspaceMembers = targetWsId
       ? await this.prisma.workspaceMember.findMany({
           where: { workspaceId: targetWsId },
-          include: { staff: { select: { id: true, fullName: true, avatarUrl: true } } },
+          include: { staff: { select: { id: true, fullName: true, email: true } } },
         })
       : [];
 
@@ -202,7 +202,7 @@ export class ReportsService {
       staffMap[m.staff.id] = {
         staffId: m.staff.id,
         name: m.staff.fullName,
-        avatar: m.staff.avatarUrl || undefined,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(m.staff.fullName)}&background=0284c7&color=fff&bold=true`,
         leadsCount: 0,
         wonCount: 0,
         revenue: 0,
@@ -365,7 +365,7 @@ export class ReportsService {
           staffMap[assignedStaff.id] = {
             staffId: assignedStaff.id,
             name: assignedStaff.fullName,
-            avatar: assignedStaff.avatarUrl || undefined,
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(assignedStaff.fullName)}&background=0284c7&color=fff&bold=true`,
             leadsCount: 0,
             wonCount: 0,
             revenue: 0,

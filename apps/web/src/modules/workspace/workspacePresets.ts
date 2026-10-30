@@ -13,7 +13,7 @@ export const CLIENT_INDUSTRY_PRESETS: Record<BusinessDomain, Omit<WorkspaceConfi
     pipelineStages: [
       {
         id: 'STAGE_NEW',
-        name: '1. Tiếp nhận mới',
+        name: '1. Liên hệ mới',
         subtitle: 'Chưa liên hệ / Lead mới từ FB & Zalo',
         color: '#0284c7',
         bgColor: '#f0f9ff',

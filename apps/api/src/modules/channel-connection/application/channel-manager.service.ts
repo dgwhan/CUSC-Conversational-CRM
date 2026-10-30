@@ -13,6 +13,17 @@ import { MessageRepository } from '../../messaging/infrastructure/message.reposi
 import { RealtimeService } from '../../realtime/realtime.service.js';
 import { InboundEvent } from '../../messaging/domain/inbound-event.js';
 import { Channel, MessageDirection } from '../../messaging/domain/channel.js';
+import {
+  resolveTagMappings,
+  CRM_SYSTEM_TAGS,
+  CRM_LEAD_STATUS,
+  CRM_PIPELINE_STAGES,
+  META_SOURCE_TAGS,
+  tagSyncLogger,
+  TAG_SYNC_STAGE,
+  TAG_SYNC_ERROR_TYPE,
+  TAG_EVENT_SOURCE,
+} from '../../messaging/domain/tag-mapping/index.js';
 import type {
   ActivateChannelsBody,
   ActivateChannelsResult,
@@ -30,7 +41,7 @@ export class ChannelManagerService {
     @Optional() private readonly messageRepo?: MessageRepository,
     @Optional() private readonly realtime?: RealtimeService,
     @Optional() private readonly zcaService?: ZcaPersonalService,
-  ) {}
+  ) { }
 
   /**
    * Kích hoạt danh sách Fanpage / OA vào Workspace:
@@ -456,7 +467,7 @@ export class ChannelManagerService {
             customer = await this.prisma.customer.findUnique({
               where: { id: resolvedRecipientId },
             });
-          } catch {}
+          } catch { }
         }
 
         // b. Nếu chưa có, thử tìm từ conversationId
@@ -471,7 +482,7 @@ export class ChannelManagerService {
               if (conv?.customer) {
                 customer = conv.customer;
               }
-            } catch {}
+            } catch { }
           }
         }
 
@@ -506,7 +517,7 @@ export class ChannelManagerService {
                   resolvedRecipientId = String(candidate).trim();
                 }
               }
-            } catch {}
+            } catch { }
           }
         }
       }
@@ -894,8 +905,7 @@ export class ChannelManagerService {
                 channelIdentities: {
                   zalo: { id: customerZaloId, name: customerName },
                 },
-                leadStage: 'STAGE_NEW',
-                interestCourses: ['Lập trình viên Quốc tế'],
+                leadStage: 'STAGE_NEW'
               },
             });
           }
@@ -1045,6 +1055,20 @@ export class ChannelManagerService {
     if (!res.ok) {
       const errJson = await res.json().catch(() => ({}));
       const msg = errJson.error?.message || `Lỗi HTTP ${res.status}`;
+      tagSyncLogger.logError({
+        stage: TAG_SYNC_STAGE.READ,
+        errorType: TAG_SYNC_ERROR_TYPE.TAG_READ_ERROR,
+        message: `Lỗi đọc hội thoại và nhãn phân loại từ Meta Graph API: ${msg}`,
+        eventSource: TAG_EVENT_SOURCE.META_GRAPH_API,
+        channel: Channel.FACEBOOK,
+        channelAccountId: account.id,
+        metadata: {
+          pageId,
+          url, // Tự động làm sạch access token bởi tagSyncLogger
+          status: res.status,
+          errorJson: errJson,
+        },
+      });
       throw new BadRequestException(`Meta Graph API từ chối đồng bộ tin nhắn: ${msg}`);
     }
 
@@ -1060,7 +1084,6 @@ export class ChannelManagerService {
       const fbLabels: string[] = Array.isArray(conv.labels?.data)
         ? conv.labels.data.map((l: any) => l.name).filter(Boolean)
         : [];
-      const convTags = fbLabels.length > 0 ? fbLabels : ['Facebook Lead'];
 
       // 1. Trích xuất hoặc truy vấn avatar & thông tin khách hàng thực tế từ Meta
       let customerName = customer?.name || (customer?.id ? `Khách hàng Facebook #${customer.id.slice(-4)}` : 'Khách hàng Facebook');
@@ -1090,7 +1113,7 @@ export class ChannelManagerService {
         customerAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName)}&background=0284c7&color=fff&bold=true`;
       }
 
-      // 2. ĐỔ DỮ LIỆU KHÁCH HÀNG VÀO BẢNG "customers" TRONG DATABASE
+      // 2. Tra cứu khách hàng và cuộc hội thoại đã tồn tại để lấy context đồng bộ tag
       let dbCustomer: any = null;
       if (customer?.id && this.prisma.customer) {
         try {
@@ -1102,35 +1125,9 @@ export class ChannelManagerService {
               ],
             },
           });
-
-          if (!dbCustomer) {
-            dbCustomer = await this.prisma.customer.create({
-              data: {
-                workspaceId: targetWsId || null,
-                fullName: customerName,
-                email: customer.email || null,
-                avatarUrl: customerAvatar,
-                leadStatus: 'NEW',
-                leadStage: 'STAGE_NEW',
-                channelIdentities: { facebook: customer.id, channel: 'FACEBOOK', pageId },
-              },
-            });
-            this.logger.log(`Tự động tạo mới bản ghi Customer vào DB: "${customerName}" (${dbCustomer.id})`);
-          } else {
-            dbCustomer = await this.prisma.customer.update({
-              where: { id: dbCustomer.id },
-              data: {
-                fullName: customerName,
-                avatarUrl: customerAvatar || dbCustomer.avatarUrl,
-              },
-            });
-          }
-        } catch (err) {
-          this.logger.warn(`Could not save customer to DB: ${(err as Error).message}`);
-        }
+        } catch { }
       }
 
-      // 3. ĐỔ DỮ LIỆU CUỘC HỘI THOẠI VÀO BẢNG "conversations" TRONG DATABASE
       let dbConv: any = null;
       if (this.prisma.conversation) {
         try {
@@ -1140,9 +1137,109 @@ export class ChannelManagerService {
               ...(dbCustomer ? { customerId: dbCustomer.id } : {}),
             },
           });
+        } catch { }
+      }
 
+      // 3. Ánh xạ tag nguồn từ Meta Business Suite sang tag nội bộ CRM (Facebook Lead -> Lead)
+      const convTime = new Date(conv.updated_time || Date.now());
+      const hasLabelsData = Array.isArray(conv.labels?.data);
+      const rawSourceTags: string[] = fbLabels.length > 0
+        ? fbLabels
+        : (hasLabelsData ? [] : [META_SOURCE_TAGS.FACEBOOK_LEAD]);
+      const isCustomerTouched = dbCustomer
+        ? (dbCustomer.leadStatus !== CRM_LEAD_STATUS.NEW && dbCustomer.leadStatus !== 'NEW')
+        : false;
+      const customerIdentities = (dbCustomer?.channelIdentities as any) || {};
+      const manuallyRemovedTags: string[] = Array.isArray(customerIdentities.manuallyRemovedTags)
+        ? customerIdentities.manuallyRemovedTags
+        : [];
+
+      const tagMappingResult = resolveTagMappings({
+        channel: Channel.FACEBOOK,
+        currentTags: dbConv?.tags || [],
+        sourceTags: rawSourceTags,
+        isCustomerTouched,
+        existingLeadStatus: dbCustomer?.leadStatus,
+        existingLeadStage: dbCustomer?.leadStage,
+        eventTimestamp: convTime,
+        lastSyncTimestamp: dbConv?.lastMessageAt || dbCustomer?.updatedAt,
+        explicitEmptyLabels: hasLabelsData && conv.labels.data.length === 0,
+        manuallyRemovedTags,
+      });
+
+      const convTags = tagMappingResult.finalTags;
+      let isNewCustomer = false;
+
+      // 4. ĐỔ DỮ LIỆU KHÁCH HÀNG VÀO BẢNG "customers" TRONG DATABASE
+      if (customer?.id && this.prisma.customer) {
+        try {
+          if (!dbCustomer) {
+            dbCustomer = await this.prisma.customer.create({
+              data: {
+                workspaceId: targetWsId || null,
+                fullName: customerName,
+                email: customer.email || null,
+                avatarUrl: customerAvatar,
+                leadStatus: tagMappingResult.suggestedLeadStatus || CRM_LEAD_STATUS.POTENTIAL,
+                leadStage: tagMappingResult.suggestedLeadStage || CRM_PIPELINE_STAGES.STAGE_NEW,
+                channelIdentities: {
+                  facebook: customer.id,
+                  channel: 'FACEBOOK',
+                  pageId,
+                  tags: convTags,
+                },
+              },
+            });
+            isNewCustomer = true;
+            this.logger.log(`Tự động tạo mới bản ghi Customer vào DB: "${customerName}" (${dbCustomer.id}) với tag ${convTags.join(', ')}`);
+          } else {
+            const shouldUpgradeStatus =
+              tagMappingResult.shouldUpgradeLead &&
+              Boolean(tagMappingResult.suggestedLeadStatus);
+            const existingIdentities = (dbCustomer.channelIdentities as any) || {};
+
+            dbCustomer = await this.prisma.customer.update({
+              where: { id: dbCustomer.id },
+              data: {
+                fullName: customerName,
+                avatarUrl: customerAvatar || dbCustomer.avatarUrl,
+                ...(shouldUpgradeStatus
+                  ? {
+                    leadStatus: tagMappingResult.suggestedLeadStatus,
+                    leadStage: tagMappingResult.suggestedLeadStage || dbCustomer.leadStage || CRM_PIPELINE_STAGES.STAGE_NEW,
+                  }
+                  : {}),
+                channelIdentities: {
+                  ...existingIdentities,
+                  facebook: customer.id,
+                  channel: 'FACEBOOK',
+                  pageId,
+                  tags: convTags,
+                },
+              },
+            });
+          }
+        } catch (err) {
+          this.logger.warn(`Could not save customer to DB: ${(err as Error).message}`);
+          tagSyncLogger.logError({
+            stage: TAG_SYNC_STAGE.UPDATE,
+            errorType: TAG_SYNC_ERROR_TYPE.TAG_DATABASE_ERROR,
+            message: `Không thể lưu thông tin và nhãn khách hàng vào CSDL: ${(err as Error).message}`,
+            eventSource: TAG_EVENT_SOURCE.META_GRAPH_API,
+            channel: Channel.FACEBOOK,
+            customerId: dbCustomer?.id,
+            sourceTags: rawSourceTags,
+            targetTags: convTags,
+            channelAccountId: account.id,
+            error: err,
+          });
+        }
+      }
+
+      // 5. ĐỔ DỮ LIỆU CUỘC HỘI THOẠI VÀO BẢNG "conversations" TRONG DATABASE
+      if (this.prisma.conversation) {
+        try {
           const latestMsg = messagesList.find((m: any) => m.message)?.message || 'Cuộc trò chuyện Facebook';
-          const convTime = new Date(conv.updated_time || Date.now());
 
           if (!dbConv) {
             dbConv = await this.prisma.conversation.create({
@@ -1158,11 +1255,17 @@ export class ChannelManagerService {
               },
             });
           } else {
+            const isOutOfOrder = Boolean(
+              dbConv.lastMessageAt && convTime.getTime() < new Date(dbConv.lastMessageAt).getTime()
+            );
+
             dbConv = await this.prisma.conversation.update({
               where: { id: dbConv.id },
               data: {
-                snippet: latestMsg,
-                lastMessageAt: convTime,
+                ...(isOutOfOrder ? {} : {
+                  snippet: latestMsg,
+                  lastMessageAt: convTime,
+                }),
                 tags: convTags,
                 ...(dbCustomer && !dbConv.customerId ? { customerId: dbCustomer.id } : {}),
               },
@@ -1170,6 +1273,19 @@ export class ChannelManagerService {
           }
         } catch (err) {
           this.logger.warn(`Could not save conversation to DB: ${(err as Error).message}`);
+          tagSyncLogger.logError({
+            stage: TAG_SYNC_STAGE.UPDATE,
+            errorType: TAG_SYNC_ERROR_TYPE.TAG_DATABASE_ERROR,
+            message: `Không thể lưu nhãn cuộc hội thoại vào CSDL: ${(err as Error).message}`,
+            eventSource: TAG_EVENT_SOURCE.META_GRAPH_API,
+            channel: Channel.FACEBOOK,
+            conversationId: dbConv?.id,
+            customerId: dbCustomer?.id,
+            sourceTags: rawSourceTags,
+            targetTags: convTags,
+            channelAccountId: account.id,
+            error: err,
+          });
         }
       }
 
@@ -1228,13 +1344,13 @@ export class ChannelManagerService {
             }
           }
 
-          // Tự động đẩy sự kiện cập nhật Phễu Kanban
-          if (dbCustomer) {
+          // Tự động đẩy sự kiện cập nhật Phễu Kanban chỉ khi khách hàng mới tạo (tránh reset khách hàng cũ)
+          if (isNewCustomer && dbCustomer) {
             this.realtime.broadcastPipelineChange({
               customerId: dbCustomer.id,
               customerName: customerName,
               previousStage: '',
-              newStage: 'STAGE_NEW',
+              newStage: dbCustomer.leadStage || 'STAGE_NEW',
               updatedBy: 'Facebook Sync',
             });
           }

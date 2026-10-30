@@ -196,8 +196,15 @@ export const mergeDuplicateConversations = (conversations: ConversationItem[]): 
       // Gộp và khử trùng lặp toàn bộ tin nhắn, sắp xếp theo thời gian
       const combinedMessages = deduplicateMessages([...target.messages, ...conv.messages]);
 
-      // Gộp các nhãn phân loại (tags), ưu tiên giữ nhãn cụ thể như 'Facebook Lead', 'lead'
-      const allTags = Array.from(new Set([...(target.tags || []), ...(conv.tags || [])]));
+      // Gộp các nhãn phân loại (tags), ánh xạ Facebook Lead sang Lead và khử trùng lặp
+      const rawCombined = [
+        ...(target.customer?.tags || target.tags || []),
+        ...(conv.customer?.tags || conv.tags || []),
+      ];
+      const normalizedMapped = rawCombined.map((t) =>
+        t.trim().toLowerCase() === 'facebook lead' ? 'Lead' : t.trim()
+      );
+      const allTags = Array.from(new Set(normalizedMapped));
       const filteredTags =
         allTags.length > 1 && allTags.some((t) => t !== 'Khách hàng mới')
           ? allTags.filter((t) => t !== 'Khách hàng mới')
@@ -235,7 +242,7 @@ export const mergeDuplicateConversations = (conversations: ConversationItem[]): 
         snippet: latestMsg?.content || target.snippet || conv.snippet,
         lastMessageAt: latestMsg?.sentAt || target.lastMessageAt || conv.lastMessageAt,
         unreadCount: (target.unreadCount || 0) + (conv.unreadCount || 0),
-        tags: filteredTags.length > 0 ? filteredTags : ['Facebook Lead'],
+        tags: filteredTags,
         customer: {
           ...target.customer,
           ...conv.customer,
@@ -243,7 +250,7 @@ export const mergeDuplicateConversations = (conversations: ConversationItem[]): 
           avatarUrl: preferAvatar(target.customer.avatarUrl, conv.customer.avatarUrl),
           leadStatus: finalStatus,
           leadStage: target.customer.leadStage || conv.customer.leadStage,
-          tags: filteredTags.length > 0 ? filteredTags : ['Facebook Lead'],
+          tags: filteredTags,
           phone: target.customer.phone !== 'Chưa có SĐT' ? target.customer.phone : conv.customer.phone,
           email: target.customer.email !== 'Chưa có Email' ? target.customer.email : conv.customer.email,
         },
@@ -511,10 +518,15 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                 ? [{ channel: latest.channel, externalUserId: latestSenderId }]
                 : []);
 
+            const existingTags = Array.isArray(matchedCust?.tags)
+              ? matchedCust.tags
+              : existing.customer.tags || existing.tags || [];
+
             updated[existingIndex] = {
               ...existing,
               snippet: latest.content || existing.snippet,
               lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toISOString() : new Date().toISOString(),
+              tags: existingTags,
               customer: shouldUpdateCustomer
                 ? {
                   ...existing.customer,
@@ -526,6 +538,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                   email: matchedCust?.email || existing.customer.email,
                   leadStatus: (matchedCust?.leadStatus as any) || existing.customer.leadStatus,
                   leadStage: matchedCust?.leadStage || existing.customer.leadStage,
+                  tags: existingTags,
                   interestCourses: existing.customer.interestCourses?.length
                     ? existing.customer.interestCourses
                     : (matchedCust?.interestCourses || []),
@@ -537,6 +550,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                   channelIdentities: identitiesList.length ? identitiesList : existing.customer.channelIdentities,
                   leadStatus: (matchedCust?.leadStatus as any) || existing.customer.leadStatus,
                   leadStage: matchedCust?.leadStage || existing.customer.leadStage,
+                  tags: existingTags,
                   interestCourses: existing.customer.interestCourses?.length
                     ? existing.customer.interestCourses
                     : (matchedCust?.interestCourses || []),
@@ -551,6 +565,14 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                 ? [{ channel: latest.channel, externalUserId: latestSenderId }]
                 : []);
 
+            const initialCustomerTags = Array.isArray(matchedCust?.tags)
+              ? matchedCust.tags
+              : Array.isArray((latest as any).tags) && (latest as any).tags.length > 0
+                ? (latest as any).tags.map((t: string) => t.trim().toLowerCase() === 'facebook lead' ? 'Lead' : t)
+                : Array.isArray((latest as any).rawPayload?.tags) && (latest as any).rawPayload.tags.length > 0
+                  ? (latest as any).rawPayload.tags.map((t: string) => t.trim().toLowerCase() === 'facebook lead' ? 'Lead' : t)
+                  : [];
+
             const newConv: ConversationItem = {
               id: convId,
               channel: latest.channel as any,
@@ -559,12 +581,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
               lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toISOString() : new Date().toISOString(),
               lastCustomerMessageAt: firstInbound.sentAt,
               unreadCount: 0,
-              tags:
-                Array.isArray((latest as any).tags) && (latest as any).tags.length > 0
-                  ? (latest as any).tags
-                  : Array.isArray((latest as any).rawPayload?.tags) && (latest as any).rawPayload.tags.length > 0
-                    ? (latest as any).rawPayload.tags
-                    : ['Facebook Lead'],
+              tags: initialCustomerTags,
               status: 'OPEN',
               customer: {
                 id: matchedCust?.id || convCustomer?.id || (latestSenderId !== 'anonymous' && latestSenderId !== 'khách' ? `cust-${latestSenderId}` : `cust-${convId}`),
@@ -579,12 +596,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
                 channelAccountName: channelName,
                 leadStatus: (matchedCust?.leadStatus as any) || 'POTENTIAL',
                 leadStage: matchedCust?.leadStage || undefined,
-                tags:
-                  Array.isArray((latest as any).tags) && (latest as any).tags.length > 0
-                    ? (latest as any).tags
-                    : Array.isArray((latest as any).rawPayload?.tags) && (latest as any).rawPayload.tags.length > 0
-                      ? (latest as any).rawPayload.tags
-                      : ['Facebook Lead'],
+                tags: initialCustomerTags,
                 interestCourses: matchedCust?.interestCourses || [],
                 estimatedValue: matchedCust?.estimatedValue || 0,
                 notes: [],
@@ -755,7 +767,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
 
         // Tự động tạo cuộc hội thoại mới khi nhận được tin nhắn từ khách hàng mới chưa từng có trong hệ thống
         const isFb = msg.channel === 'FACEBOOK';
-        const defaultTags = isFb ? ['Facebook Lead'] : ['Khách hàng mới'];
+        const defaultTags = isFb ? ['Lead'] : ['Khách hàng mới'];
 
         const isCounselorName = (n?: string) => {
           const lower = n?.trim()?.toLowerCase() || '';
@@ -1019,22 +1031,46 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   // 4. Cập nhật Lead Status (CRM)
   const handleUpdateLeadStatus = (status: LeadStatus) => {
     if (!currentConv) return;
+
+    let stageForKanban: LeadStage = currentConv.customer.leadStage || (config.pipelineStages[0]?.id as LeadStage) || 'STAGE_NEW';
+    if (!currentConv.customer.leadStage) {
+      if (status === 'CONVERTED') stageForKanban = (config.pipelineStages.find((s) => s.isWon)?.id as LeadStage) || 'STAGE_ENROLLED';
+      else if (status === 'POTENTIAL') stageForKanban = (config.pipelineStages[0]?.id as LeadStage) || 'STAGE_NEW';
+      else if (status === 'UNQUALIFIED') stageForKanban = (config.pipelineStages.find((s) => s.isLost)?.id as LeadStage) || 'STAGE_LOST';
+    }
+
+    // Tự động đồng bộ tag "Lead" khi chuyển sang POTENTIAL hoặc gỡ bỏ khi quay về NEW
+    const currentTags = Array.from(new Set([
+      ...(currentConv.customer?.tags || []),
+      ...(currentConv.tags || []),
+    ]));
+    let nextTags = [...currentTags];
+    if (status === 'POTENTIAL') {
+      if (!nextTags.some((t) => t.trim().toLowerCase() === 'lead')) {
+        nextTags.push('Lead');
+      }
+    } else if (status === 'NEW') {
+      nextTags = nextTags.filter((t) => {
+        const l = t.trim().toLowerCase();
+        return l !== 'lead' && l !== 'facebook lead' && l !== 'fb lead';
+      });
+    }
+
     setConversations((prev) =>
       prev.map((c) => {
         if (c.id !== currentConv.id) return c;
         return {
           ...c,
-          customer: { ...c.customer, leadStatus: status },
+          tags: nextTags,
+          customer: {
+            ...c.customer,
+            leadStatus: status,
+            leadStage: stageForKanban,
+            tags: nextTags,
+          },
         };
       })
     );
-
-    let stageForKanban: LeadStage = currentConv.customer.leadStage || (config.pipelineStages[0]?.id as LeadStage) || 'STAGE_NEW';
-    if (!currentConv.customer.leadStage) {
-      if (status === 'CONVERTED') stageForKanban = (config.pipelineStages.find((s) => s.isWon)?.id as LeadStage) || 'STAGE_ENROLLED';
-      else if (status === 'POTENTIAL') stageForKanban = (config.pipelineStages[1]?.id as LeadStage) || 'STAGE_CONTACTED';
-      else if (status === 'UNQUALIFIED') stageForKanban = (config.pipelineStages.find((s) => s.isLost)?.id as LeadStage) || 'STAGE_LOST';
-    }
 
     // Đồng bộ sang phễu Kanban trong LocalStorage để bên Kanban nhận ngay
     try {
@@ -1051,6 +1087,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
               return {
                 ...cand,
                 stage: stageForKanban,
+                tags: nextTags,
               };
             }
             return cand;
@@ -1064,12 +1101,26 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     if (currentConv.customer.id) {
       apiClient.updateCustomer(currentConv.customer.id, {
         fullName: currentConv.customer.fullName,
-        phone: currentConv.customer.phone,
-        email: currentConv.customer.email,
+        phone: currentConv.customer.phone && currentConv.customer.phone !== 'Chưa có SĐT' ? currentConv.customer.phone : undefined,
+        email: currentConv.customer.email && currentConv.customer.email !== 'Chưa có Email' ? currentConv.customer.email : undefined,
         leadStatus: status,
         leadStage: stageForKanban,
+        tags: nextTags,
+        conversationId: currentConv.id,
         updatedBy: staffName || undefined,
-      }).catch((err) => {
+      }, activeWorkspaceId || undefined)
+      .then((res: any) => {
+        if (res?.id && res.id !== currentConv.customer.id) {
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === currentConv.id
+                ? { ...c, customer: { ...c.customer, id: res.id } }
+                : c
+            )
+          );
+        }
+      })
+      .catch((err) => {
         console.warn('Lỗi cập nhật leadStatus vào DB:', err);
       });
     }
@@ -1084,6 +1135,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
             conversationId: currentConv.id,
             leadStatus: status,
             leadStage: stageForKanban,
+            tags: nextTags,
           },
         })
       );
@@ -1119,7 +1171,10 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     } else if (targetStageConfig?.isLost) {
       computedStatus = 'UNQUALIFIED';
     } else if (isFirstStage || resolvedStageId === 'STAGE_NEW' || resolvedStageId === 'NEW') {
-      computedStatus = 'NEW';
+      const hasLeadTag = Array.isArray(currentConv.customer.tags) && currentConv.customer.tags.some(
+        (t) => t.trim().toLowerCase() === 'lead' || t.trim().toLowerCase() === 'facebook lead'
+      );
+      computedStatus = (currentConv.customer.leadStatus === 'POTENTIAL' || hasLeadTag) ? 'POTENTIAL' : 'NEW';
     } else {
       const upper = String(resolvedStageId).toUpperCase();
       if (upper.includes('ENROLLED') || upper.includes('WON') || upper.includes('CONVERTED')) {
@@ -1169,12 +1224,25 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     if (currentConv.customer.id) {
       apiClient.updateCustomer(currentConv.customer.id, {
         fullName: currentConv.customer.fullName,
-        phone: currentConv.customer.phone,
-        email: currentConv.customer.email,
+        phone: currentConv.customer.phone && currentConv.customer.phone !== 'Chưa có SĐT' ? currentConv.customer.phone : undefined,
+        email: currentConv.customer.email && currentConv.customer.email !== 'Chưa có Email' ? currentConv.customer.email : undefined,
         leadStage: resolvedStageId,
         leadStatus: computedStatus,
+        conversationId: currentConv.id,
         updatedBy: staffName || undefined,
-      }).catch((err) => {
+      }, activeWorkspaceId || undefined)
+      .then((res: any) => {
+        if (res?.id && res.id !== currentConv.customer.id) {
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === currentConv.id
+                ? { ...c, customer: { ...c.customer, id: res.id } }
+                : c
+            )
+          );
+        }
+      })
+      .catch((err) => {
         console.warn('Lỗi cập nhật leadStage vào DB:', err);
       });
     }
@@ -1200,11 +1268,20 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   // 6. Gán / Gỡ nhãn (Tags)
   const handleAddTag = (tag: string) => {
     if (!currentConv) return;
-    if (currentConv.tags.includes(tag)) return;
-    const nextTags = [...currentConv.tags, tag];
+    const tagNormalized = tag.trim().toLowerCase() === 'facebook lead' ? 'Lead' : tag.trim();
+    const currentTags = Array.from(new Set([
+      ...(currentConv.customer?.tags || []),
+      ...(currentConv.tags || []),
+    ]));
+    if (currentTags.some((t) => t.trim().toLowerCase() === tagNormalized.toLowerCase())) return;
+
+    const nextTags = [...currentTags, tagNormalized];
     setConversations((prev) =>
       prev.map((c) => {
-        if (c.id !== currentConv.id) return c;
+        const isMatch =
+          c.id === currentConv.id ||
+          (c.customer?.id && currentConv.customer?.id && c.customer.id === currentConv.customer.id);
+        if (!isMatch) return c;
         return {
           ...c,
           tags: nextTags,
@@ -1212,14 +1289,41 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         };
       })
     );
+
+    if (currentConv.customer.id) {
+      apiClient.updateCustomer(currentConv.customer.id, {
+        tags: nextTags,
+        conversationId: currentConv.id,
+      }).catch((err) => {
+        console.warn('Lỗi lưu thêm tag vào CRM:', err);
+      });
+    }
+    notify.success(`Đã thêm nhãn "${tagNormalized}".`);
   };
 
   const handleRemoveTag = (tag: string) => {
     if (!currentConv) return;
-    const nextTags = currentConv.tags.filter((t) => t !== tag);
+    const tagLower = tag.trim().toLowerCase();
+    const isTarget = (t: string) => {
+      const l = t.trim().toLowerCase();
+      if (l === tagLower) return true;
+      if (tagLower === 'lead' && (l === 'facebook lead' || l === 'fb lead')) return true;
+      if ((tagLower === 'facebook lead' || tagLower === 'fb lead') && l === 'lead') return true;
+      return false;
+    };
+
+    const currentTags = Array.from(new Set([
+      ...(currentConv.customer?.tags || []),
+      ...(currentConv.tags || []),
+    ]));
+    const nextTags = currentTags.filter((t) => !isTarget(t));
+
     setConversations((prev) =>
       prev.map((c) => {
-        if (c.id !== currentConv.id) return c;
+        const isMatch =
+          c.id === currentConv.id ||
+          (c.customer?.id && currentConv.customer?.id && c.customer.id === currentConv.customer.id);
+        if (!isMatch) return c;
         return {
           ...c,
           tags: nextTags,
@@ -1227,6 +1331,17 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         };
       })
     );
+
+    if (currentConv.customer.id) {
+      apiClient.updateCustomer(currentConv.customer.id, {
+        tags: nextTags,
+        conversationId: currentConv.id,
+      }).catch((err) => {
+        console.warn('Lỗi lưu gỡ tag vào CRM:', err);
+      });
+      apiClient.deleteCustomerTag(currentConv.customer.id, tag, currentConv.id).catch(() => {});
+    }
+    notify.info(`Đã gỡ nhãn "${tag}" khỏi khách hàng.`);
   };
 
   // 7. Thêm ghi chú nội bộ

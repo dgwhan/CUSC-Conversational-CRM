@@ -19,3 +19,13 @@
   --color-state-warning: #b45309;
   --color-state-warning-bg: #fffbeb;
 }
+
+:root {
+  --stage-new-color: #0284c7;
+  --stage-contacted-color: #2563eb;
+  --stage-qualified-color: #d97706;
+  --stage-appointment-color: #ea580c;
+  --stage-submitted-color: #7c3aed;
+  --stage-enrolled-color: #16a34a;
+  --stage-lost-color: #dc2626;
+}

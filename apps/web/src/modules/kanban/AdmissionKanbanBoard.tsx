@@ -203,7 +203,9 @@ const { isOwner, isAgent, staffId } = useUserRole();
                 interestCourses: cust.interestCourses || [],
                 lastActivityAt: timeStr,
                 notesCount: 0,
-                tags: ['Khách hàng DB', 'Facebook Lead'],
+                tags: Array.isArray(cust.tags) && cust.tags.length > 0
+                  ? cust.tags.map((t: string) => t.trim().toLowerCase() === 'facebook lead' ? 'Lead' : t)
+                  : ['Khách hàng DB', 'Lead'],
                 conversationId: latestConv?.id,
               });
             }

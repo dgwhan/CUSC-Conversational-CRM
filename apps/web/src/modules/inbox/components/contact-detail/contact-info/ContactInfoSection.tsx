@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Copy, Check, PenLine } from 'lucide-react';
-import { notify } from '../../../../components/feedback/toastEmitter.js';
+import { notify } from '../../../../../components/feedback/toastEmitter.js';
 
 interface ContactInfoSectionProps {
   phone?: string;
@@ -16,10 +16,13 @@ interface ContactInfoSectionProps {
   onResetEditingEmailExternal?: () => void;
 }
 
+/**
+ * Section: Thông Tin Liên Hệ
+ * Giao diện phẳng chuẩn Tailwind CSS, hỗ trợ inline edit SĐT & Email
+ */
 export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
   phone,
   email,
-  channelAccountName,
   contactId,
   copiedField,
   onCopy,
@@ -79,17 +82,21 @@ export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
   const hasEmail = email && email !== 'Chưa có Email';
 
   return (
-    <section className="flat-section">
-      <div className="flat-section-header">
-        <h3 className="flat-section-title">Thông Tin Liên Hệ</h3>
+    <section className="p-4 border-b border-slate-200">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[13px] font-semibold text-slate-800 m-0">
+          Thông Tin Liên Hệ
+        </h3>
       </div>
 
-      <div className="flat-kv-table">
+      <div className="flex flex-col gap-2 text-[12.5px]">
         {/* SỐ ĐIỆN THOẠI */}
-        <div className="flat-kv-row">
-          <span className="flat-kv-label">Số điện thoại:</span>
+        <div className="flex items-center justify-between py-1 min-h-[30px]">
+          <span className="text-slate-500 text-[12px] w-24 shrink-0">
+            Số điện thoại:
+          </span>
           {isEditingPhone ? (
-            <div className="flat-inline-edit-box">
+            <div className="flex items-center gap-1.5 flex-1 justify-end">
               <input
                 type="tel"
                 value={phoneInput}
@@ -100,38 +107,50 @@ export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
                 }}
                 placeholder="Nhập SĐT..."
                 autoFocus
-                className="flat-input-field"
+                className="px-2 py-0.5 text-[12px] border border-blue-500 rounded bg-white text-slate-800 outline-none w-32"
               />
-              <button type="button" onClick={handleSavePhone} className="flat-btn-save-sm">
+              <button
+                type="button"
+                onClick={handleSavePhone}
+                className="px-2 py-0.5 text-[11px] font-medium bg-blue-600 text-white rounded hover:bg-blue-700 border-0 cursor-pointer transition-colors"
+              >
                 Lưu
               </button>
-              <button type="button" onClick={() => setIsEditingPhone(false)} className="flat-btn-cancel-sm">
+              <button
+                type="button"
+                onClick={() => setIsEditingPhone(false)}
+                className="px-1.5 py-0.5 text-[11px] text-slate-500 hover:text-slate-800 bg-transparent border-0 cursor-pointer"
+              >
                 Hủy
               </button>
             </div>
           ) : (
-            <div className="flat-kv-value-container">
-              <span className={`flat-kv-value ${!hasPhone ? 'empty' : ''}`}>
+            <div className="flex items-center gap-2 justify-end flex-1 min-w-0">
+              <span className={`font-medium truncate ${!hasPhone ? 'text-slate-400 italic' : 'text-slate-800'}`}>
                 {hasPhone ? phone : 'Chưa có SĐT'}
               </span>
-              <div className="flat-kv-actions">
+              <div className="flex items-center gap-1 shrink-0">
                 {hasPhone && (
                   <button
                     type="button"
-                    className="flat-copy-btn"
                     onClick={() => onCopy(phone!, 'Số điện thoại')}
+                    className="p-1 text-slate-400 hover:text-blue-600 bg-transparent border-0 cursor-pointer transition-colors"
                     title="Sao chép SĐT"
                   >
-                    {copiedField === 'Số điện thoại' ? <Check size={12} color="#16803C" /> : <Copy size={12} />}
+                    {copiedField === 'Số điện thoại' ? (
+                      <Check size={12} className="text-emerald-600" />
+                    ) : (
+                      <Copy size={12} />
+                    )}
                   </button>
                 )}
                 <button
                   type="button"
-                  className="flat-inline-edit-btn"
                   onClick={() => {
                     setPhoneInput(hasPhone ? phone! : '');
                     setIsEditingPhone(true);
                   }}
+                  className="inline-flex items-center gap-0.5 text-[11px] text-blue-600 hover:text-blue-800 bg-transparent border-0 cursor-pointer font-medium"
                   title="Chỉnh sửa số điện thoại"
                 >
                   <PenLine size={11} />
@@ -143,10 +162,12 @@ export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
         </div>
 
         {/* EMAIL */}
-        <div className="flat-kv-row">
-          <span className="flat-kv-label">Email:</span>
+        <div className="flex items-center justify-between py-1 min-h-[30px]">
+          <span className="text-slate-500 text-[12px] w-24 shrink-0">
+            Email:
+          </span>
           {isEditingEmail ? (
-            <div className="flat-inline-edit-box">
+            <div className="flex items-center gap-1.5 flex-1 justify-end">
               <input
                 type="email"
                 value={emailInput}
@@ -157,38 +178,50 @@ export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
                 }}
                 placeholder="Nhập Email..."
                 autoFocus
-                className="flat-input-field"
+                className="px-2 py-0.5 text-[12px] border border-blue-500 rounded bg-white text-slate-800 outline-none w-36"
               />
-              <button type="button" onClick={handleSaveEmail} className="flat-btn-save-sm">
+              <button
+                type="button"
+                onClick={handleSaveEmail}
+                className="px-2 py-0.5 text-[11px] font-medium bg-blue-600 text-white rounded hover:bg-blue-700 border-0 cursor-pointer transition-colors"
+              >
                 Lưu
               </button>
-              <button type="button" onClick={() => setIsEditingEmail(false)} className="flat-btn-cancel-sm">
+              <button
+                type="button"
+                onClick={() => setIsEditingEmail(false)}
+                className="px-1.5 py-0.5 text-[11px] text-slate-500 hover:text-slate-800 bg-transparent border-0 cursor-pointer"
+              >
                 Hủy
               </button>
             </div>
           ) : (
-            <div className="flat-kv-value-container">
-              <span className={`flat-kv-value ${!hasEmail ? 'empty' : ''}`}>
+            <div className="flex items-center gap-2 justify-end flex-1 min-w-0">
+              <span className={`font-medium truncate ${!hasEmail ? 'text-slate-400 italic' : 'text-slate-800'}`}>
                 {hasEmail ? email : 'Chưa có Email'}
               </span>
-              <div className="flat-kv-actions">
+              <div className="flex items-center gap-1 shrink-0">
                 {hasEmail && (
                   <button
                     type="button"
-                    className="flat-copy-btn"
                     onClick={() => onCopy(email!, 'Email')}
+                    className="p-1 text-slate-400 hover:text-blue-600 bg-transparent border-0 cursor-pointer transition-colors"
                     title="Sao chép Email"
                   >
-                    {copiedField === 'Email' ? <Check size={12} color="#16803C" /> : <Copy size={12} />}
+                    {copiedField === 'Email' ? (
+                      <Check size={12} className="text-emerald-600" />
+                    ) : (
+                      <Copy size={12} />
+                    )}
                   </button>
                 )}
                 <button
                   type="button"
-                  className="flat-inline-edit-btn"
                   onClick={() => {
                     setEmailInput(hasEmail ? email! : '');
                     setIsEditingEmail(true);
                   }}
+                  className="inline-flex items-center gap-0.5 text-[11px] text-blue-600 hover:text-blue-800 bg-transparent border-0 cursor-pointer font-medium"
                   title="Chỉnh sửa email"
                 >
                   <PenLine size={11} />
@@ -199,34 +232,28 @@ export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
           )}
         </div>
 
-        {/* KÊNH KẾT NỐI */}
-        <div className="flat-kv-row">
-          <span className="flat-kv-label">Kênh kết nối:</span>
-          <div className="flat-kv-value-container">
-            <span className="flat-kv-value" style={{ fontWeight: 600 }}>
-              {channelAccountName || 'PolarisX Studio'}
-            </span>
-          </div>
-        </div>
-
         {/* MÃ CONTACT NẾU CÓ */}
         {contactId && (
-          <div className="flat-kv-row">
-            <span className="flat-kv-label">Mã Contact:</span>
-            <div className="flat-kv-value-container">
-              <span className="flat-kv-value flat-id-mono">
+          <div className="flex items-center justify-between py-1 min-h-[30px]">
+            <span className="text-slate-500 text-[12px] w-24 shrink-0">
+              Mã Contact:
+            </span>
+            <div className="flex items-center gap-2 justify-end flex-1 min-w-0">
+              <span className="font-mono text-[12px] text-slate-700 truncate">
                 {contactId.slice(0, 10)}...
               </span>
-              <div className="flat-kv-actions">
-                <button
-                  type="button"
-                  className="flat-copy-btn"
-                  onClick={() => onCopy(contactId, 'Mã Contact')}
-                  title="Sao chép Mã Contact"
-                >
-                  {copiedField === 'Mã Contact' ? <Check size={12} color="#16803C" /> : <Copy size={12} />}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => onCopy(contactId, 'Mã Contact')}
+                className="p-1 text-slate-400 hover:text-blue-600 bg-transparent border-0 cursor-pointer transition-colors"
+                title="Sao chép Mã Contact"
+              >
+                {copiedField === 'Mã Contact' ? (
+                  <Check size={12} className="text-emerald-600" />
+                ) : (
+                  <Copy size={12} />
+                )}
+              </button>
             </div>
           </div>
         )}

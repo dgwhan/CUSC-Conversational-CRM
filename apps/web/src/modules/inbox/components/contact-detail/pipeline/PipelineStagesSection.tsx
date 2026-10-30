@@ -1,7 +1,7 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
-import { STANDARD_7_STAGES, type StageDefinition } from './contactDetail.types.js';
-import { LEAD_STATUS, type LeadStatus } from '../../types.js';
+import { STANDARD_7_STAGES, type StageDefinition } from '../types/index.js';
+import { LEAD_STATUS, type LeadStatus } from '../../../types.js';
 
 interface PipelineStagesSectionProps {
   pipelineName?: string;
@@ -11,6 +11,10 @@ interface PipelineStagesSectionProps {
   onSelectStage: (stage: StageDefinition) => void;
 }
 
+/**
+ * Section: Phễu Tuyển Sinh & Chăm Sóc (Dạng danh sách đầy đủ)
+ * Sử dụng Tailwind CSS chuẩn hệ thống
+ */
 export const PipelineStagesSection: React.FC<PipelineStagesSectionProps> = ({
   pipelineName = 'Phễu Chăm Sóc Khách Hàng',
   stages,
@@ -37,13 +41,15 @@ export const PipelineStagesSection: React.FC<PipelineStagesSectionProps> = ({
       : STANDARD_7_STAGES;
 
   return (
-    <section className="flat-section">
-      <div className="flat-section-header">
-        <h3 className="flat-section-title">{pipelineName}</h3>
+    <section className="p-4 border-b border-slate-200">
+      <div className="flex items-center justify-between mb-2.5">
+        <h3 className="text-[13px] font-semibold text-slate-800 m-0">
+          {pipelineName}
+        </h3>
         {onNavigateToKanban && (
           <button
             type="button"
-            className="flat-link-action"
+            className="inline-flex items-center gap-1 text-[11.5px] font-medium text-blue-600 hover:text-blue-800 bg-transparent border-0 cursor-pointer p-0 transition-colors"
             onClick={onNavigateToKanban}
             title="Mở Bảng Phễu Chăm Sóc dạng Kanban"
           >
@@ -53,7 +59,7 @@ export const PipelineStagesSection: React.FC<PipelineStagesSectionProps> = ({
         )}
       </div>
 
-      <div className="flat-pipeline-list" role="listbox" aria-label="Giai đoạn phễu chăm sóc">
+      <div className="flex flex-col gap-1" role="listbox" aria-label="Giai đoạn phễu chăm sóc">
         {stageList.map((stage) => {
           const isSelected =
             currentStageKey === stage.id ||
@@ -69,14 +75,20 @@ export const PipelineStagesSection: React.FC<PipelineStagesSectionProps> = ({
               type="button"
               role="option"
               aria-selected={isSelected}
-              className={`flat-pipeline-item stage-${stage.id} ${isSelected ? 'active' : ''}`}
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left transition-colors cursor-pointer text-[12.5px] border-0 ${
+                isSelected ? 'bg-blue-50 text-blue-700 font-semibold' : 'bg-transparent text-slate-700 hover:bg-slate-50'
+              }`}
               onClick={() => onSelectStage(stage)}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                <span className="flat-pipeline-dot" />
-                <span className="flat-pipeline-name">{stage.name}</span>
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    isSelected ? 'bg-blue-600' : 'bg-slate-400'
+                  }`}
+                />
+                <span className="truncate">{stage.name}</span>
               </div>
-              {isSelected && <span className="flat-pipeline-indicator">✓</span>}
+              {isSelected && <span className="text-[12px] font-bold text-blue-600">✓</span>}
             </button>
           );
         })}

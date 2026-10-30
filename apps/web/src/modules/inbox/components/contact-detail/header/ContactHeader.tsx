@@ -1,7 +1,7 @@
 import React from 'react';
 import { Phone, Mail, MoreHorizontal, Copy, Check, ExternalLink } from 'lucide-react';
-import type { CustomerProfile } from '../../types.js';
-import { Avatar } from '../../../../components/common/Avatar.js';
+import type { CustomerProfile } from '../../../types.js';
+import { Avatar } from '../../../../../components/common/Avatar.js';
 
 interface ContactHeaderProps {
   customer: CustomerProfile;

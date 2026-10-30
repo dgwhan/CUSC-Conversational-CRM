@@ -3,6 +3,11 @@ import { Message, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../platform/database/prisma.service.js";
 import { InboundEvent } from "../domain/inbound-event.js";
 import { Channel, MessageDirection } from "../domain/channel.js";
+import {
+    resolveTagMappings,
+    CRM_SYSTEM_TAGS,
+    META_SOURCE_TAGS,
+} from "../domain/tag-mapping/index.js";
 
 @Injectable()
 export class MessageRepository implements OnModuleInit {
@@ -213,14 +218,29 @@ export class MessageRepository implements OnModuleInit {
                             channelAccountId: accountId,
                             ...(customerId ? { customerId } : {}),
                         },
-                        select: { id: true },
+                        select: { id: true, tags: true, lastMessageAt: true },
                     });
+
+                    const isOutOfOrder = Boolean(
+                        conv?.lastMessageAt && messageSentAt.getTime() < new Date(conv.lastMessageAt).getTime()
+                    );
+
+                    // Phân giải tag ánh xạ (Facebook Lead -> Lead, idempotent & out-of-order safe)
+                    const rawTags: string[] = Array.isArray(raw.tags) && raw.tags.length > 0
+                        ? raw.tags
+                        : (e.channel === Channel.FACEBOOK ? [META_SOURCE_TAGS.FACEBOOK_LEAD] : [CRM_SYSTEM_TAGS.NEW_CUSTOMER]);
+
+                    const tagResult = resolveTagMappings({
+                        channel: e.channel,
+                        currentTags: conv?.tags || [],
+                        sourceTags: rawTags,
+                        eventTimestamp: messageSentAt,
+                        lastSyncTimestamp: conv?.lastMessageAt,
+                    });
+                    const finalTags = tagResult.finalTags;
 
                     // Nếu chưa có thì tự động tạo mới cuộc hội thoại
                     if (!conv) {
-                        const tags = Array.isArray(raw.tags) && raw.tags.length > 0
-                            ? raw.tags
-                            : [e.channel === Channel.FACEBOOK ? 'Facebook Lead' : 'Khách hàng mới'];
                         conv = await this.prisma.conversation.create({
                             data: {
                                 workspaceId: e.workspaceId || uniqueAccounts.get(`${e.channel}:${e.externalAccountId}`)?.workspaceId || null,
@@ -230,18 +250,21 @@ export class MessageRepository implements OnModuleInit {
                                 snippet: e.content || 'Tin nhắn mới',
                                 lastMessageAt: messageSentAt,
                                 lastCustomerMessageAt: !isOutbound ? messageSentAt : undefined,
-                                tags,
+                                tags: finalTags,
                             },
-                            select: { id: true },
+                            select: { id: true, tags: true, lastMessageAt: true },
                         });
                     } else {
-                        // Cập nhật lại snippet và lastMessageAt của Conversation
+                        // Cập nhật lại snippet, lastMessageAt và tags của Conversation (bảo vệ chống ghi đè lùi nếu tin nhắn out-of-order)
                         await this.prisma.conversation.update({
                             where: { id: conv.id },
                             data: {
-                                snippet: e.content || undefined,
-                                lastMessageAt: messageSentAt,
-                                ...(!isOutbound ? { lastCustomerMessageAt: messageSentAt } : {}),
+                                ...(isOutOfOrder ? {} : {
+                                    snippet: e.content || undefined,
+                                    lastMessageAt: messageSentAt,
+                                    ...(!isOutbound ? { lastCustomerMessageAt: messageSentAt } : {}),
+                                }),
+                                tags: finalTags,
                             },
                         });
                     }
@@ -348,6 +371,11 @@ export class MessageRepository implements OnModuleInit {
                 });
 
                 if (!conv) {
+                    const tagResult = resolveTagMappings({
+                        channel: msg.channel,
+                        currentTags: [],
+                        sourceTags: msg.channel === Channel.FACEBOOK ? [META_SOURCE_TAGS.FACEBOOK_LEAD] : [CRM_SYSTEM_TAGS.NEW_CUSTOMER],
+                    });
                     conv = await this.prisma.conversation.create({
                         data: {
                             channelAccountId: msg.channelAccountId,
@@ -355,7 +383,7 @@ export class MessageRepository implements OnModuleInit {
                             status: 'OPEN',
                             snippet: msg.content || 'Tin nhắn',
                             lastMessageAt: msg.sentAt,
-                            tags: [msg.channel === Channel.FACEBOOK ? 'Facebook Lead' : 'Khách hàng mới'],
+                            tags: tagResult.finalTags,
                         },
                         select: { id: true },
                     });

@@ -535,10 +535,12 @@ class ApiClient {
         phone?: string | null;
         email?: string | null;
         avatarUrl?: string | null;
+        leadStatus?: string;
         channelIdentities?: any;
         interestCourses?: string[];
         estimatedValue?: number;
         leadStage?: string;
+        tags?: string[];
         conversations?: Array<{
           id: string;
           snippet?: string | null;
@@ -557,6 +559,13 @@ class ApiClient {
 
   updateCustomer(id: string, data: Record<string, unknown>, workspaceId?: string) {
     return this.patch<Record<string, unknown>>(`/customers/${id}`, data, {
+      headers: workspaceId ? { 'x-workspace-id': workspaceId } : {},
+    });
+  }
+
+  deleteCustomerTag(id: string, tag: string, conversationId?: string, workspaceId?: string) {
+    return this.delete<Record<string, unknown>>(`/customers/${id}/tags/${encodeURIComponent(tag)}`, {
+      params: conversationId ? { conversationId } : undefined,
       headers: workspaceId ? { 'x-workspace-id': workspaceId } : {},
     });
   }

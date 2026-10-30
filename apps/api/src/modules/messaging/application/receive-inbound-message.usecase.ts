@@ -9,6 +9,15 @@ import { RealtimeService } from "../../realtime/realtime.service.js";
 import { PrismaService } from "../../../platform/database/prisma.service.js";
 import { CUSTOMER_GATEWAY } from "../domain/customer-gateway.port.js";
 import type { CustomerGateway } from "../domain/customer-gateway.port.js";
+import {
+    resolveTagMappings,
+    CRM_SYSTEM_TAGS,
+    META_SOURCE_TAGS,
+    tagSyncLogger,
+    TAG_SYNC_STAGE,
+    TAG_SYNC_ERROR_TYPE,
+    TAG_EVENT_SOURCE,
+} from "../domain/tag-mapping/index.js";
 
 @Injectable()
 export class ReceiveInboundMessage {
@@ -68,6 +77,7 @@ export class ReceiveInboundMessage {
                         raw.customerAvatar ||
                         `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName)}&background=0284c7&color=fff&bold=true`;
                     let dbCustomer: any = null;
+                    let isNewlyCreated = false;
 
                     // TỰ ĐỘNG TÌM HOẶC TẠO CONTACT & IDENTITY THEO (KÊNH, EXTERNAL_USER_ID)
                     if (!isOutbound && this.customers && event.senderExternalId) {
@@ -102,28 +112,100 @@ export class ReceiveInboundMessage {
                             });
 
                             if (!dbCustomer) {
+                                const rawTags: string[] = Array.isArray(raw.tags) && raw.tags.length > 0
+                                    ? raw.tags
+                                    : (event.channel === Channel.FACEBOOK ? [META_SOURCE_TAGS.FACEBOOK_LEAD] : [CRM_SYSTEM_TAGS.NEW_CUSTOMER]);
+                                const tagResult = resolveTagMappings({
+                                    channel: event.channel,
+                                    currentTags: [],
+                                    sourceTags: rawTags,
+                                    eventTimestamp: event.sentAt,
+                                });
+
                                 dbCustomer = await this.prisma.customer.create({
                                     data: {
                                         workspaceId: event.workspaceId || null,
                                         fullName: customerName,
                                         avatarUrl: customerAvatar,
-                                        leadStatus: 'NEW',
-                                        leadStage: 'STAGE_NEW',
-                                        channelIdentities: { [event.channel.toLowerCase()]: event.senderExternalId, channel: event.channel },
+                                        leadStatus: tagResult.suggestedLeadStatus || 'NEW',
+                                        leadStage: tagResult.suggestedLeadStage || 'STAGE_NEW',
+                                        channelIdentities: {
+                                            [event.channel.toLowerCase()]: event.senderExternalId,
+                                            channel: event.channel,
+                                            tags: tagResult.finalTags,
+                                        },
                                     },
                                 });
-                                this.logger.log(`Tự động lưu khách hàng mới từ Webhook vào DB: "${customerName}" (${dbCustomer.id})`);
+                                isNewlyCreated = true;
+                                this.logger.log(`Tự động lưu khách hàng mới từ Webhook vào DB: "${customerName}" (${dbCustomer.id}) với tag: ${tagResult.finalTags.join(', ')}`);
                             } else {
-                                // Nếu khách hàng đã tồn tại trong DB (ví dụ từ sync), ưu tiên lấy tên thật và avatar thật
+                                // Nếu khách hàng đã tồn tại trong DB, bảo lưu tên thật và avatar thật
                                 if (dbCustomer.fullName && !dbCustomer.fullName.startsWith('Khách hàng')) {
                                     customerName = dbCustomer.fullName;
                                 }
                                 if (dbCustomer.avatarUrl) {
                                     customerAvatar = dbCustomer.avatarUrl;
                                 }
+
+                                const existingIdentities = (dbCustomer.channelIdentities as any) || {};
+                                const currentTags: string[] = Array.isArray(existingIdentities.tags) ? existingIdentities.tags : [];
+                                const rawTags: string[] = Array.isArray(raw.tags) && raw.tags.length > 0
+                                    ? raw.tags
+                                    : (event.channel === Channel.FACEBOOK ? [META_SOURCE_TAGS.FACEBOOK_LEAD] : []);
+
+                                const manuallyRemovedTags: string[] = Array.isArray(existingIdentities.manuallyRemovedTags)
+                                    ? existingIdentities.manuallyRemovedTags
+                                    : [];
+
+                                const tagResult = resolveTagMappings({
+                                    channel: event.channel,
+                                    currentTags,
+                                    sourceTags: rawTags,
+                                    existingLeadStatus: dbCustomer.leadStatus,
+                                    existingLeadStage: dbCustomer.leadStage,
+                                    eventTimestamp: event.sentAt,
+                                    lastSyncTimestamp: dbCustomer.updatedAt,
+                                    explicitEmptyLabels: Array.isArray(raw.tags) && raw.tags.length === 0,
+                                    manuallyRemovedTags,
+                                });
+
+                                // Chỉ cập nhật nếu có thay đổi tag hoặc nâng cấp trạng thái hợp lệ (chống hạ cấp khi out-of-order)
+                                if (tagResult.hasChanges || tagResult.shouldUpgradeLead) {
+                                    const updateData: any = {
+                                        channelIdentities: {
+                                            ...existingIdentities,
+                                            [event.channel.toLowerCase()]: event.senderExternalId,
+                                            channel: event.channel,
+                                            tags: tagResult.finalTags,
+                                        },
+                                    };
+                                    if (tagResult.shouldUpgradeLead) {
+                                        if (tagResult.suggestedLeadStatus) updateData.leadStatus = tagResult.suggestedLeadStatus;
+                                        if (tagResult.suggestedLeadStage) updateData.leadStage = tagResult.suggestedLeadStage;
+                                    }
+
+                                    dbCustomer = await this.prisma.customer.update({
+                                        where: { id: dbCustomer.id },
+                                        data: updateData,
+                                    });
+                                }
                             }
                         } catch (err) {
                             this.logger.warn(`Could not sync webhook customer to DB: ${(err as Error).message}`);
+                            tagSyncLogger.logError({
+                                stage: TAG_SYNC_STAGE.UPDATE,
+                                errorType: TAG_SYNC_ERROR_TYPE.TAG_UPDATE_ERROR,
+                                message: `Không thể đồng bộ hoặc cập nhật nhãn khách hàng từ webhook vào CSDL: ${(err as Error).message}`,
+                                eventSource: TAG_EVENT_SOURCE.META_WEBHOOK,
+                                channel: event.channel,
+                                error: err,
+                                customerId: dbCustomer?.id,
+                                senderExternalId: event.senderExternalId,
+                                metadata: {
+                                    conversationId,
+                                    messageId: item.id,
+                                },
+                            });
                         }
                     }
 
@@ -138,13 +220,13 @@ export class ReceiveInboundMessage {
                         sentAt: new Date(event.sentAt).toISOString(),
                     });
 
-                    // Tự động báo cho Kanban cập nhật ứng viên mới
-                    if (dbCustomer) {
+                    // Chỉ báo cho Kanban cập nhật ứng viên khi tạo mới khách hàng (tránh reset giai đoạn khách hàng cũ)
+                    if (isNewlyCreated && dbCustomer) {
                         this.realtime.broadcastPipelineChange({
                             customerId: dbCustomer.id,
                             customerName: customerName,
                             previousStage: '',
-                            newStage: 'STAGE_NEW',
+                            newStage: dbCustomer.leadStage || 'STAGE_NEW',
                             updatedBy: `Webhook ${event.channel}`,
                         });
                     }
