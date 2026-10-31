@@ -1,14 +1,17 @@
-import type { StaffRole } from '../../../../../contracts/iam.js';
-
 export type LoginResponseDto = {
     accessToken: string;
-    staff: {
+    user: {
         id: string;
         email: string;
         fullName: string;
-        role: StaffRole;
         mustChangePassword: boolean;
-        ownerId?: string | null;
+        phoneNumber?: string | null;
+    };
+    staff?: {
+        id: string;
+        email: string;
+        fullName: string;
+        mustChangePassword: boolean;
         phoneNumber?: string | null;
     };
 };

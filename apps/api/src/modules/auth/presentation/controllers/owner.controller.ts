@@ -50,12 +50,11 @@ export class OwnerController {
       take: 50,
       orderBy: { createdAt: 'desc' },
       include: {
-        staff: {
+        user: {
           select: {
             id: true,
             email: true,
             fullName: true,
-            role: true,
           },
         },
       },
@@ -73,54 +72,59 @@ export class OwnerController {
     @Ip() ip: string,
     @Headers('user-agent') userAgent: string | undefined,
   ) {
-    const targetStaff = await this.prisma.staff.findUnique({
+    const targetUser = await this.prisma.user.findUnique({
       where: { id: staffId },
       select: {
         id: true,
         email: true,
         fullName: true,
-        role: true,
         tokenVersion: true,
       },
     });
 
-    if (!targetStaff) {
+    if (!targetUser) {
       throw new NotFoundException(`Nhân sự với ID ${staffId} không tồn tại`);
     }
 
-    const previousRole = targetStaff.role;
     const newRole = body.role;
 
-    // Cập nhật vai trò và tăng tokenVersion để vô hiệu hóa token cũ nếu vai trò thay đổi
-    const updatedStaff = await this.prisma.staff.update({
+    // Cập nhật vai trò trong workspace_members và tăng tokenVersion
+    await this.prisma.workspaceMember.updateMany({
+      where: { userId: staffId },
+      data: {
+        role: newRole as any,
+      },
+    });
+
+    const updatedUser = await this.prisma.user.update({
       where: { id: staffId },
       data: {
-        role: newRole,
-        tokenVersion: targetStaff.tokenVersion + 1,
+        tokenVersion: targetUser.tokenVersion + 1,
       },
       select: {
         id: true,
         email: true,
         fullName: true,
-        role: true,
       },
     });
 
     // Ghi audit log sự kiện ROLE_CHANGED
     await this.auditService.recordEvent({
       action: AuditAction.ROLE_CHANGED,
-      staffId: targetStaff.id,
+      userId: targetUser.id,
       actorId: req.user.id,
       ip,
       userAgent,
       metadata: {
-        previousRole,
         newRole,
-        staffEmail: targetStaff.email,
-        staffFullName: targetStaff.fullName,
+        staffEmail: targetUser.email,
+        staffFullName: targetUser.fullName,
       },
     });
 
-    return updatedStaff;
+    return {
+      ...updatedUser,
+      role: newRole,
+    };
   }
 }

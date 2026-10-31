@@ -134,7 +134,7 @@ export class PasswordRecoveryVerificationService {
                 id: true,
                 failedAttempts: true,
                 expiresAt: true,
-                staff: { select: { status: true } },
+                user: { select: { status: true } },
                 deliveries: {
                   where: { status: PASSWORD_RECOVERY_DELIVERY_STATUS.SENT },
                   orderBy: { generation: 'desc' },
@@ -167,7 +167,7 @@ export class PasswordRecoveryVerificationService {
 
           if (
             challenge.failedAttempts >= MAX_OTP_ATTEMPTS ||
-            challenge.staff?.status !== STAFF_STATUS.ACTIVE
+            challenge.user?.status !== 'ACTIVE'
           ) {
             stage = 'challenge_lock';
             const locked =

@@ -10,7 +10,7 @@ Module **Auth & IAM (Identity and Access Management)** chịu trách nhiệm đ�
 - **Xác thực Đa hình thức (Flexible Identifier)**: Hỗ trợ người dùng đăng nhập linh hoạt bằng địa chỉ **Email** hoặc **Số điện thoại** Việt Nam (chuẩn hóa đầu số `0x` hoặc `+84`).
 - **Bảo mật Chuẩn Ngân hàng**: Băm mật khẩu bằng thuật toán **Argon2id** (chuẩn OWASP khuyến nghị), chống tấn công GPU/ASIC và thay thế hoàn toàn MD5/SHA thô sơ.
 - **Quản lý Phiên Không trạng thái & Chống Đánh cắp Token (Stateful Token Rotation)**: Access Token tồn tại ngắn hạn (15 phút), Refresh Token lưu trong cookie `HttpOnly` với cơ chế **Token Family & Rotation** giúp tự động thu hồi toàn bộ phiên nếu phát hiện token bị dùng lại (token replay attack).
-- **Phân quyền Phân cấp Chặt chẽ (RBAC)**: Phân tách rõ rệt quyền hạn giữa **OWNER** (Chủ tổ chức/Quản trị viên tối cao) và **STAFF** (Chuyên viên tư vấn tuyển sinh).
+- **Phân quyền Động theo Không gian làm việc (Workspace-Scoped RBAC)**: Phân tách rõ rệt quyền hạn giữa **OWNER** (Chủ sở hữu Workspace) và **STAFF** (Chuyên viên tư vấn theo Workspace) thông qua bảng `workspace_members`. Bảng `staff` thuần túy lưu trữ định danh tài khoản, không chứa role toàn cục; API Auth không trả về role cố định, role được Context Workspace phía Frontend truy vấn và áp dụng động.
 - **Khôi phục Mật khẩu Tự phục vụ An toàn Tuyệt đối**: Cơ chế Blind Index (HMAC-SHA256) che giấu thông tin định danh cá nhân (PII), OTP 6 chữ số ngẫu nhiên mật mã học, mã hóa xác minh chống rò rỉ dữ liệu và chống Brute-force nhiều lớp.
 
 ### 1.2. Nguyên tắc Kiến trúc (Clean Architecture / DDD)
@@ -19,7 +19,7 @@ Hệ thống tuân thủ nghiêm ngặt mô hình kiến trúc đa lớp độc 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                   Presentation Layer (Web & API)                       │
-│  - AuthController (/api/auth/login, /api/auth/register)                │
+│  - AuthController (/api/auth/login, /api/auth/register, /api/auth/me)   │
 │  - PasswordRecoveryController (/api/password-recovery/*)               │
 │  - OwnerController (/api/owner/*)                                      │
 │  - React Frontend: AuthPage, LoginForm, SignUpForm, RecoveryFlow      │
@@ -34,7 +34,7 @@ Hệ thống tuân thủ nghiêm ngặt mô hình kiến trúc đa lớp độc 
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │                    Domain & Contracts Layer                            │
-│  - StaffRole (OWNER, STAFF), StaffStatus (ACTIVE, LOCKED)              │
+│  - WorkspaceMemberRole (OWNER, STAFF), StaffStatus (ACTIVE, LOCKED)    │
 │  - PasswordRecoveryChallengeStatus, PasswordRecoveryDeliveryStatus     │
 │  - Zod Contracts & DTOs (loginRequestSchema, registerRequestSchema)    │
 └───────────────────────────────────┬────────────────────────────────────┘
@@ -61,7 +61,7 @@ Hệ thống tuân thủ nghiêm ngặt mô hình kiến trúc đa lớp độc 
 | **SEC-05** | **Blind Indexing Recovery** | Không lưu email dạng raw trong bảng khôi phục mật khẩu. Dùng `emailKey = HMAC_SHA256(normalizedEmail, SECRET)`. | Bảng `password_recovery_challenges` không chứa PII dạng plaintext, ngăn ngừa triệt để rò rỉ dữ liệu khi dump DB. |
 | **SEC-06** | **OTP Crypto Verification** | OTP gồm 6 chữ số sinh từ `crypto.randomInt()`. Băm xác minh bằng `otpVerifier = HMAC_SHA256(challengeId:otp, OTP_SECRET)`. | Xác minh thời gian hằng số (`crypto.timingSafeEqual`) chống tấn công Timing Attack. Sai quá 5 lần -> Khóa Challenge. |
 | **SEC-07** | **Reset Token One-Time** | Sau khi xác thực OTP thành công, sinh `resetToken` (32 bytes hex) có hiệu lực trong 15 phút. | Reset token chỉ sử dụng đúng 1 lần (`consumed_at = now()`), không thể tái sử dụng. |
-| **SEC-08** | **Strict RBAC Guard** | Bảo vệ route bằng `@UseGuards(JwtAuthGuard, RolesGuard)` kết hợp decorator `@Roles(StaffRole.OWNER)`. | Chặn truy cập từ tầng gateway/controller với HTTP 403 Forbidden nếu vai trò không đáp ứng. |
+| **SEC-08** | **Workspace RBAC Guard** | Bảo vệ route theo vai trò Workspace bằng `@UseGuards(WorkspaceRolesGuard)` kết hợp decorator `@Roles('OWNER')`. API xác thực không trả về role cố định. | Phân quyền linh hoạt theo từng Workspace; chặn truy cập HTTP 403 Forbidden nếu vai trò trong Workspace không đáp ứng. |
 
 ---
 
@@ -103,11 +103,11 @@ sequenceDiagram
     end
 
     Svc->>DB: Reset failed_login_attempts = 0, locked_until = null
-    Svc->>Jwt: Tạo Access Token (payload: staffId, email, role, tokenVersion)
+    Svc->>Jwt: Tạo Access Token (payload: staffId, email, tokenVersion - không chứa role)
     Svc->>DB: Tạo bản ghi RefreshToken mới (familyId, tokenHash, ip, userAgent)
     Svc-->>Ctrl: { accessToken, staff, refreshToken, maxAge }
     Ctrl->>Ctrl: Set-Cookie: refresh_token (HttpOnly, Secure, SameSite=Lax)
-    Ctrl-->>Client: HTTP 200 OK { accessToken, staff }
+    Ctrl-->>Client: HTTP 200 OK { accessToken, staff: { id, email, fullName, phoneNumber, mustChangePassword } }
 ```
 
 ---
@@ -191,24 +191,27 @@ graph TD
 ## 4. Mô hình Thực thể Dữ liệu (Prisma Schema Reference)
 
 ```prisma
-enum StaffRole {
-  OWNER    // Toàn quyền hệ thống & cấu hình Workspace
-  STAFF    // Chuyên viên tư vấn, xử lý hội thoại & hồ sơ
+enum WorkspaceMemberRole {
+  OWNER    // Chủ sở hữu Workspace, toàn quyền cấu hình & quản trị nhân sự
+  STAFF    // Chuyên viên tư vấn theo Workspace
+
+  @@map("workspace_member_role")
 }
 
-enum StaffStatus {
+enum UserStatus {
   ACTIVE   // Đang hoạt động bình thường
   LOCKED   // Bị khóa tài khoản do quản trị viên hoặc brute-force
+
+  @@map("user_status")
 }
 
-model Staff {
+model User {
   id                  String       @id @default(uuid()) @db.Uuid
   email               String       @unique
   phoneNumber         String?      @unique @map("phone_number")
   fullName            String       @map("full_name")
   passwordHash        String       @map("password_hash")
-  role                StaffRole    @default(STAFF)
-  status              StaffStatus  @default(ACTIVE)
+  status              UserStatus   @default(ACTIVE)
   tokenVersion        Int          @default(0) @map("token_version")
   mustChangePassword  Boolean      @default(false) @map("must_change_password")
   failedLoginAttempts Int          @default(0) @map("failed_login_attempts")
@@ -221,12 +224,28 @@ model Staff {
   ownedWorkspaces            Workspace[]       @relation("WorkspaceOwner")
   memberships                WorkspaceMember[]
 
-  @@map("staff")
+  @@map("users")
+}
+
+model WorkspaceMember {
+  id          String              @id @default(uuid()) @db.Uuid
+  workspaceId String              @map("workspace_id") @db.Uuid
+  userId      String              @map("user_id") @db.Uuid
+  role        WorkspaceMemberRole @default(STAFF)
+  isActive    Boolean             @default(true) @map("is_active")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
 }
 
 model RefreshToken {
   id           String    @id @default(uuid()) @db.Uuid
-  staffId      String    @map("staff_id") @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
   familyId     String    @map("family_id") @db.Uuid
   tokenHash    String    @unique @map("token_hash")
   expiresAt    DateTime  @map("expires_at")
@@ -236,16 +255,16 @@ model RefreshToken {
   ip           String?
   createdAt    DateTime  @default(now()) @map("created_at")
 
-  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([staffId])
+  @@index([userId])
   @@index([familyId])
   @@map("refresh_tokens")
 }
 
 model PasswordRecoveryChallenge {
   id                   String                          @id @default(uuid()) @db.Uuid
-  staffId              String?                         @map("staff_id") @db.Uuid
+  userId               String?                         @map("user_id") @db.Uuid
   emailKey             String                          @map("email_key") @db.VarChar(64)
   status               PasswordRecoveryChallengeStatus @default(PENDING_SEND)
   otpVerifier          String?                         @map("otp_verifier") @db.VarChar(64)
@@ -256,7 +275,7 @@ model PasswordRecoveryChallenge {
   consumedAt           DateTime?                       @map("consumed_at") @db.Timestamptz(6)
   createdAt            DateTime                        @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  staff Staff? @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([emailKey, status])
   @@index([resetTokenHash])
@@ -302,12 +321,15 @@ apps/web/src/features/auth/
 
 | Phương thức | Đường dẫn | Phân quyền | Mô tả chức năng |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/login` | Public | Đăng nhập tài khoản, trả về JWT Access Token & set Cookie Refresh Token |
-| `POST` | `/api/auth/register` | Public | Đăng ký tài khoản nhân sự mới |
+| `POST` | `/api/auth/login` | Public | Đăng nhập tài khoản, trả về JWT Access Token (không kèm role) & set Cookie Refresh Token |
+| `POST` | `/api/auth/register` | Public | Đăng ký tài khoản nhân sự mới (chưa gắn role, chờ tạo/tham gia workspace) |
+| `GET` | `/api/auth/me` | Authenticated | Lấy hồ sơ tài khoản nhân sự hiện tại (không kèm role cố định) |
 | `POST` | `/api/auth/refresh` | Cookie | Cấp phát Access Token mới thông qua Refresh Token Rotation |
-| `POST` | `/api/auth/logout` | Authenticated | Thu hồi phiên làm việc hiện tại và hủy cookie |
+| `POST` | `/api/auth/logout` | Authenticated | Thu hồi phiên làm việc hiện tại và hủy cookie Refresh Token |
 | `POST` | `/api/password-recovery/request` | Public | Gửi yêu cầu cấp mã OTP khôi phục mật khẩu về email |
 | `POST` | `/api/password-recovery/verify` | Public | Xác thực mã OTP 6 chữ số và nhận Reset Token |
 | `POST` | `/api/password-recovery/reset` | Public | Cập nhật mật khẩu mới bằng Reset Token một lần |
-| `GET` | `/api/owner/workspaces` | `@Roles(OWNER)` | Lấy danh sách Workspace thuộc quyền quản lý của OWNER |
-| `POST` | `/api/owner/staff` | `@Roles(OWNER)` | Khởi tạo tài khoản nhân viên tư vấn mới trong tổ chức |
+| `GET` | `/api/workspaces` | Authenticated | Lấy danh sách Workspace người dùng tham gia kèm quyền tương ứng (`OWNER` / `STAFF`) |
+| `POST` | `/api/workspaces` | Authenticated | Tạo Workspace mới, người tạo tự động trở thành `OWNER` |
+| `POST` | `/api/workspaces/:id/members` | Workspace `OWNER` | Mời nhân viên vào Workspace với vai trò `STAFF` |
+

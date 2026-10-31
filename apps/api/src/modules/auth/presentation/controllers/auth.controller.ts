@@ -27,7 +27,6 @@ import type { RegisterRequestDto } from "../dto/register/register-request.dto.js
 import type { RegisterResponseDto } from "../dto/register/register-response.dto.js";
 import { ZodValidationPipe } from "../../../../common/pipes/zod-validation.pipe.js";
 import type { AuthUser } from "../../domain/types/auth-user.js";
-import type { StaffRole } from "../../../../contracts/iam.js";
 
 const REFRESH_COOKIE_NAME = "refresh_token";
 const REFRESH_COOKIE_PATH = "/api/auth";
@@ -190,37 +189,33 @@ export class AuthController {
     @HttpCode(HttpStatus.OK)
     async me(
         @Req() req: { user?: AuthUser },
-    ): Promise<LoginResponseDto["staff"]> {
+    ): Promise<LoginResponseDto["user"]> {
         if (!req.user?.id) {
             throw new UnauthorizedException("Phiên đăng nhập không hợp lệ.");
         }
 
-        const staff = await this.prisma.staff.findUnique({
+        const user = await this.prisma.user.findUnique({
             where: { id: req.user.id },
             select: {
                 id: true,
                 email: true,
                 fullName: true,
-                role: true,
                 status: true,
                 mustChangePassword: true,
                 phoneNumber: true,
-                ownerId: true,
             },
         });
 
-        if (!staff || staff.status !== "ACTIVE") {
+        if (!user || user.status !== "ACTIVE") {
             throw new UnauthorizedException("Tài khoản không tồn tại hoặc đã bị khóa.");
         }
 
         return {
-            id: staff.id,
-            email: staff.email,
-            fullName: staff.fullName,
-            role: staff.role as StaffRole,
-            mustChangePassword: staff.mustChangePassword,
-            phoneNumber: staff.phoneNumber,
-            ownerId: staff.ownerId || (staff.role === "OWNER" ? staff.id : null),
+            id: user.id,
+            email: user.email,
+            fullName: user.fullName,
+            mustChangePassword: user.mustChangePassword,
+            phoneNumber: user.phoneNumber,
         };
     }
 }

@@ -39,23 +39,24 @@ export class StaffManagementService {
     if (this.prisma) {
       try {
         if (currentStaffId) {
-          const staff = await this.prisma.staff.findUnique({ where: { id: currentStaffId } });
-          if (staff) {
-            return staff.role === 'OWNER' ? staff.id : (staff.ownerId || staff.id);
+          const user = await this.prisma.user.findUnique({ where: { id: currentStaffId } });
+          if (user) {
+            return user.id;
           }
         }
         if (ownerId) {
-          const staff = await this.prisma.staff.findUnique({ where: { id: ownerId } });
-          if (staff) {
-            return staff.role === 'OWNER' ? staff.id : (staff.ownerId || staff.id);
+          const user = await this.prisma.user.findUnique({ where: { id: ownerId } });
+          if (user) {
+            return user.id;
           }
         }
 
-        const defaultOwner = await this.prisma.staff.findFirst({
-          where: { role: 'OWNER' },
+        const defaultOwner = await this.prisma.workspace.findFirst({
+          where: { isActive: true },
           orderBy: { createdAt: 'asc' },
+          select: { ownerId: true },
         });
-        if (defaultOwner) return defaultOwner.id;
+        if (defaultOwner) return defaultOwner.ownerId;
       } catch (err) {
         this.logger.warn(`Could not resolve ownerId in DB: ${(err as Error).message}`);
       }
@@ -77,40 +78,7 @@ export class StaffManagementService {
             where: { ownerId: resolvedOwner },
           });
 
-        // Tự động tìm và liên kết các tài khoản STAFF chưa có ownerId (orphaned) vào Workspace của Owner
-        if (targetWorkspace) {
-          const orphanStaff = await this.prisma.staff.findMany({
-            where: {
-              role: 'STAFF',
-              ownerId: null,
-              id: { not: resolvedOwner },
-            },
-          });
-          if (orphanStaff.length > 0) {
-            for (const s of orphanStaff) {
-              await this.prisma.staff.update({
-                where: { id: s.id },
-                data: { ownerId: resolvedOwner },
-              }).catch(() => { });
-              await this.prisma.workspaceMember.upsert({
-                where: {
-                  workspaceId_staffId: {
-                    workspaceId: targetWorkspace.id,
-                    staffId: s.id,
-                  },
-                },
-                create: {
-                  workspaceId: targetWorkspace.id,
-                  staffId: s.id,
-                  role: 'STAFF',
-                },
-                update: { isActive: true },
-              }).catch(() => { });
-            }
-          }
-        }
-
-        const staffMembers = await this.prisma.staff.findMany({
+        const staffMembers = await this.prisma.user.findMany({
           where: {
             OR: [
               ...(targetWorkspace
@@ -126,7 +94,6 @@ export class StaffManagementService {
                   },
                 ]
                 : [
-                  { ownerId: resolvedOwner },
                   { id: resolvedOwner },
                 ]),
             ],
@@ -136,9 +103,7 @@ export class StaffManagementService {
             email: true,
             phoneNumber: true,
             fullName: true,
-            role: true,
             status: true,
-            ownerId: true,
             lockedAt: true,
             createdAt: true,
             updatedAt: true,
@@ -149,12 +114,12 @@ export class StaffManagementService {
               }
               : false,
           },
-          orderBy: [{ role: 'asc' }, { createdAt: 'desc' }],
+          orderBy: [{ createdAt: 'desc' }],
         });
 
         // Map role theo membership nếu có
         const mappedStaff = staffMembers.map((s: any) => {
-          let role = s.role;
+          let role = 'STAFF';
           if (targetWorkspace && s.id === targetWorkspace.ownerId) {
             role = 'OWNER';
           } else if (s.memberships && s.memberships[0]?.role) {
@@ -164,6 +129,7 @@ export class StaffManagementService {
           return {
             ...rest,
             role,
+            ownerId: targetWorkspace?.ownerId || resolvedOwner,
           };
         });
 
@@ -195,7 +161,7 @@ export class StaffManagementService {
           : await this.prisma.workspace.findFirst({ where: { ownerId: resolvedOwner } });
 
         if (!ownerWorkspace) {
-          const ownerStaff = await this.prisma.staff.findUnique({ where: { id: resolvedOwner } });
+          const ownerStaff = await this.prisma.user.findUnique({ where: { id: resolvedOwner } });
           const ownerName = ownerStaff?.fullName || 'PolarisX';
           const cleanSlug = `ws-${resolvedOwner.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)}-${Date.now().toString(36)}`;
           ownerWorkspace = await this.prisma.workspace.create({
@@ -208,8 +174,8 @@ export class StaffManagementService {
           });
         }
 
-        // Kiểm tra xem email này đã tồn tại trong bảng staff chưa
-        const existing = await this.prisma.staff.findUnique({
+        // Kiểm tra xem email này đã tồn tại trong bảng users chưa
+        const existing = await this.prisma.user.findUnique({
           where: { email: normalizedEmail },
         });
 
@@ -227,9 +193,9 @@ export class StaffManagementService {
         // Kiểm tra xem tài khoản này đã là thành viên trong Workspace chưa
         const existingMember = await this.prisma.workspaceMember.findUnique({
           where: {
-            workspaceId_staffId: {
+            workspaceId_userId: {
               workspaceId: ownerWorkspace.id,
-              staffId: existing.id,
+              userId: existing.id,
             },
           },
         });
@@ -242,14 +208,14 @@ export class StaffManagementService {
         const targetMemberRole = dto.role === 'OWNER' ? 'OWNER' : 'STAFF';
         await this.prisma.workspaceMember.upsert({
           where: {
-            workspaceId_staffId: {
+            workspaceId_userId: {
               workspaceId: ownerWorkspace.id,
-              staffId: existing.id,
+              userId: existing.id,
             },
           },
           create: {
             workspaceId: ownerWorkspace.id,
-            staffId: existing.id,
+            userId: existing.id,
             role: targetMemberRole,
             isActive: true,
           },
@@ -263,14 +229,11 @@ export class StaffManagementService {
         const updateData: any = {
           status: 'ACTIVE',
         };
-        if (existing.role !== 'OWNER' && !existing.ownerId) {
-          updateData.ownerId = resolvedOwner;
-        }
         if (dto.phoneNumber?.trim()) {
           updateData.phoneNumber = dto.phoneNumber.trim();
         }
 
-        const updated = await this.prisma.staff.update({
+        const updated = await this.prisma.user.update({
           where: { id: existing.id },
           data: updateData,
           select: {
@@ -278,9 +241,7 @@ export class StaffManagementService {
             email: true,
             phoneNumber: true,
             fullName: true,
-            role: true,
             status: true,
-            ownerId: true,
             lockedAt: true,
             createdAt: true,
             updatedAt: true,
@@ -288,7 +249,11 @@ export class StaffManagementService {
         });
 
         this.logger.log(`Linked existing staff "${updated.email}" to workspace ${ownerWorkspace.id} of owner ${resolvedOwner}`);
-        return updated as StaffItemResponse;
+        return {
+          ...updated,
+          role: targetMemberRole,
+          ownerId: resolvedOwner,
+        } as StaffItemResponse;
       } catch (err) {
         if (err instanceof BadRequestException || err instanceof NotFoundException) throw err;
         this.logger.warn(`Could not invite staff in DB: ${(err as Error).message}`);
@@ -322,7 +287,7 @@ export class StaffManagementService {
 
     if (this.prisma) {
       try {
-        const staff = await this.prisma.staff.findUnique({
+        const staff = await this.prisma.user.findUnique({
           where: { id: staffId },
           include: { memberships: true },
         });
@@ -334,7 +299,7 @@ export class StaffManagementService {
           where: { ownerId: resolvedOwner },
         });
         const belongsToWorkspace = ownerWorkspace && staff.memberships.some((m) => m.workspaceId === ownerWorkspace.id);
-        const isManagedByOwner = staff.ownerId === resolvedOwner || staff.id === resolvedOwner || belongsToWorkspace;
+        const isManagedByOwner = staff.id === resolvedOwner || belongsToWorkspace;
 
         if (!isManagedByOwner) {
           throw new ForbiddenException('Bạn chỉ có quyền chỉnh sửa nhân viên thuộc quyền quản lý của mình.');
@@ -342,7 +307,6 @@ export class StaffManagementService {
 
         const dataToUpdate: any = {};
         if (dto.fullName) dataToUpdate.fullName = dto.fullName.trim();
-        if (dto.role) dataToUpdate.role = dto.role;
         if (dto.phoneNumber !== undefined) {
           dataToUpdate.phoneNumber = dto.phoneNumber?.trim() || null;
         }
@@ -350,7 +314,17 @@ export class StaffManagementService {
           dataToUpdate.passwordHash = await argon2.hash(dto.password);
         }
 
-        const updated = await this.prisma.staff.update({
+        if (dto.role && ownerWorkspace) {
+          await this.prisma.workspaceMember.updateMany({
+            where: {
+              workspaceId: ownerWorkspace.id,
+              userId: staffId,
+            },
+            data: { role: dto.role as any },
+          });
+        }
+
+        const updated = await this.prisma.user.update({
           where: { id: staffId },
           data: dataToUpdate,
           select: {
@@ -358,17 +332,21 @@ export class StaffManagementService {
             email: true,
             phoneNumber: true,
             fullName: true,
-            role: true,
             status: true,
-            ownerId: true,
             lockedAt: true,
             createdAt: true,
             updatedAt: true,
           },
         });
 
+        const currentRole = dto.role || (belongsToWorkspace ? staff.memberships.find((m) => m.workspaceId === ownerWorkspace?.id)?.role : 'STAFF');
+
         this.logger.log(`Updated staff "${updated.email}" by owner ${resolvedOwner}`);
-        return updated as StaffItemResponse;
+        return {
+          ...updated,
+          role: currentRole,
+          ownerId: resolvedOwner,
+        } as StaffItemResponse;
       } catch (err) {
         if (err instanceof NotFoundException || err instanceof ForbiddenException) throw err;
         this.logger.warn(`Could not update staff in DB: ${(err as Error).message}`);
@@ -396,7 +374,7 @@ export class StaffManagementService {
 
     if (this.prisma) {
       try {
-        const staff = await this.prisma.staff.findUnique({
+        const staff = await this.prisma.user.findUnique({
           where: { id: staffId },
           include: { memberships: true },
         });
@@ -406,7 +384,7 @@ export class StaffManagementService {
           where: { ownerId: resolvedOwner },
         });
         const belongsToWorkspace = ownerWorkspace && staff.memberships.some((m) => m.workspaceId === ownerWorkspace.id);
-        const isManagedByOwner = staff.ownerId === resolvedOwner || belongsToWorkspace;
+        const isManagedByOwner = staff.id === resolvedOwner || belongsToWorkspace;
 
         if (!isManagedByOwner) {
           throw new ForbiddenException('Bạn chỉ có quyền khóa tài khoản nhân viên thuộc quyền quản lý của mình.');
@@ -415,7 +393,7 @@ export class StaffManagementService {
         const newStatus = lock ? 'LOCKED' : 'ACTIVE';
         const lockedAt = lock ? new Date() : null;
 
-        const updated = await this.prisma.staff.update({
+        const updated = await this.prisma.user.update({
           where: { id: staffId },
           data: {
             status: newStatus,
@@ -428,9 +406,7 @@ export class StaffManagementService {
             id: true,
             email: true,
             fullName: true,
-            role: true,
             status: true,
-            ownerId: true,
             lockedAt: true,
             createdAt: true,
             updatedAt: true,
@@ -440,12 +416,18 @@ export class StaffManagementService {
         // Xóa các Refresh Token đang hoạt động để đăng xuất tài khoản bị khóa ngay lập tức
         if (lock) {
           await this.prisma.refreshToken.deleteMany({
-            where: { staffId },
+            where: { userId: staffId },
           }).catch(() => { });
         }
 
+        const currentRole = belongsToWorkspace ? staff.memberships.find((m) => m.workspaceId === ownerWorkspace?.id)?.role || 'STAFF' : 'STAFF';
+
         this.logger.log(`Set staff "${updated.email}" status to ${newStatus}`);
-        return updated as StaffItemResponse;
+        return {
+          ...updated,
+          role: currentRole,
+          ownerId: resolvedOwner,
+        } as StaffItemResponse;
       } catch (err) {
         if (err instanceof NotFoundException || err instanceof ForbiddenException || err instanceof BadRequestException) {
           throw err;
@@ -478,7 +460,7 @@ export class StaffManagementService {
 
     if (this.prisma) {
       try {
-        const targetStaff = await this.prisma.staff.findUnique({
+        const targetStaff = await this.prisma.user.findUnique({
           where: { id: targetStaffId },
           include: { memberships: true },
         });
@@ -505,7 +487,7 @@ export class StaffManagementService {
         }
         for (const m of activeMembers) {
           if (m.role === 'OWNER') {
-            ownerStaffIds.add(m.staffId);
+            ownerStaffIds.add(m.userId);
           }
         }
 
@@ -539,18 +521,18 @@ export class StaffManagementService {
         await this.prisma.workspaceMember.deleteMany({
           where: {
             workspaceId: targetWs.id,
-            staffId: targetStaffId,
+            userId: targetStaffId,
           },
         }).catch(() => { });
 
-        await this.prisma.refreshToken.deleteMany({ where: { staffId: targetStaffId } }).catch(() => { });
+        await this.prisma.refreshToken.deleteMany({ where: { userId: targetStaffId } }).catch(() => { });
 
         // Nếu tài khoản là OWNER, hoặc còn thuộc workspace khác: chỉ ngắt liên kết khỏi workspace này
         const remainingMemberships = await this.prisma.workspaceMember.count({
-          where: { staffId: targetStaffId },
+          where: { userId: targetStaffId },
         });
 
-        if (isTargetOwner || targetStaff.role === 'OWNER' || remainingMemberships > 0) {
+        if (isTargetOwner || remainingMemberships > 0) {
           const actionText = isSelfLeaving ? 'đã rời khỏi' : 'đã loại bỏ khỏi';
           this.logger.log(`Member ${targetStaffId} removed from workspace ${targetWs.id}`);
           return { success: true, message: `Thành viên ${targetStaff.fullName} ${actionText} Không gian làm việc.` };
@@ -558,11 +540,11 @@ export class StaffManagementService {
 
         // Nếu là staff thông thường và không còn thuộc workspace nào:
         try {
-          await this.prisma.staff.delete({ where: { id: targetStaffId } });
+          await this.prisma.user.delete({ where: { id: targetStaffId } });
         } catch {
-          await this.prisma.staff.update({
+          await this.prisma.user.update({
             where: { id: targetStaffId },
-            data: { ownerId: null, status: 'LOCKED' },
+            data: { status: 'LOCKED' },
           });
         }
 

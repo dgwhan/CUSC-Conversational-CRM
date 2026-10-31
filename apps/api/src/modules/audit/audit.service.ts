@@ -4,6 +4,7 @@ import { PrismaService } from '../../platform/database/prisma.service.js';
 
 export type RecordEventInput = {
   action: AuditAction;
+  userId?: string | null;
   staffId?: string | null;
   actorId?: string | null;
   ip?: string | null;
@@ -19,10 +20,11 @@ export class AuditService {
 
   async recordEvent(input: RecordEventInput) {
     try {
+      const resolvedUserId = input.userId ?? input.staffId ?? null;
       return await this.prisma.auditLog.create({
         data: {
           action: input.action,
-          staffId: input.staffId ?? null,
+          userId: resolvedUserId,
           actorId: input.actorId ?? null,
           ip: input.ip ?? null,
           userAgent: input.userAgent?.slice(0, 512) ?? null,
@@ -41,12 +43,11 @@ export class AuditService {
       take,
       orderBy: { createdAt: 'desc' },
       include: {
-        staff: {
+        user: {
           select: {
             id: true,
             email: true,
             fullName: true,
-            role: true,
           },
         },
       },

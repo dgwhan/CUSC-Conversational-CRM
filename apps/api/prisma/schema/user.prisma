@@ -1,47 +1,39 @@
-enum StaffRole {
-  OWNER
-  STAFF
-}
-
-enum StaffStatus {
+enum UserStatus {
   ACTIVE
   LOCKED
+
+  @@map("user_status")
 }
 
-model Staff {
-  id                 String       @id @default(uuid()) @db.Uuid
-  email              String       @unique
-  phoneNumber        String?      @unique @map("phone_number")
-  fullName           String       @map("full_name")
-  passwordHash       String       @map("password_hash")
-  role               StaffRole    @default(STAFF)
-  status             StaffStatus  @default(ACTIVE)
-  ownerId            String?      @map("owner_id") @db.Uuid
-  telegramChatId     String?      @unique @map("telegram_chat_id")
-  tokenVersion       Int          @default(0) @map("token_version")
-  mustChangePassword Boolean      @default(false) @map("must_change_password")
-  lockedAt           DateTime?    @map("locked_at")
-  failedLoginAttempts Int         @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime?   @map("locked_until")
-  createdAt          DateTime     @default(now()) @map("created_at")
-  updatedAt          DateTime     @updatedAt @map("updated_at")
+model User {
+  id                  String       @id @default(uuid()) @db.Uuid
+  email               String       @unique
+  phoneNumber         String?      @unique @map("phone_number")
+  fullName            String       @map("full_name")
+  passwordHash        String       @map("password_hash")
+  status              UserStatus   @default(ACTIVE)
+  telegramChatId      String?      @unique @map("telegram_chat_id")
+  tokenVersion        Int          @default(0) @map("token_version")
+  mustChangePassword  Boolean      @default(false) @map("must_change_password")
+  lockedAt            DateTime?    @map("locked_at")
+  failedLoginAttempts Int          @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime?    @map("locked_until")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
 
-  owner              Staff?       @relation("OwnerStaffMembers", fields: [ownerId], references: [id], onDelete: Cascade)
-  managedStaff       Staff[]      @relation("OwnerStaffMembers")
-  refreshTokens RefreshToken[]
+  refreshTokens              RefreshToken[]
   passwordRecoveryChallenges PasswordRecoveryChallenge[]
-  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
-  memberships     WorkspaceMember[]
-  workspaceConfigurations WorkspaceConfiguration[] @relation("StaffWorkspaceConfig")
-  auditLogs       AuditLog[]
+  ownedWorkspaces            Workspace[]                 @relation("WorkspaceOwner")
+  memberships                WorkspaceMember[]
+  workspaceConfigurations    WorkspaceConfiguration[]    @relation("UserWorkspaceConfig")
+  auditLogs                  AuditLog[]
 
-  @@index([ownerId])
-  @@map("staff")
+  @@map("users")
 }
 
 model RefreshToken {
   id           String    @id @default(uuid()) @db.Uuid
-  staffId      String    @map("staff_id") @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
   familyId     String    @map("family_id") @db.Uuid
   tokenHash    String    @unique @map("token_hash")
   expiresAt    DateTime  @map("expires_at")
@@ -51,9 +43,9 @@ model RefreshToken {
   ip           String?
   createdAt    DateTime  @default(now()) @map("created_at")
 
-  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([staffId])
+  @@index([userId])
   @@index([familyId])
   @@map("refresh_tokens")
 }

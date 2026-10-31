@@ -28,7 +28,6 @@ export const registerRequestSchema = z
       .max(AUTH_VALIDATION.MAX_PASSWORD_LENGTH, {
         message: AUTH_VALIDATION.MESSAGES.PASSWORD_MAX_LENGTH,
       }),
-    role: StaffRoleSchema.optional().default(AUTH_VALIDATION.DEFAULT_ROLE),
     phoneNumber: z
       .string()
       .trim()

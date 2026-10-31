@@ -1,14 +1,16 @@
-import type { StaffRole } from '../../../../../contracts/iam.js';
-
 export type RegisterResponseDto = {
     accessToken: string;
-    staff: {
+    user: {
         id: string;
         email: string;
         fullName: string;
         phoneNumber?: string | null;
-        role: StaffRole;
-        ownerId?: string | null;
+    };
+    staff?: {
+        id: string;
+        email: string;
+        fullName: string;
+        phoneNumber?: string | null;
     };
 };
 
@@ -17,4 +19,3 @@ export type AuthRegisterResult = {
     refreshToken: string;
     refreshTokenMaxAgeSeconds: number;
 };
-

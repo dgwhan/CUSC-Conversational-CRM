@@ -24,7 +24,7 @@ export class RolesGuard implements CanActivate {
 
     const user = context.switchToHttp().getRequest<{ user?: AuthUser }>().user;
 
-    if (!user || !StaffRoleSchema.safeParse(user.role).success) {
+    if (!user || !user.role || !StaffRoleSchema.safeParse(user.role).success) {
       throw new UnauthorizedException();
     }
 

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import type { WorkspaceItem, WorkspaceConfig, BusinessDomain } from '../workspaceConfig.types.js';
+import { USER_ROLES, type UserRole } from '../../auth/userRole.types.js';
 import { apiClient } from '../../../lib/api-client.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 
@@ -15,6 +16,7 @@ export interface UseWorkspaceManagerProps {
   fetchStaffList: (targetWsId?: string) => Promise<any>;
   setConfig: React.Dispatch<React.SetStateAction<WorkspaceConfig>>;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  onWorkspaceRoleChange?: (role: UserRole, ownerId?: string) => void;
 }
 
 export const useWorkspaceManager = ({
@@ -27,6 +29,7 @@ export const useWorkspaceManager = ({
   fetchStaffList,
   setConfig,
   setIsLoading,
+  onWorkspaceRoleChange,
 }: UseWorkspaceManagerProps) => {
   const [myWorkspaces, setMyWorkspaces] = useState<WorkspaceItem[]>([]);
 
@@ -78,6 +81,13 @@ export const useWorkspaceManager = ({
   useEffect(() => {
     fetchMyWorkspaces();
   }, [fetchMyWorkspaces]);
+
+  // Đồng bộ role từ Workspace hiện tại vào UserRoleContext
+  useEffect(() => {
+    if (activeWorkspace) {
+      onWorkspaceRoleChange?.(activeWorkspace.role as UserRole, activeWorkspace.ownerId);
+    }
+  }, [activeWorkspace?.id, activeWorkspace?.role, activeWorkspace?.ownerId, onWorkspaceRoleChange]);
 
   // Chuyển đổi nhanh giữa các Workspace (Workspace Switcher)
   const switchWorkspace = async (targetWsId: string) => {
@@ -138,7 +148,7 @@ export const useWorkspaceManager = ({
             id: res.id,
             name: res.name,
             slug: res.slug,
-            role: 'OWNER',
+            role: USER_ROLES.OWNER,
             isOwner: true,
             domain: res.domain || 'EDUCATION',
             ownerId: res.ownerId || effectiveOwnerId,

@@ -1,3 +1,5 @@
+import { USER_ROLES } from '../auth/userRole.types.js';
+
 export type BusinessDomain =
   | 'EDUCATION'
   | 'REAL_ESTATE'
@@ -58,7 +60,7 @@ export interface WorkspaceItem {
   id: string;
   name: string;
   slug: string;
-  role: 'OWNER' | 'STAFF';
+  role: typeof USER_ROLES.OWNER | typeof USER_ROLES.STAFF;
   isOwner: boolean;
   domain: string;
   ownerId?: string;
@@ -97,8 +99,8 @@ export interface WorkspaceConfigContextType {
   // Quản lý nhân sự Staff theo workspace
   staffMembers: ManagedStaffItem[];
   fetchStaffList: (targetWsId?: string) => Promise<ManagedStaffItem[]>;
-  createStaffMember: (data: { email: string; fullName: string; phoneNumber?: string; password?: string; role?: 'STAFF' | 'OWNER' }, targetWsId?: string) => Promise<void>;
-  updateStaffMember: (staffId: string, data: { fullName?: string; phoneNumber?: string; password?: string; role?: 'STAFF' | 'OWNER' }, targetWsId?: string) => Promise<void>;
+  createStaffMember: (data: { email: string; fullName: string; phoneNumber?: string; password?: string; role?: typeof USER_ROLES.STAFF | typeof USER_ROLES.OWNER }, targetWsId?: string) => Promise<void>;
+  updateStaffMember: (staffId: string, data: { fullName?: string; phoneNumber?: string; password?: string; role?: typeof USER_ROLES.STAFF | typeof USER_ROLES.OWNER }, targetWsId?: string) => Promise<void>;
   toggleLockStaffMember: (staffId: string, lock: boolean) => Promise<void>;
   deleteStaffMember: (staffId: string, targetWsId?: string) => Promise<void>;
   resetToDefault: () => void;

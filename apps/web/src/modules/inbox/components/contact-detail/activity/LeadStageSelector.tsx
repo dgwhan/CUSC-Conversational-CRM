@@ -4,9 +4,7 @@ import type { StageDefinition } from '../types/index.js';
 import { PIPELINE_STAGE_ID, type PipelineStageId } from '../../../types.js';
 import { notify } from '../../../../../components/feedback/toastEmitter.js';
 
-/**
- * Bản đồ màu sắc phễu trỏ trực tiếp đến biến :root CSS của hệ thống
- */
+
 export const STAGE_ROOT_COLOR_MAP: Record<PipelineStageId, string> = {
   [PIPELINE_STAGE_ID.STAGE_NEW]: 'var(--stage-new-color, #0284c7)',
   [PIPELINE_STAGE_ID.STAGE_CONTACTED]: 'var(--stage-contacted-color, var(--color-brand-primary, #2563eb))',
@@ -19,9 +17,6 @@ export const STAGE_ROOT_COLOR_MAP: Record<PipelineStageId, string> = {
 
 const DEFAULT_STAGE_COLOR = STAGE_ROOT_COLOR_MAP[PIPELINE_STAGE_ID.STAGE_NEW];
 
-/**
- * Hằng số chuỗi thông báo giao diện (Tránh Magic Strings)
- */
 const STAGE_SELECTOR_TEXT = {
   SECTION_TITLE: 'Giai đoạn khách hàng tiềm năng',
   STATUS_LOCKED: 'Chưa mở',
@@ -38,18 +33,13 @@ export interface LeadStageSelectorProps {
   onSelectStage: (stage: StageDefinition) => void;
 }
 
-/**
- * Phân giải màu sắc giai đoạn dựa trên cấu hình hệ thống và hằng số PIPELINE_STAGE_ID
- */
+
 export const resolveStageColor = (
   stage: StageDefinition & { color?: string }
 ): { dot: string; text: string } => {
-  // 1. Ưu tiên màu do cấu hình Workspace / Stage trực tiếp cung cấp
   if (stage.color) {
     return { dot: stage.color, text: stage.color };
   }
-
-  // 2. Kiểm tra cờ trạng thái Thắng / Thua (Won / Lost)
   if (stage.isWon) {
     const wonColor = STAGE_ROOT_COLOR_MAP[PIPELINE_STAGE_ID.STAGE_ENROLLED];
     return { dot: wonColor, text: wonColor };
@@ -59,7 +49,6 @@ export const resolveStageColor = (
     return { dot: lostColor, text: lostColor };
   }
 
-  // 3. Chuẩn hóa ID giai đoạn để đối chiếu theo hằng số PIPELINE_STAGE_ID
   const rawId = stage.id || '';
   const normalizedId: PipelineStageId = rawId.startsWith('STAGE_')
     ? (rawId as PipelineStageId)
@@ -69,10 +58,7 @@ export const resolveStageColor = (
   return { dot: resolvedColor, text: resolvedColor };
 };
 
-/**
- * Sub-component: Chọn giai đoạn phễu chăm sóc khách hàng tiềm năng
- * Giao diện phẳng chuẩn Tailwind CSS, không chứa magic strings
- */
+
 export const LeadStageSelector: React.FC<LeadStageSelectorProps> = ({
   isLead,
   currentStage,
@@ -108,9 +94,8 @@ export const LeadStageSelector: React.FC<LeadStageSelectorProps> = ({
       {/* Header trạng thái của giai đoạn */}
       <div className="flex items-center justify-between">
         <span
-          className={`text-[12px] font-semibold ${
-            isLead ? 'text-slate-700' : 'text-slate-400'
-          }`}
+          className={`text-[12px] font-semibold ${isLead ? 'text-slate-700' : 'text-slate-400'
+            }`}
         >
           {STAGE_SELECTOR_TEXT.SECTION_TITLE}
         </span>
@@ -148,9 +133,8 @@ export const LeadStageSelector: React.FC<LeadStageSelectorProps> = ({
             </div>
             <ChevronDown
               size={14}
-              className={`text-slate-500 shrink-0 ml-1.5 transition-transform duration-150 ${
-                isOpen ? 'rotate-180' : ''
-              }`}
+              className={`text-slate-500 shrink-0 ml-1.5 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''
+                }`}
             />
           </button>
         ) : (
@@ -183,9 +167,8 @@ export const LeadStageSelector: React.FC<LeadStageSelectorProps> = ({
                   key={stage.id}
                   type="button"
                   onClick={() => handleItemClick(stage)}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left transition-colors cursor-pointer text-[12.5px] ${
-                    isSelected ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'
-                  }`}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left transition-colors cursor-pointer text-[12.5px] ${isSelected ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'
+                    }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span
@@ -193,9 +176,8 @@ export const LeadStageSelector: React.FC<LeadStageSelectorProps> = ({
                       style={{ backgroundColor: colors.dot }}
                     />
                     <span
-                      className={`truncate ${
-                        isSelected ? 'font-semibold' : 'text-slate-800'
-                      }`}
+                      className={`truncate ${isSelected ? 'font-semibold' : 'text-slate-800'
+                        }`}
                       style={isSelected ? { color: colors.text } : undefined}
                     >
                       {stage.name}

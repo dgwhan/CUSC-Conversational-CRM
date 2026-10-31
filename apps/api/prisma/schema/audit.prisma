@@ -6,7 +6,7 @@ enum AuditAction {
 
 model AuditLog {
   id        String      @id @default(uuid()) @db.Uuid
-  staffId   String?     @map("staff_id") @db.Uuid
+  userId    String?     @map("user_id") @db.Uuid
   actorId   String?     @map("actor_id") @db.Uuid
   action    AuditAction
   ip        String?     @db.VarChar(45)
@@ -14,10 +14,10 @@ model AuditLog {
   metadata  Json?
   createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  staff Staff? @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([action])
-  @@index([staffId])
+  @@index([userId])
   @@index([createdAt(sort: Desc)])
   @@map("audit_logs")
 }

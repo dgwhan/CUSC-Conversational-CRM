@@ -4,13 +4,13 @@ export const AUTH_VALIDATION = {
   MIN_FULLNAME_LENGTH: 2,
   MAX_FULLNAME_LENGTH: 100,
   EMAIL_REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-  PHONE_REGEX: /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/,
+  PHONE_REGEX: /^(0|\+84)[0-9]{9}$/,
   DEFAULT_ROLE: 'OWNER' as const,
   MESSAGES: {
     EMAIL_REQUIRED: 'Vui lòng nhập email.',
     EMAIL_INVALID: 'Email không đúng định dạng.',
     PHONE_INVALID:
-      'Số điện thoại không hợp lệ (ví dụ: 0912345678 hoặc +84912345678).',
+      'Số điện thoại phải gồm 10 chữ số',
     PASSWORD_REQUIRED: 'Vui lòng nhập mật khẩu.',
     PASSWORD_MIN_LENGTH: 'Mật khẩu phải có ít nhất 8 ký tự.',
     PASSWORD_MAX_LENGTH: 'Mật khẩu không được vượt quá 128 ký tự.',

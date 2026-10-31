@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { ManagedStaffItem } from '../workspaceConfig.types.js';
+import { USER_ROLES } from '../../auth/userRole.types.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 
 export interface UseWorkspaceStaffManagementProps {
@@ -29,7 +30,7 @@ export const useWorkspaceStaffManagement = ({
           headers: {
             'x-owner-id': effectiveOwnerId,
             'x-staff-id': staffId || '',
-            'x-user-role': isCurrentWorkspaceOwner ? 'OWNER' : 'STAFF',
+            'x-user-role': isCurrentWorkspaceOwner ? USER_ROLES.OWNER : USER_ROLES.STAFF,
             'x-workspace-id': wsToFetch,
           },
         });
@@ -53,7 +54,7 @@ export const useWorkspaceStaffManagement = ({
   }, [isCurrentWorkspaceOwner, fetchStaffList]);
 
   const createStaffMember = async (
-    data: { email: string; fullName: string; phoneNumber?: string; password?: string; role?: 'STAFF' | 'OWNER' },
+    data: { email: string; fullName: string; phoneNumber?: string; password?: string; role?: typeof USER_ROLES.STAFF | typeof USER_ROLES.OWNER },
     targetWsId?: string
   ) => {
     const wsId = targetWsId || activeWorkspaceId || configWorkspaceId || '';
@@ -64,7 +65,7 @@ export const useWorkspaceStaffManagement = ({
           'Content-Type': 'application/json',
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
-          'x-user-role': 'OWNER',
+          'x-user-role': USER_ROLES.OWNER,
           'x-workspace-id': wsId,
         },
         body: JSON.stringify(data),
@@ -86,7 +87,7 @@ export const useWorkspaceStaffManagement = ({
 
   const updateStaffMember = async (
     targetId: string,
-    data: { fullName?: string; password?: string; role?: 'STAFF' | 'OWNER' },
+    data: { fullName?: string; password?: string; role?: typeof USER_ROLES.STAFF | typeof USER_ROLES.OWNER },
     targetWsId?: string
   ) => {
     const wsId = targetWsId || activeWorkspaceId || configWorkspaceId || '';
@@ -97,7 +98,7 @@ export const useWorkspaceStaffManagement = ({
           'Content-Type': 'application/json',
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
-          'x-user-role': 'OWNER',
+          'x-user-role': USER_ROLES.OWNER,
           'x-workspace-id': wsId,
         },
         body: JSON.stringify(data),
@@ -125,7 +126,7 @@ export const useWorkspaceStaffManagement = ({
           'Content-Type': 'application/json',
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
-          'x-user-role': 'OWNER',
+          'x-user-role': USER_ROLES.OWNER,
           'x-workspace-id': activeWorkspaceId || configWorkspaceId || '',
         },
         body: JSON.stringify({ lock }),
@@ -156,7 +157,7 @@ export const useWorkspaceStaffManagement = ({
         headers: {
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
-          'x-user-role': isCurrentWorkspaceOwner ? 'OWNER' : 'STAFF',
+          'x-user-role': isCurrentWorkspaceOwner ? USER_ROLES.OWNER : USER_ROLES.STAFF,
           'x-workspace-id': wsId,
         },
       });

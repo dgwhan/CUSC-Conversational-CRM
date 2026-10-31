@@ -106,12 +106,10 @@ describe('RefreshTokenService - Broken Access Token Protection', () => {
         id: 'staff-1',
         email: 'staff@cusc.vn',
         fullName: 'Tu Van Vien',
-        role: 'STAFF',
         status: 'ACTIVE',
         tokenVersion: 2,
         mustChangePassword: false,
         phoneNumber: '0912345678',
-        ownerId: 'owner-1',
       },
     });
 
@@ -121,7 +119,6 @@ describe('RefreshTokenService - Broken Access Token Protection', () => {
     const result = await service.refresh(rawToken, { ip: '127.0.0.1' });
 
     expect(result.response.accessToken).toBe('mock_new_access_token');
-    expect(result.response.staff.role).toBe('STAFF');
     expect(result.refreshToken).toBeDefined();
     expect(result.refreshToken).not.toBe(rawToken);
 
@@ -139,7 +136,6 @@ describe('RefreshTokenService - Broken Access Token Protection', () => {
       id: 'staff-1',
       email: 'staff@cusc.vn',
       fullName: 'Tu Van Vien',
-      role: 'STAFF',
       tokenVersion: 2,
     });
   });

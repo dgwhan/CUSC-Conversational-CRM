@@ -7,6 +7,7 @@ import type {
 import { CLIENT_INDUSTRY_PRESETS } from './workspacePresets.js';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import { useUserRole } from '../auth/UserRoleContext.js';
+import { USER_ROLES } from '../auth/userRole.types.js';
 import {
   useWorkspaceCatalog,
   useWorkspaceStaffManagement,
@@ -41,7 +42,7 @@ const initialDefaultConfig: WorkspaceConfig = {
 const WorkspaceConfigContext = createContext<WorkspaceConfigContextType | undefined>(undefined);
 
 export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isOwner, staffId, staffName, ownerId, isAuthenticated } = useUserRole();
+  const { isOwner, staffId, staffName, ownerId, isAuthenticated, setRole } = useUserRole();
   const [isLoading, setIsLoading] = useState(false);
 
   const effectiveOwnerId = ownerId || (isOwner ? staffId : '');
@@ -114,6 +115,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
     fetchStaffList: async (wsId) => staffManager.fetchStaffList(wsId),
     setConfig,
     setIsLoading,
+    onWorkspaceRoleChange: setRole,
   });
 
   // Hook 2: Quản lý Nhân sự theo Workspace
@@ -152,7 +154,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': 'OWNER',
+          'x-user-role': USER_ROLES.OWNER,
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
           'x-workspace-id': workspaceManager.activeWorkspaceId || config.workspaceId || '',

@@ -2,7 +2,7 @@ export const OTP_LENGTH = 6;
 export const OTP_PATTERN = /^\d{6}$/;
 export const RESEND_COOLDOWN_SECONDS = 60;
 export const EMAIL_FORMAT_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const PHONE_FORMAT_PATTERN = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
+export const PHONE_FORMAT_PATTERN = /^(0|\+84)[0-9]{9}$/;
 
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
@@ -30,7 +30,7 @@ export const AUTH_MESSAGES = {
   EMAIL_REQUIRED: 'Vui lòng nhập email.',
   EMAIL_INVALID: 'Vui lòng nhập địa chỉ email hợp lệ.',
   PHONE_REQUIRED: 'Vui lòng nhập số điện thoại.',
-  PHONE_INVALID: 'Số điện thoại không hợp lệ (ví dụ: 0912345678 hoặc +84912345678).',
+  PHONE_INVALID: 'Số điện thoại phải gồm 10 chữ số.',
   IDENTIFIER_REQUIRED: 'Vui lòng nhập email hoặc số điện thoại.',
   IDENTIFIER_INVALID: 'Vui lòng nhập email hoặc số điện thoại hợp lệ.',
   PASSWORD_REQUIRED: 'Vui lòng nhập mật khẩu.',

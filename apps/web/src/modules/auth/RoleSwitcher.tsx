@@ -12,7 +12,7 @@ export const RoleSwitcher: React.FC = () => {
   return (
     <div
       className="role-switcher-container role-switcher-locked"
-      title={`Vai trò bảo mật RBAC: ${isOwner ? 'Chủ doanh nghiệp (Owner)' : 'Tư vấn viên (Staff)'} - Cố định theo tài khoản đăng nhập`}
+      title={`Vai trò bảo mật RBAC: ${isOwner ? 'Chủ sở hữu (Owner)' : 'Tư vấn viên (Staff)'} - Xác định theo Workspace hiện tại`}
     >
       <div className={`role-switcher-badge ${isOwner ? 'active-owner' : 'active-agent'}`}>
         {isOwner ? (

@@ -178,7 +178,7 @@ export class PasswordRecoveryService {
 
           stage = 'active_staff_lock';
           const staffRows = await transaction.$queryRaw<LockedStaff[]>(
-            Prisma.sql`SELECT "id", "status"::text AS "status" FROM "staff" WHERE "email" = ${normalizedEmail} FOR UPDATE`,
+            Prisma.sql`SELECT "id", "status"::text AS "status" FROM "users" WHERE "email" = ${normalizedEmail} FOR UPDATE`,
           );
           const staff = staffRows[0];
 
@@ -200,7 +200,7 @@ export class PasswordRecoveryService {
           await transaction.passwordRecoveryChallenge.create({
             data: {
               id: challengeId,
-              staffId: staff.id,
+              userId: staff.id,
               emailKey,
               emailKeyVersion: this.cryptoService.emailKeyVersion,
               status: PASSWORD_RECOVERY_CHALLENGE_STATUS.PENDING_SEND,
@@ -296,7 +296,7 @@ export class PasswordRecoveryService {
         where: {
           resetTokenHash: tokenHash,
         },
-        include: { staff: true },
+        include: { user: true },
       });
 
       if (
@@ -305,9 +305,9 @@ export class PasswordRecoveryService {
         challenge.consumedAt !== null ||
         !challenge.resetTokenExpiresAt ||
         challenge.resetTokenExpiresAt <= now ||
-        !challenge.staffId ||
-        !challenge.staff ||
-        challenge.staff.status !== STAFF_STATUS.ACTIVE
+        !challenge.userId ||
+        !challenge.user ||
+        challenge.user.status !== STAFF_STATUS.ACTIVE
       ) {
         this.logger.warn('Password reset attempt rejected: invalid or expired token');
         throw new BadRequestException('Mã xác minh đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.');
@@ -338,9 +338,9 @@ export class PasswordRecoveryService {
             throw new BadRequestException('Mã xác minh đã được sử dụng hoặc đã hết hạn.');
           }
 
-          // Cập nhật mật khẩu mới cho staff và reset số lần đăng nhập sai
-          await tx.staff.update({
-            where: { id: challenge.staffId! },
+          // Cập nhật mật khẩu mới cho user và reset số lần đăng nhập sai
+          await tx.user.update({
+            where: { id: challenge.userId! },
             data: {
               passwordHash,
               failedLoginAttempts: 0,
@@ -348,10 +348,10 @@ export class PasswordRecoveryService {
             },
           });
 
-          // Thu hồi (revoke) toàn bộ refresh token / phiên đăng nhập cũ của nhân viên
+          // Thu hồi (revoke) toàn bộ refresh token / phiên đăng nhập cũ của người dùng
           await tx.refreshToken.updateMany({
             where: {
-              staffId: challenge.staffId!,
+              userId: challenge.userId!,
               revokedAt: null,
             },
             data: {

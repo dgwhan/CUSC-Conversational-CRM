@@ -72,8 +72,8 @@ export class NodemailerMailDeliveryService implements MailDelivery {
         from: this.sender,
       });
     } catch (error: unknown) {
-      this.logger.warn(
-        `SMTP delivery attempt failed (${safeSmtpErrorCategory(error)})`,
+      this.logger.error(
+        `SMTP delivery attempt failed (${safeSmtpErrorCategory(error)}): ${error instanceof Error ? error.message : String(error)}`,
       );
       throw new ServiceUnavailableException('Email delivery failed');
     }

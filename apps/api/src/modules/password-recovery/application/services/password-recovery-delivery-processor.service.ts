@@ -1,3 +1,4 @@
+
 import {
   PASSWORD_RECOVERY_CHALLENGE_STATUS,
   PASSWORD_RECOVERY_DELIVERY_STATUS,
@@ -32,7 +33,7 @@ type ClaimedDelivery = {
     id: string;
     emailKey: string;
     status: string;
-    staff: { id: string; email: string; status: string } | null;
+    user: { id: string; email: string; status: string } | null;
   };
 };
 
@@ -88,7 +89,7 @@ export class PasswordRecoveryDeliveryProcessor
         await this.deliver(delivery);
       }
     } catch (error: unknown) {
-      this.logger.debug(`Password recovery delivery batch failed (${safeErrorCategory(error)})`);
+      this.logger.error(`Password recovery delivery batch failed: ${error instanceof Error ? error.stack : String(error)}`);
     } finally {
       this.running = false;
     }
@@ -148,7 +149,7 @@ export class PasswordRecoveryDeliveryProcessor
             id: true,
             emailKey: true,
             status: true,
-            staff: { select: { id: true, email: true, status: true } },
+            user: { select: { id: true, email: true, status: true } },
           },
         },
       },
@@ -158,10 +159,10 @@ export class PasswordRecoveryDeliveryProcessor
   }
 
   private async deliver(delivery: ClaimedDelivery): Promise<void> {
-    const staff = delivery.challenge.staff;
+    const user = delivery.challenge.user;
     if (
-      !staff ||
-      staff.status !== STAFF_STATUS.ACTIVE ||
+      !user ||
+      user.status !== STAFF_STATUS.ACTIVE ||
       delivery.challenge.status !== PASSWORD_RECOVERY_CHALLENGE_STATUS.PENDING_SEND ||
       !delivery.otpCiphertext
     ) {
@@ -180,18 +181,18 @@ export class PasswordRecoveryDeliveryProcessor
 
       if (process.env.NODE_ENV !== 'production') {
         this.logger.log(
-          `\n📬 ========================================\n📬 [DELIVERY OTP] Gửi tới: ${staff.email}\n📬 MÃ XÁC MINH OTP: ${otp}\n📬 ========================================\n`,
+          `\n📬 ========================================\n📬 [DELIVERY OTP] Gửi tới: ${user.email}\n📬 MÃ XÁC MINH OTP: ${otp}\n📬 ========================================\n`,
         );
       }
 
       await this.mailService.sendEmail({
         from: this.configService.getOrThrow<string>('MAIL_FROM'),
-        to: staff.email,
+        to: user.email,
         subject: EMAIL_SUBJECT,
         text: `Your password recovery code is ${otp}. It expires in ${OTP_TTL_SECONDS / 60} minutes. If you did not request this code, you can ignore this email.`,
       });
-    } catch {
-      this.logger.warn('Password recovery email delivery failed');
+    } catch (sendError) {
+      this.logger.warn(`Password recovery email delivery failed: ${sendError instanceof Error ? sendError.message : String(sendError)}`);
       if (process.env.NODE_ENV !== 'production') {
         // Trong môi trường dev: Kích hoạt challenge để dev test được bằng mã OTP trên terminal
         this.logger.log(

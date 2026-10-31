@@ -36,15 +36,14 @@ describe('Password Recovery Reset Token (e2e)', () => {
     prisma = app.get(PrismaService);
     cryptoService = app.get(PasswordRecoveryCryptoService);
 
-    // Chuẩn bị staff mẫu trong DB
-    await prisma.staff.upsert({
+    // Chuẩn bị user mẫu trong DB
+    await prisma.user.upsert({
       where: { id: testStaffId },
       create: {
         id: testStaffId,
         email: testStaffEmail,
         passwordHash: 'old-hash-placeholder',
         fullName: 'Reset Test User',
-        role: 'STAFF',
         status: STAFF_STATUS.ACTIVE,
       },
       update: {
@@ -63,10 +62,10 @@ describe('Password Recovery Reset Token (e2e)', () => {
   afterAll(async () => {
     // Dọn dẹp dữ liệu test
     if (prisma) {
-      await prisma.refreshToken.deleteMany({ where: { staffId: testStaffId } });
+      await prisma.refreshToken.deleteMany({ where: { userId: testStaffId } });
       const emailKey = cryptoService.createEmailKey(testStaffEmail);
       await prisma.passwordRecoveryChallenge.deleteMany({ where: { emailKey } });
-      await prisma.staff.deleteMany({ where: { id: testStaffId } });
+      await prisma.user.deleteMany({ where: { id: testStaffId } });
       await prisma.passwordRecoveryRateLimitBucket.deleteMany();
     }
     if (app) await app.close();
@@ -88,7 +87,7 @@ describe('Password Recovery Reset Token (e2e)', () => {
     await prisma.passwordRecoveryChallenge.create({
       data: {
         id: challengeId,
-        staffId: testStaffId,
+        userId: testStaffId,
         emailKey,
         emailKeyVersion: cryptoService.emailKeyVersion,
         status: PASSWORD_RECOVERY_CHALLENGE_STATUS.PENDING_VERIFICATION,
@@ -134,7 +133,7 @@ describe('Password Recovery Reset Token (e2e)', () => {
     await prisma.passwordRecoveryChallenge.create({
       data: {
         id: challengeId,
-        staffId: testStaffId,
+        userId: testStaffId,
         emailKey: cryptoService.createEmailKey(testStaffEmail),
         emailKeyVersion: cryptoService.emailKeyVersion,
         status: PASSWORD_RECOVERY_CHALLENGE_STATUS.VERIFIED,
@@ -148,13 +147,13 @@ describe('Password Recovery Reset Token (e2e)', () => {
     await prisma.refreshToken.createMany({
       data: [
         {
-          staffId: testStaffId,
+          userId: testStaffId,
           familyId: '44444444-5555-4666-8777-888888888881',
           tokenHash: 'active-token-hash-1',
           expiresAt: new Date(dbNow.getTime() + 7 * 24 * 3600 * 1000),
         },
         {
-          staffId: testStaffId,
+          userId: testStaffId,
           familyId: '44444444-5555-4666-8777-888888888882',
           tokenHash: 'active-token-hash-2',
           expiresAt: new Date(dbNow.getTime() + 7 * 24 * 3600 * 1000),
@@ -181,12 +180,12 @@ describe('Password Recovery Reset Token (e2e)', () => {
     expect(challenge?.resetTokenHash).toBeNull(); // Hash đã bị xóa để chống replay
 
     // Kiểm tra mật khẩu staff đã thay đổi khác với old-hash-placeholder
-    const staff = await prisma.staff.findUnique({ where: { id: testStaffId } });
+    const staff = await prisma.user.findUnique({ where: { id: testStaffId } });
     expect(staff?.passwordHash).not.toBe('old-hash-placeholder');
 
     // Kiểm tra tất cả refresh tokens của staff đã bị thu hồi (revokedAt !== null)
     const activeTokens = await prisma.refreshToken.findMany({
-      where: { staffId: testStaffId, revokedAt: null },
+      where: { userId: testStaffId, revokedAt: null },
     });
     expect(activeTokens.length).toBe(0);
   });
@@ -212,7 +211,7 @@ describe('Password Recovery Reset Token (e2e)', () => {
     await prisma.passwordRecoveryChallenge.create({
       data: {
         id: challengeId,
-        staffId: testStaffId,
+        userId: testStaffId,
         emailKey: cryptoService.createEmailKey(testStaffEmail),
         emailKeyVersion: cryptoService.emailKeyVersion,
         status: PASSWORD_RECOVERY_CHALLENGE_STATUS.VERIFIED,
@@ -241,7 +240,7 @@ describe('Password Recovery Reset Token (e2e)', () => {
     await prisma.passwordRecoveryChallenge.create({
       data: {
         id: challengeId,
-        staffId: testStaffId,
+        userId: testStaffId,
         emailKey: cryptoService.createEmailKey(testStaffEmail),
         emailKeyVersion: cryptoService.emailKeyVersion,
         status: PASSWORD_RECOVERY_CHALLENGE_STATUS.VERIFIED,
@@ -279,7 +278,7 @@ describe('Password Recovery Reset Token (e2e)', () => {
     await prisma.passwordRecoveryChallenge.create({
       data: {
         id: challengeId,
-        staffId: testStaffId,
+        userId: testStaffId,
         emailKey: cryptoService.createEmailKey(testStaffEmail),
         emailKeyVersion: cryptoService.emailKeyVersion,
         status: PASSWORD_RECOVERY_CHALLENGE_STATUS.VERIFIED,

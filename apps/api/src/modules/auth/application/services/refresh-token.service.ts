@@ -5,14 +5,14 @@ import { AuditAction } from "@prisma/client";
 import { PrismaService } from "../../../../platform/database/prisma.service.js";
 import { JwtTokenService } from "../../../../platform/config/jwt.config.js";
 import { AuditService } from "../../../audit/audit.service.js";
-import type { StaffRole } from "../../../../contracts/iam.js";
 import type { LoginResponseDto } from "../../presentation/dto/login/login-response.dto.js";
-import type { AuthRefreshResult } from "../../presentation/dto/refresh-token/refresh-response.dto.js";
-import { MILLISECONDS_PER_DAY, SECONDS_PER_DAY } from "../../presentation/dto/auth.constants.js";
 import type { LoginRequestContext } from "../../presentation/dto/login/login-request.dto.js";
+import { MILLISECONDS_PER_DAY, SECONDS_PER_DAY } from "../../presentation/dto/auth.constants.js";
 
-export type {
-    AuthRefreshResult
+export type AuthRefreshResult = {
+    response: LoginResponseDto;
+    refreshToken: string;
+    refreshTokenMaxAgeSeconds: number;
 };
 
 @Injectable()
@@ -25,9 +25,7 @@ export class RefreshTokenService {
     ) { }
 
     /**
-     * Làm mới Access Token và xoay vòng Refresh Token một cách minh bạch (Refresh Token Rotation).
-     * Tự động phát hiện hành vi tái sử dụng Refresh Token đã bị thu hồi (Replay Attack)
-     * và lập tức vô hiệu hóa toàn bộ phiên liên quan trong cùng token family.
+     * Thực hiện xoay vòng Refresh Token (Refresh Token Rotation) an toàn.
      */
     async refresh(
         rawRefreshToken: string,
@@ -43,7 +41,7 @@ export class RefreshTokenService {
 
         const tokenRecord = await this.prisma.refreshToken.findUnique({
             where: { tokenHash },
-            include: { staff: true },
+            include: { user: true },
         });
 
         if (!tokenRecord) {
@@ -63,13 +61,13 @@ export class RefreshTokenService {
 
             await this.auditService.recordEvent({
                 action: AuditAction.LOGIN_FAILURE,
-                staffId: tokenRecord.staffId,
+                userId: tokenRecord.userId,
                 ip: context.ip,
                 userAgent: context.userAgent,
                 metadata: {
                     reason: "REFRESH_TOKEN_REUSE_DETECTED",
                     familyId: tokenRecord.familyId,
-                    staffId: tokenRecord.staffId,
+                    userId: tokenRecord.userId,
                 },
             });
 
@@ -83,13 +81,13 @@ export class RefreshTokenService {
             throw new UnauthorizedException("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
         }
 
-        // Kiểm tra trạng thái tài khoản Staff
-        if (tokenRecord.staff.status !== "ACTIVE") {
+        // Kiểm tra trạng thái tài khoản User
+        if (tokenRecord.user.status !== "ACTIVE") {
             throw new UnauthorizedException("Tài khoản đã bị tạm ngừng hoặc vô hiệu hóa.");
         }
 
         // Kiểm tra khóa tạm thời (nếu có)
-        if (tokenRecord.staff.lockedUntil !== null && tokenRecord.staff.lockedUntil > now) {
+        if (tokenRecord.user.lockedUntil !== null && tokenRecord.user.lockedUntil > now) {
             throw new UnauthorizedException("Tài khoản đang bị tạm khóa. Vui lòng thử lại sau.");
         }
 
@@ -107,7 +105,7 @@ export class RefreshTokenService {
             // 1. Tạo Refresh Token mới trong cùng familyId
             const createdToken = await tx.refreshToken.create({
                 data: {
-                    staffId: tokenRecord.staff.id,
+                    userId: tokenRecord.user.id,
                     familyId: tokenRecord.familyId,
                     tokenHash: newRefreshTokenHash,
                     expiresAt: newExpiresAt,
@@ -125,28 +123,26 @@ export class RefreshTokenService {
                 },
             });
 
-            // 3. Ký Access Token mới tương ứng với tokenVersion hiện tại của staff
+            // 3. Ký Access Token mới tương ứng với tokenVersion hiện tại của user
             const tokenResult = this.jwtTokenService.GenerateToken({
-                id: tokenRecord.staff.id,
-                email: tokenRecord.staff.email,
-                fullName: tokenRecord.staff.fullName,
-                role: tokenRecord.staff.role,
-                tokenVersion: tokenRecord.staff.tokenVersion,
+                id: tokenRecord.user.id,
+                email: tokenRecord.user.email,
+                fullName: tokenRecord.user.fullName,
+                tokenVersion: tokenRecord.user.tokenVersion,
             });
+
+            const userProfile = {
+                id: tokenRecord.user.id,
+                email: tokenRecord.user.email,
+                fullName: tokenRecord.user.fullName,
+                mustChangePassword: tokenRecord.user.mustChangePassword,
+                phoneNumber: tokenRecord.user.phoneNumber,
+            };
 
             const response: LoginResponseDto = {
                 accessToken: tokenResult.accessToken,
-                staff: {
-                    id: tokenRecord.staff.id,
-                    email: tokenRecord.staff.email,
-                    fullName: tokenRecord.staff.fullName,
-                    role: tokenRecord.staff.role as StaffRole,
-                    mustChangePassword: tokenRecord.staff.mustChangePassword,
-                    phoneNumber: tokenRecord.staff.phoneNumber,
-                    ownerId:
-                        tokenRecord.staff.ownerId ||
-                        (tokenRecord.staff.role === "OWNER" ? tokenRecord.staff.id : null),
-                },
+                user: userProfile,
+                staff: userProfile,
             };
 
             return {
@@ -158,7 +154,7 @@ export class RefreshTokenService {
 
         await this.auditService.recordEvent({
             action: AuditAction.LOGIN_SUCCESS,
-            staffId: outcome.response.staff.id,
+            userId: outcome.response.user.id,
             ip: context.ip,
             userAgent: context.userAgent,
             metadata: {
@@ -189,19 +185,26 @@ export class RefreshTokenService {
     }
 
     /**
-     * Thu hồi toàn bộ phiên và tăng tokenVersion của staff (đăng xuất khỏi tất cả thiết bị).
+     * Thu hồi toàn bộ phiên và tăng tokenVersion của user (đăng xuất khỏi tất cả thiết bị).
      */
-    async revokeAllForStaff(staffId: string): Promise<void> {
+    async revokeAllForUser(userId: string): Promise<void> {
         await this.prisma.$transaction(async (tx) => {
             await tx.refreshToken.updateMany({
-                where: { staffId, revokedAt: null },
+                where: { userId, revokedAt: null },
                 data: { revokedAt: new Date() },
             });
 
-            await tx.staff.update({
-                where: { id: staffId },
+            await tx.user.update({
+                where: { id: userId },
                 data: { tokenVersion: { increment: 1 } },
             });
         });
+    }
+
+    /**
+     * Tương thích ngược: Alias cho revokeAllForUser.
+     */
+    async revokeAllForStaff(staffId: string): Promise<void> {
+        return this.revokeAllForUser(staffId);
     }
 }

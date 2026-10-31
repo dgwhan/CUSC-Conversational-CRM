@@ -2,10 +2,11 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import type { LoginResponse } from '../../features/auth/types/auth.types.js';
 import { apiClient } from '../../lib/api-client.js';
-import type { UserRoleContextValue } from './userRole.types.js';
+import { USER_ROLES } from './userRole.types.js';
+import type { UserRole, UserRoleContextValue } from './userRole.types.js';
 
-export type UserRole = 'OWNER' | 'STAFF';
-export type { UserRoleContextValue } from './userRole.types.js';
+export { USER_ROLES };
+export type { UserRole, UserRoleContextValue } from './userRole.types.js';
 
 const SESSION_STORAGE_KEY = 'polarisx_crm_auth_session';
 
@@ -49,13 +50,16 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return null;
   });
 
-  const [roleState, setRoleState] = useState<UserRole>(() => {
+  // Role được nạp từ truy vấn context Workspace (WorkspaceConfigContext), mặc định rỗng khi chưa vào workspace
+  const [role, setRoleState] = useState<UserRole>(() => {
     try {
-      const saved = localStorage.getItem('polarisx_crm_user_role') || localStorage.getItem('cusc_crm_user_role');
-      if (saved === 'OWNER' || saved === 'STAFF') return saved as UserRole;
+      const saved = localStorage.getItem('polarisx_crm_user_role') || '';
+      if (saved === USER_ROLES.OWNER || saved === USER_ROLES.STAFF) return saved as UserRole;
     } catch { }
-    return 'OWNER';
+    return USER_ROLES.EMPTY;
   });
+
+  const [workspaceOwnerId, setWorkspaceOwnerId] = useState<string>('');
 
   // Lắng nghe sự kiện token refresh và session expiration từ apiClient
   useEffect(() => {
@@ -82,8 +86,11 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       clearAccountCache();
       apiClient.setAccessToken(null);
       setSession(null);
+      setRoleState('');
+      setWorkspaceOwnerId('');
       try {
         localStorage.removeItem(SESSION_STORAGE_KEY);
+        localStorage.removeItem('polarisx_crm_user_role');
       } catch { }
       notify.warning('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', 'Phiên làm việc');
     };
@@ -97,22 +104,39 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [session?.accessToken]);
 
-  // KHÓA VAI TRÒ: Nếu đã có phiên đăng nhập, vai trò được xác định cố định theo tài khoản DB (OWNER hoặc STAFF)
-  const role: UserRole = session
-    ? session.staff.role === 'OWNER'
-      ? 'OWNER'
-      : 'STAFF'
-    : roleState;
-
-  const isRoleLocked = true; // Khóa chuyển đổi vai trò tùy tiện để đảm bảo an toàn phân quyền RBAC
-  const staffId = session?.staff.id || '';
-  const staffName = session?.staff.fullName || '';
-  const staffEmail = session?.staff.email || '';
-  const ownerId = (session?.staff as any)?.ownerId || (role === 'OWNER' ? staffId : '');
+  const isRoleLocked = true;
+  const currentUser = session?.user || session?.staff;
+  const userId = currentUser?.id || '';
+  const userName = currentUser?.fullName || '';
+  const userEmail = currentUser?.email || '';
+  const staffId = userId;
+  const staffName = userName;
+  const staffEmail = userEmail;
+  const isOwner = role === USER_ROLES.OWNER;
+  const isStaff = role === USER_ROLES.STAFF;
+  const isAgent = false;
+  const ownerId = workspaceOwnerId || (isOwner ? userId : '');
   const isAuthenticated = session !== null;
 
+  // Cập nhật role từ truy vấn context Workspace
+  const setRole = (newRole: UserRole, newOwnerId?: string) => {
+    setRoleState(newRole);
+    if (newOwnerId !== undefined) {
+      setWorkspaceOwnerId(newOwnerId);
+    }
+    try {
+      if (newRole) {
+        localStorage.setItem('polarisx_crm_user_role', newRole);
+      } else {
+        localStorage.removeItem('polarisx_crm_user_role');
+      }
+    } catch { }
+  };
+
   const login = (newSession: LoginResponse) => {
-    if (session && session.staff.id !== newSession.staff.id) {
+    const newUser = newSession.user || newSession.staff;
+    const currentActiveUser = session?.user || session?.staff;
+    if (currentActiveUser && currentActiveUser.id !== newUser?.id) {
       clearAccountCache();
     }
 
@@ -123,15 +147,15 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(newSession));
     } catch { }
 
-    // Map role từ backend sang role RBAC của CRM giao diện
-    const mappedRole: UserRole = newSession.staff.role === 'OWNER' ? 'OWNER' : 'STAFF';
-    setRoleState(mappedRole);
+    // Dọn sạch kiểm role khi đăng nhập: User không có role cố định, role sẽ được nạp từ truy vấn context Workspace
+    setRoleState(USER_ROLES.EMPTY);
+    setWorkspaceOwnerId('');
     try {
-      localStorage.setItem('polarisx_crm_user_role', mappedRole);
+      localStorage.removeItem('polarisx_crm_user_role');
     } catch { }
 
     notify.success(
-      `Chào mừng ${newSession.staff.fullName} (${newSession.staff.role})!`,
+      `Chào mừng ${newUser?.fullName || 'bạn'}!`,
       'Đăng nhập thành công'
     );
   };
@@ -140,6 +164,8 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     apiClient.clearAuth();
     clearAccountCache();
     setSession(null);
+    setRoleState(USER_ROLES.EMPTY);
+    setWorkspaceOwnerId('');
     try {
       localStorage.removeItem(SESSION_STORAGE_KEY);
       localStorage.removeItem('cusc_crm_auth_session');
@@ -150,47 +176,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     notify.info('Đã đăng xuất khỏi hệ thống.', 'Phiên làm việc');
   };
 
-  const setRole = (newRole: UserRole) => {
-    if (session) {
-      notify.warning(
-        'Vai trò đã được khóa cố định theo tài khoản đăng nhập (Bảo mật RBAC).',
-        'Không thể chuyển đổi vai trò'
-      );
-      return;
-    }
-
-    setRoleState(newRole);
-    try {
-      localStorage.setItem('polarisx_crm_user_role', newRole);
-    } catch { }
-
-    if (newRole === 'OWNER') {
-      notify.success(
-        'Đã chuyển sang vai trò: Chủ doanh nghiệp (Toàn quyền quản lý kênh FB/Zalo, phân công và xem doanh số toàn trường).',
-        'Phân quyền RBAC'
-      );
-    } else {
-      notify.info(
-        'Đã chuyển sang vai trò: Nhân viên tư vấn (Chỉ xem tin nhắn của mình/chưa gán; ẩn cấu hình kênh và doanh số trường).',
-        'Phân quyền RBAC'
-      );
-    }
-  };
-
-  const toggleRole = () => {
-    if (session) {
-      notify.warning(
-        'Vai trò đã được khóa cố định theo tài khoản đăng nhập (Bảo mật RBAC).',
-        'Không thể chuyển đổi vai trò'
-      );
-      return;
-    }
-    setRole(role === 'OWNER' ? 'STAFF' : 'OWNER');
-  };
-
-  const isOwner = role === 'OWNER';
-  const isStaff = role === 'STAFF';
-  const isAgent = false;
+  const toggleRole = () => {};
 
   return (
     <UserRoleContext.Provider
@@ -200,6 +186,9 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isStaff,
         isAgent,
         isRoleLocked,
+        userId,
+        userName,
+        userEmail,
         staffId,
         staffName,
         staffEmail,

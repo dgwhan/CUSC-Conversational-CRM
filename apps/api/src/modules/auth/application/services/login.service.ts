@@ -1,16 +1,11 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import {
-    Injectable,
-    ServiceUnavailableException,
-    UnauthorizedException,
-} from "@nestjs/common";
+import { Injectable, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AuditAction, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../platform/database/prisma.service.js";
 import { JwtTokenService } from "../../../../platform/config/jwt.config.js";
 import { AuditService } from "../../../audit/audit.service.js";
 import { PasswordService } from "./password.service.js";
-import type { StaffRole } from "../../../../contracts/iam.js";
 import type { LoginRequestDto, LoginRequestContext } from "../../presentation/dto/login/login-request.dto.js";
 import type { LoginResponseDto, AuthLoginResult } from "../../presentation/dto/login/login-response.dto.js";
 import { AUTH_VALIDATION, LOGIN_LOCK_DURATION_MS, MAX_FAILED_LOGIN_ATTEMPTS, MAX_SERIALIZATION_RETRIES, MILLISECONDS_PER_DAY, SECONDS_PER_DAY } from "../../presentation/dto/auth.constants.js";
@@ -41,7 +36,7 @@ export class LoginService {
             try {
                 const outcome = await this.prisma.$transaction(
                     async (tx) => {
-                        const staff = await tx.staff.findFirst({
+                        const user = await tx.user.findFirst({
                             where: {
                                 OR: [
                                     { email: normalizedEmail },
@@ -50,33 +45,33 @@ export class LoginService {
                             },
                         });
 
-                        if (!staff) {
-                            return { kind: "denied", reason: "USER_NOT_FOUND", staffId: null } as const;
+                        if (!user) {
+                            return { kind: "denied", reason: "USER_NOT_FOUND", userId: null } as const;
                         }
 
-                        if (staff.status !== "ACTIVE") {
-                            return { kind: "denied", reason: "ACCOUNT_LOCKED", staffId: staff.id } as const;
+                        if (user.status !== "ACTIVE") {
+                            return { kind: "denied", reason: "ACCOUNT_LOCKED", userId: user.id } as const;
                         }
 
                         const now = new Date();
                         const temporaryLockActive =
-                            staff.lockedUntil !== null && staff.lockedUntil > now;
+                            user.lockedUntil !== null && user.lockedUntil > now;
 
                         // A correct password must not bypass an active temporary lock
                         if (temporaryLockActive) {
-                            return { kind: "denied", reason: "ACCOUNT_LOCKED", staffId: staff.id } as const;
+                            return { kind: "denied", reason: "ACCOUNT_LOCKED", userId: user.id } as const;
                         }
 
                         const expiredTemporaryLock =
-                            staff.lockedUntil !== null && staff.lockedUntil <= now;
+                            user.lockedUntil !== null && user.lockedUntil <= now;
                         const failedAttemptsBeforeLogin = expiredTemporaryLock
                             ? 0
-                            : staff.failedLoginAttempts;
+                            : user.failedLoginAttempts;
 
                         // Expired temporary locks start a new consecutive-attempt window
                         if (expiredTemporaryLock) {
-                            await tx.staff.update({
-                                where: { id: staff.id },
+                            await tx.user.update({
+                                where: { id: user.id },
                                 data: {
                                     failedLoginAttempts: 0,
                                     lockedUntil: null,
@@ -86,15 +81,15 @@ export class LoginService {
                         }
 
                         const { isValid: passwordIsValid, upgradedHash: upgradedPasswordHash } =
-                            await this.passwordService.verifyAndUpgrade(input.password, staff.passwordHash);
+                            await this.passwordService.verifyAndUpgrade(input.password, user.passwordHash);
 
                         if (!passwordIsValid) {
                             const failedLoginAttempts = failedAttemptsBeforeLogin + 1;
                             const shouldLock =
                                 failedLoginAttempts >= MAX_FAILED_LOGIN_ATTEMPTS;
 
-                            await tx.staff.update({
-                                where: { id: staff.id },
+                            await tx.user.update({
+                                where: { id: user.id },
                                 data: {
                                     failedLoginAttempts,
                                     lockedUntil: shouldLock
@@ -103,11 +98,11 @@ export class LoginService {
                                 },
                             });
 
-                            return { kind: "denied", reason: "INVALID_PASSWORD", staffId: staff.id } as const;
+                            return { kind: "denied", reason: "INVALID_PASSWORD", userId: user.id } as const;
                         }
 
-                        await tx.staff.update({
-                            where: { id: staff.id },
+                        await tx.user.update({
+                            where: { id: user.id },
                             data: {
                                 ...(upgradedPasswordHash
                                     ? { passwordHash: upgradedPasswordHash }
@@ -118,11 +113,10 @@ export class LoginService {
                         });
 
                         const tokenResult = this.jwtTokenService.GenerateToken({
-                            id: staff.id,
-                            email: staff.email,
-                            fullName: staff.fullName,
-                            role: staff.role,
-                            tokenVersion: staff.tokenVersion,
+                            id: user.id,
+                            email: user.email,
+                            fullName: user.fullName,
+                            tokenVersion: user.tokenVersion,
                         });
 
                         // Store only a digest; the random refresh token is sent in an HttpOnly cookie
@@ -136,7 +130,7 @@ export class LoginService {
 
                         await tx.refreshToken.create({
                             data: {
-                                staffId: staff.id,
+                                userId: user.id,
                                 familyId: randomUUID(),
                                 tokenHash: refreshTokenHash,
                                 expiresAt: refreshTokenExpiresAt,
@@ -145,17 +139,18 @@ export class LoginService {
                             },
                         });
 
-                        const response = {
+                        const userProfile = {
+                            id: user.id,
+                            email: user.email,
+                            fullName: user.fullName,
+                            mustChangePassword: user.mustChangePassword,
+                            phoneNumber: user.phoneNumber,
+                        };
+
+                        const response: LoginResponseDto = {
                             accessToken: tokenResult.accessToken,
-                            staff: {
-                                id: staff.id,
-                                email: staff.email,
-                                fullName: staff.fullName,
-                                role: staff.role as StaffRole,
-                                mustChangePassword: staff.mustChangePassword,
-                                phoneNumber: staff.phoneNumber,
-                                ownerId: staff.ownerId || (staff.role === 'OWNER' ? staff.id : null),
-                            },
+                            user: userProfile,
+                            staff: userProfile,
                         };
 
                         return {
@@ -173,7 +168,7 @@ export class LoginService {
                 if (outcome.kind === "denied") {
                     await this.auditService.recordEvent({
                         action: AuditAction.LOGIN_FAILURE,
-                        staffId: outcome.staffId,
+                        userId: outcome.userId,
                         ip: context.ip,
                         userAgent: context.userAgent,
                         metadata: {
@@ -187,12 +182,11 @@ export class LoginService {
 
                 await this.auditService.recordEvent({
                     action: AuditAction.LOGIN_SUCCESS,
-                    staffId: outcome.response.staff.id,
+                    userId: outcome.response.user.id,
                     ip: context.ip,
                     userAgent: context.userAgent,
                     metadata: {
                         identifier: normalizedIdentifier,
-                        role: outcome.response.staff.role,
                     },
                 });
 

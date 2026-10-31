@@ -19,23 +19,18 @@ const accounts = [
   {
     email: 'owner@polarisx.com',
     password: 'ownerPolarisX123!',
-    role: 'OWNER',
+    workspaceRole: 'OWNER',
     fullName: 'Owner PolarisX',
   },
   {
     email: 'staff@polarisx.com',
     password: 'staffPolarisX123!',
-    role: 'STAFF',
+    workspaceRole: 'STAFF',
     fullName: 'Staff PolarisX',
   },
 ];
 
 const client = await pool.connect();
-
-// Đảm bảo các giá trị Enum cần thiết tồn tại trong Database
-try {
-  await client.query(`ALTER TYPE "StaffRole" ADD VALUE IF NOT EXISTS 'OWNER'`);
-} catch {}
 
 try {
   await client.query(`ALTER TYPE "workspace_member_role" ADD VALUE IF NOT EXISTS 'STAFF'`);
@@ -48,27 +43,23 @@ try {
     const passwordHash = await argon2.hash(account.password);
 
     await client.query(
-      `INSERT INTO staff
-         (id, email, full_name, password_hash, role, status, token_version, must_change_password, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5::"StaffRole", 'ACTIVE'::"StaffStatus", 0, FALSE, NOW(), NOW())
+      `INSERT INTO users
+         (id, email, full_name, password_hash, status, token_version, must_change_password, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, 'ACTIVE'::"user_status", 0, FALSE, NOW(), NOW())
        ON CONFLICT (email) DO UPDATE SET
          full_name = EXCLUDED.full_name,
          password_hash = EXCLUDED.password_hash,
-         role = EXCLUDED.role,
          status = EXCLUDED.status,
          updated_at = NOW()`,
-      [randomUUID(), account.email, account.fullName, passwordHash, account.role],
+      [randomUUID(), account.email, account.fullName, passwordHash],
     );
   }
 
-  //Lấy owner user để làm owner cho Default Workspace
-  const ownerRes = await client.query(`SELECT id FROM staff WHERE email = 'owner@polarisx.com' LIMIT 1`);
+  // Lấy owner user để làm owner cho Default Workspace
+  const ownerRes = await client.query(`SELECT id FROM users WHERE email = 'owner@polarisx.com' LIMIT 1`);
   const ownerId = ownerRes.rows[0]?.id;
 
   if (ownerId) {
-    // Cập nhật owner_id cho tài khoản staff demo
-    await client.query(`UPDATE staff SET owner_id = $1 WHERE email = 'staff@polarisx.com'`, [ownerId]);
-
     const workspaceId = randomUUID();
     await client.query(
       `INSERT INTO workspaces (id, name, slug, owner_id, is_active, created_at, updated_at)
@@ -84,18 +75,20 @@ try {
     const actualWsId = wsRes.rows[0]?.id || workspaceId;
 
     if (actualWsId) {
-      // Gán các staff vào workspace_members
-      const staffRows = await client.query(`SELECT id, email, role FROM staff WHERE email IN ('owner@polarisx.com', 'staff@polarisx.com')`);
-      for (const row of staffRows.rows) {
-        const memberRole = row.role === 'OWNER' ? 'OWNER' : 'STAFF';
-        await client.query(
-          `INSERT INTO workspace_members (id, workspace_id, staff_id, role, is_active, created_at, updated_at)
-           VALUES ($1, $2, $3, $4::"workspace_member_role", true, NOW(), NOW())
-           ON CONFLICT (workspace_id, staff_id) DO UPDATE SET
-             role = EXCLUDED.role,
-             updated_at = NOW()`,
-          [randomUUID(), actualWsId, row.id, memberRole],
-        );
+      // Gán các user vào workspace_members với role tương ứng
+      for (const account of accounts) {
+        const userRes = await client.query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [account.email]);
+        const userId = userRes.rows[0]?.id;
+        if (userId) {
+          await client.query(
+            `INSERT INTO workspace_members (id, workspace_id, user_id, role, is_active, created_at, updated_at)
+             VALUES ($1, $2, $3, $4::"workspace_member_role", true, NOW(), NOW())
+             ON CONFLICT (workspace_id, user_id) DO UPDATE SET
+               role = EXCLUDED.role,
+               updated_at = NOW()`,
+            [randomUUID(), actualWsId, userId, account.workspaceRole],
+          );
+        }
       }
 
       // Gán các channel_accounts chưa có workspace_id vào workspace mặc định
@@ -113,7 +106,7 @@ try {
   }
 
   await client.query('COMMIT');
-  console.log('Seeded 2 demo staff accounts (OWNER & STAFF) and Default Workspace: PolarisX');
+  console.log('Seeded 2 demo user accounts (OWNER & STAFF) and Default Workspace: PolarisX');
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;

@@ -77,17 +77,17 @@ export class ChannelManagerService {
         if (firstWs) {
           targetWorkspaceId = firstWs.id;
         } else {
-          // Tự động tìm staff đầu tiên để làm owner
-          const firstStaff = await this.prisma.staff.findFirst();
-          if (!firstStaff) {
-            throw new NotFoundException('No staff found in system to create default workspace');
+          // Tự động tìm user đầu tiên để làm owner
+          const firstUser = await this.prisma.user.findFirst();
+          if (!firstUser) {
+            throw new NotFoundException('No user found in system to create default workspace');
           }
 
           const newWs = await this.prisma.workspace.create({
             data: {
               name: 'Tổ hợp Công nghệ PolarisX',
               slug: `polarisx-${Date.now().toString(36)}`,
-              ownerId: firstStaff.id,
+              ownerId: firstUser.id,
               isActive: true,
             },
           });

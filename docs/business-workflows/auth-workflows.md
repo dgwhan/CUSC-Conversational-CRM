@@ -15,16 +15,18 @@ Trong hệ thống tuyển sinh và chăm sóc ứng viên đa kênh **CUSC Recr
 ### 1.2. Mục tiêu Nghiệp vụ Cốt lõi
 1. **Trải nghiệm Đăng nhập Đa dạng & Thuận tiện**: Cho phép nhân sự linh hoạt đăng nhập bằng **Email công vụ** hoặc **Số điện thoại cá nhân**, giảm thiểu sự phụ thuộc vào một phương thức duy nhất.
 2. **Bảo vệ Tài khoản Chống Tấn công Dò quét (Anti Brute-force)**: Tự động phát hiện các hành vi nhập sai mật khẩu liên tiếp và áp dụng cơ chế khóa tạm thời có thời hạn, bảo vệ an toàn cho cơ sở dữ liệu.
-3. **Phân quyền Minh bạch (Strict RBAC)**: Định rõ giới hạn tác vụ giữa **OWNER** (Chủ sở hữu hệ thống/Giám đốc tuyển sinh) và **STAFF** (Chuyên viên tư vấn), tránh rò rỉ dữ liệu hoặc can thiệp cấu hình trái phép giữa các bộ phận.
+3. **Phân quyền Động theo Không gian làm việc (Workspace-Scoped RBAC)**: Định rõ giới hạn tác vụ giữa **OWNER** (Chủ sở hữu Workspace) và **STAFF** (Chuyên viên tư vấn theo Workspace). Người dùng khi đăng ký không mang vai trò toàn cục; vai trò chỉ xuất hiện trong ngữ cảnh từng Workspace thông qua bảng `workspace_members`, giúp một tài khoản có thể linh hoạt tham gia nhiều tổ chức với các quyền hạn khác nhau mà không bị cố định quyền ở cấp định danh cá nhân.
 4. **Khôi phục Tài khoản Tự phục vụ 100% (Zero-Helpdesk Password Recovery)**: Người dùng có thể tự khôi phục mật khẩu qua Email OTP chỉ trong vòng 60 giây mà không cần nhờ đến sự hỗ trợ thủ công từ quản trị viên hệ thống.
 
 ---
 
 ## 2. MA TRẬN PHÂN QUYỀN TRUY CẬP (RBAC PERMISSION MATRIX)
 
-Hệ thống phân cấp 2 vai trò chuẩn hóa chính trong mô hình vận hành:
+> **Lưu ý kiến trúc:** Vai trò người dùng (`OWNER` / `STAFF`) được quản lý theo phạm vi **Không gian làm việc (Workspace Member Role)**. Tài khoản ở cấp định danh (`users`) không lưu role toàn cục. Response trả về từ các API xác thực (`/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/me`) không đính kèm `role` cố định; vai trò được Context phía Frontend truy vấn và áp dụng động theo Workspace hiện tại.
 
-| Nghiệp vụ / Tính năng | OWNER (Chủ sở hữu / Quản trị viên) | STAFF (Chuyên viên Tư vấn) | Ghi chú Nghiệp vụ |
+Hệ thống phân cấp 2 vai trò chuẩn hóa chính trong mô hình vận hành từng Workspace:
+
+| Nghiệp vụ / Tính năng | OWNER (Chủ sở hữu Workspace) | STAFF (Chuyên viên Tư vấn) | Ghi chú Nghiệp vụ |
 | :--- | :---: | :---: | :--- |
 | **Đăng nhập & Quản lý Thông tin Cá nhân** | Toàn quyền | Toàn quyền | Tự cập nhật tên, số điện thoại, đổi mật khẩu cá nhân |
 | **Khởi tạo & Cấu hình Workspace Tuyển sinh** | Toàn quyền | Không có quyền | Chỉ OWNER được tạo Workspace mới và đổi thông tin tổ chức |
@@ -33,8 +35,8 @@ Hệ thống phân cấp 2 vai trò chuẩn hóa chính trong mô hình vận h�
 | **Cấu hình Webhook & Hệ thống Tích hợp** | Toàn quyền | Không có quyền | Bảo mật các Secret Key và URL Callback |
 | **Tiếp nhận & Xử lý Hội thoại (Unified Inbox)** | Toàn quyền | Toàn quyền | Tư vấn viên chat trực tiếp với học viên/phụ huynh |
 | **Quản lý Hồ sơ Ứng viên (Admission Kanban)** | Toàn quyền | Toàn quyền (Phạm vi chỉ định) | Kéo thả giai đoạn hồ sơ, gọi điện tư vấn |
-| **Xem Báo cáo Tổng thể Hệ thống** | Toàn hệ thống | Phạm vi cá nhân / Nhóm | OWNER xem hiệu suất toàn bộ nhân sự |
-| **Chuyển đổi Vai trò Thử nghiệm (Role Switcher)** | Bật/Tắt trên UI Dev | Bật/Tắt trên UI Dev | Chỉ hiển thị trên môi trường phát triển/thử nghiệm |
+| **Xem Báo cáo Tổng thể Hệ thống** | Toàn hệ thống | Phạm vi cá nhân / Nhóm | OWNER xem hiệu suất toàn bộ nhân sự trong Workspace |
+| **Chuyển đổi Không gian làm việc (Workspace Switcher)** | Theo quyền trong WS đích | Theo quyền trong WS đích | Chuyển đổi linh hoạt giữa các Workspace tham gia |
 
 ---
 
@@ -59,15 +61,16 @@ flowchart TD
     ErrConflict --> InputData
     
     CheckExist -- "Chưa tồn tại" --> HashPassword["Băm mật khẩu bằng Argon2id"]
-    HashPassword --> CreateUser["Tạo bản ghi Staff mới (Status: ACTIVE, Role: STAFF)"]
-    CreateUser --> IssueTokens["Cấp phát cặp JWT Access Token & Refresh Token"]
-    IssueTokens --> RedirectOnboarding["Tự động đăng nhập & Điều hướng vào quy trình Onboarding"]
+    HashPassword --> CreateUser["Tạo bản ghi User mới trong bảng users (Status: ACTIVE, không có role toàn cục)"]
+    CreateUser --> IssueTokens["Cấp phát JWT Access Token & Refresh Token (không chứa role)"]
+    IssueTokens --> RedirectOnboarding["Tự động đăng nhập & Điều hướng vào Onboarding / Tạo Workspace<br/>(Tạo Workspace tự động nhận vai trò OWNER)"]
     RedirectOnboarding --> End(["Kết thúc"])
 ```
 
 **Các quy tắc nghiệp vụ áp dụng:**
 - **BR-AUTH-01 (Mật khẩu chuẩn)**: Mật khẩu phải có độ dài tối thiểu 8 ký tự, bao gồm ít nhất 1 chữ thường, 1 chữ số. Khuyến nghị thêm chữ hoa và ký tự đặc biệt (hiển thị trực quan qua thước đo độ mạnh).
 - **BR-AUTH-02 (Chuẩn hóa số điện thoại)**: Các đầu số hợp lệ tại Việt Nam: `03`, `05`, `07`, `08`, `09`, gồm đúng 10 chữ số. Hệ thống tự động loại bỏ khoảng trắng hoặc ký tự phân tách thừa.
+- **BR-AUTH-03 (Phi tập trung vai trò - Workspace-scoped Role)**: Người dùng mới đăng ký không có role cố định. Vai trò `OWNER` chỉ xuất hiện khi người dùng tạo Workspace đầu tiên, hoặc vai trò `STAFF` khi được OWNER thêm vào Workspace.
 
 ---
 
@@ -95,16 +98,17 @@ flowchart TD
     CheckMaxFail -- "Chưa" --> ShowErr
     
     VerifyPass -- "Đúng mật khẩu" --> ResetFailCount["Xóa đếm: failed_login_attempts = 0, locked_until = null"]
-    ResetFailCount --> GenTokens["Cấp JWT Access Token (15m) & Cookie Refresh Token"]
+    ResetFailCount --> GenTokens["Cấp JWT Access Token (15m, không role) & Cookie Refresh Token"]
     GenTokens --> CheckForcePass{"must_change_password == true?"}
     CheckForcePass -- "Có" --> RedirectChangePass["Điều hướng sang màn hình Bắt buộc đổi mật khẩu"]
-    CheckForcePass -- "Không" --> RedirectWorkspace["Điều hướng vào Workspace CRM đang hoạt động"]
+    CheckForcePass -- "Không" --> RedirectWorkspace["Điều hướng vào CRM; Workspace Context truy vấn danh mục Workspace và gán role động theo Workspace đang chọn"]
     RedirectWorkspace --> End(["Kết thúc"])
 ```
 
 **Các quy tắc nghiệp vụ áp dụng:**
-- **BR-AUTH-03 (Chống Brute-force)**: Sau 5 lần nhập sai mật khẩu liên tiếp, tài khoản bị tạm khóa 15 phút. Trong thời gian này, dù nhập đúng mật khẩu hệ thống vẫn từ chối cho đến khi hết thời gian khóa.
-- **BR-AUTH-04 (Xóa bộ đếm khi đăng nhập đúng)**: Khi người dùng đăng nhập thành công, số lần đăng nhập sai trước đó lập tức được reset về 0.
+- **BR-AUTH-04 (Chống Brute-force)**: Sau 5 lần nhập sai mật khẩu liên tiếp, tài khoản bị tạm khóa 15 phút. Trong thời gian này, dù nhập đúng mật khẩu hệ thống vẫn từ chối cho đến khi hết thời gian khóa.
+- **BR-AUTH-05 (Xóa bộ đếm khi đăng nhập đúng)**: Khi người dùng đăng nhập thành công, số lần đăng nhập sai trước đó lập tức được reset về 0.
+- **BR-AUTH-06 (Phân giải Role qua Context Workspace)**: API Login trả về thông tin thuần túy của User (bảng `users`) không kèm `role`. Quyền hạn trong giao diện được Context React tính toán dựa trên Workspace mà người dùng đang mở.
 
 ---
 

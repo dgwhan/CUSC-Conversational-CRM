@@ -148,7 +148,7 @@ export class ReportsService {
             },
             assignedMember: {
               include: {
-                staff: {
+                user: {
                   select: { id: true, fullName: true, email: true },
                 },
               },
@@ -173,7 +173,7 @@ export class ReportsService {
     const workspaceMembers = targetWsId
       ? await this.prisma.workspaceMember.findMany({
           where: { workspaceId: targetWsId },
-          include: { staff: { select: { id: true, fullName: true, email: true } } },
+          include: { user: { select: { id: true, fullName: true, email: true } } },
         })
       : [];
 
@@ -225,10 +225,10 @@ export class ReportsService {
 
     // Khởi tạo staff map từ workspace members
     for (const m of workspaceMembers) {
-      staffMap[m.staff.id] = {
-        staffId: m.staff.id,
-        name: m.staff.fullName,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(m.staff.fullName)}&background=0284c7&color=fff&bold=true`,
+      staffMap[m.user.id] = {
+        staffId: m.user.id,
+        name: m.user.fullName,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(m.user.fullName)}&background=0284c7&color=fff&bold=true`,
         leadsCount: 0,
         wonCount: 0,
         revenue: 0,
@@ -243,7 +243,7 @@ export class ReportsService {
     for (const c of customers) {
       const identities = (c.channelIdentities as any) || {};
       const conv = c.conversations[0];
-      const assignedStaff = conv?.assignedMember?.staff;
+      const assignedStaff = conv?.assignedMember?.user;
 
       // Xác định kênh của khách
       const custChannel = (

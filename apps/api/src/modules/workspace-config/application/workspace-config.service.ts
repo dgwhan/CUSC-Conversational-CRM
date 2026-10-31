@@ -77,27 +77,26 @@ export class WorkspaceConfigService {
 
       // 2. Kiểm tra theo currentStaffId (từ JWT / header)
       if (currentStaffId && isUuid(currentStaffId)) {
-        const staff = await this.prisma.staff.findUnique({ where: { id: currentStaffId } });
-        if (staff) {
-          // Nếu là OWNER: chính là ownerId. Nếu là STAFF: trả về ownerId quản lý staff này
-          return staff.role === 'OWNER' ? staff.id : (staff.ownerId || staff.id);
+        const user = await this.prisma.user.findUnique({ where: { id: currentStaffId } });
+        if (user) {
+          return user.id;
         }
       }
 
       // 3. Kiểm tra theo ownerId truyền lên
       if (ownerId && isUuid(ownerId)) {
-        const staff = await this.prisma.staff.findUnique({ where: { id: ownerId } });
-        if (staff) {
-          return staff.role === 'OWNER' ? staff.id : (staff.ownerId || staff.id);
+        const user = await this.prisma.user.findUnique({ where: { id: ownerId } });
+        if (user) {
+          return user.id;
         }
       }
 
-      // 4. Fallback tìm Owner mặc định từ DB (ví dụ tài khoản owner@cusc.com)
-      const defaultOwner = await this.prisma.staff.findFirst({
-        where: { role: 'OWNER' },
+      // 4. Fallback tìm Owner mặc định từ Workspace đầu tiên trong DB
+      const defaultWs = await this.prisma.workspace.findFirst({
+        where: { isActive: true },
         orderBy: { createdAt: 'asc' },
       });
-      return defaultOwner?.id || null;
+      return defaultWs?.ownerId || null;
     } catch {
       return null;
     }
@@ -125,11 +124,11 @@ export class WorkspaceConfigService {
     }
 
     try {
-      const currentStaff = await this.prisma.staff.findUnique({
+      const currentUser = await this.prisma.user.findUnique({
         where: { id: targetStaffId },
       });
 
-      if (!currentStaff) {
+      if (!currentUser) {
         return [
           {
             id: 'ws-default-001',
@@ -145,11 +144,6 @@ export class WorkspaceConfigService {
         ];
       }
 
-      // Đảm bảo nếu là OWNER thì đã có bản ghi Workspace trong DB
-      if (currentStaff.role === 'OWNER') {
-        await this.resolveWorkspaceForOwner(currentStaff.id);
-      }
-
       // 1. Workspaces do người này làm Chủ sở hữu
       const ownedWorkspaces = await this.prisma.workspace.findMany({
         where: { ownerId: targetStaffId, isActive: true },
@@ -162,7 +156,7 @@ export class WorkspaceConfigService {
 
       // 2. Workspaces người này tham gia với tư cách thành viên
       const memberships = await this.prisma.workspaceMember.findMany({
-        where: { staffId: targetStaffId, isActive: true },
+        where: { userId: targetStaffId, isActive: true },
         include: {
           workspace: {
             include: {
@@ -185,7 +179,7 @@ export class WorkspaceConfigService {
           isOwner: true,
           domain: ws.configuration?.domain || 'EDUCATION',
           ownerId: ws.ownerId,
-          ownerName: ws.owner?.fullName || currentStaff?.fullName || 'Chủ sở hữu',
+          ownerName: ws.owner?.fullName || currentUser?.fullName || 'Chủ sở hữu',
           createdAt: ws.createdAt,
         });
       }
@@ -215,11 +209,11 @@ export class WorkspaceConfigService {
           id: 'ws-default-001',
           name: 'PolarisX',
           slug: 'polarisx-default',
-          role: currentStaff.role === 'OWNER' ? 'OWNER' : 'STAFF',
-          isOwner: currentStaff.role === 'OWNER',
+          role: 'OWNER',
+          isOwner: true,
           domain: 'EDUCATION',
-          ownerId: currentStaff.id,
-          ownerName: currentStaff.fullName || 'Chủ sở hữu',
+          ownerId: currentUser.id,
+          ownerName: currentUser.fullName,
           createdAt: new Date(),
         });
       }
@@ -318,7 +312,16 @@ export class WorkspaceConfigService {
       },
     });
 
-    const staff = await this.prisma.staff.findUnique({ where: { id: resolvedOwner } });
+    // Tự động gán quyền OWNER cho người tạo Không gian làm việc
+    await this.prisma.workspaceMember.create({
+      data: {
+        workspaceId: newWs.id,
+        userId: resolvedOwner,
+        role: 'OWNER',
+      },
+    }).catch(() => { });
+
+    const user = await this.prisma.user.findUnique({ where: { id: resolvedOwner } });
 
     this.logger.log(`Created new workspace ${newWs.id} (${newWs.name}) for owner ${resolvedOwner}`);
 
@@ -329,7 +332,7 @@ export class WorkspaceConfigService {
       role: 'OWNER',
       isOwner: true,
       domain: domainKey,
-      ownerName: staff?.fullName || 'Chủ sở hữu',
+      ownerName: user?.fullName || 'Chủ sở hữu',
       createdAt: newWs.createdAt,
     };
   }
@@ -646,13 +649,13 @@ export class WorkspaceConfigService {
       }
 
       // 3. Nếu Owner này chưa có bất kỳ workspace nào trong bảng workspaces, tự động tạo mới
-      const staff = await this.prisma.staff.findUnique({ where: { id: resolvedOwner } });
-      const ownerName = staff?.fullName || 'PolarisX';
+      const user = await this.prisma.user.findUnique({ where: { id: resolvedOwner } });
+      const ownerName = user?.fullName || 'PolarisX';
       const cleanSlug = `ws-${resolvedOwner.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)}-${Date.now().toString(36)}`;
 
       const newWs = await this.prisma.workspace.create({
         data: {
-          name: staff?.fullName ? `Workspace của ${ownerName}` : 'PolarisX',
+          name: user?.fullName ? `Workspace của ${ownerName}` : 'PolarisX',
           slug: cleanSlug,
           ownerId: resolvedOwner,
           isActive: true,

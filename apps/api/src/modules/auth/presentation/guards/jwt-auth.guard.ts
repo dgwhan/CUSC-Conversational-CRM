@@ -14,6 +14,7 @@ type AuthenticatedRequest = Request & { user?: AuthUser };
 type AccessTokenPayload = {
   sub?: unknown;
   tokenVersion?: unknown;
+  role?: unknown;
 };
 
 @Injectable()
@@ -46,28 +47,25 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    const staff = await this.prisma.staff.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
         id: true,
-        role: true,
         status: true,
         tokenVersion: true,
       },
     });
 
     if (
-      !staff ||
-      staff.status !== 'ACTIVE' ||
-      staff.tokenVersion !== payload.tokenVersion
+      !user ||
+      user.status !== 'ACTIVE' ||
+      user.tokenVersion !== payload.tokenVersion
     ) {
       throw new UnauthorizedException();
     }
 
-    const role = StaffRoleSchema.safeParse(staff.role);
-    if (!role.success) throw new UnauthorizedException();
-
-    request.user = { id: staff.id, role: role.data };
+    const payloadRole = typeof payload.role === 'string' ? StaffRoleSchema.safeParse(payload.role) : null;
+    request.user = { id: user.id, role: payloadRole?.success ? payloadRole.data : undefined };
     return true;
   }
 }

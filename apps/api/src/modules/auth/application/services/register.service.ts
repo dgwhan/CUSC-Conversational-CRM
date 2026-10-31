@@ -5,7 +5,6 @@ import { Prisma } from "@prisma/client";
 import { PasswordService } from "./password.service.js";
 import { PrismaService } from "../../../../platform/database/prisma.service.js";
 import { JwtTokenService } from "../../../../platform/config/jwt.config.js";
-import type { StaffRole } from "../../../../contracts/iam.js";
 import { AUTH_VALIDATION, MILLISECONDS_PER_DAY, SECONDS_PER_DAY } from "../../presentation/dto/auth.constants.js";
 import type { RegisterRequestDto } from "../../presentation/dto/register/register-request.dto.js";
 import type { RegisterResponseDto, AuthRegisterResult } from "../../presentation/dto/register/register-response.dto.js";
@@ -31,7 +30,7 @@ export class RegisterService {
         const refreshTtlDays = this.configService.getOrThrow<number>("REFRESH_TTL_DAYS");
 
         // Check duplicate email
-        const existingByEmail = await this.prisma.staff.findUnique({
+        const existingByEmail = await this.prisma.user.findUnique({
             where: { email: normalizedEmail },
         });
         if (existingByEmail) {
@@ -40,7 +39,7 @@ export class RegisterService {
 
         // Check duplicate phone number if provided
         if (normalizedPhone) {
-            const existingByPhone = await this.prisma.staff.findUnique({
+            const existingByPhone = await this.prisma.user.findUnique({
                 where: { phoneNumber: normalizedPhone },
             });
             if (existingByPhone) {
@@ -49,73 +48,25 @@ export class RegisterService {
         }
 
         const passwordHash = await this.passwordService.hash(input.password);
-        const assignedRole: StaffRole = input.role ?? AUTH_VALIDATION.DEFAULT_ROLE;
 
         const outcome = await this.prisma.$transaction(
             async (tx) => {
-                let resolvedOwnerId: string | null = null;
-                if (assignedRole === "STAFF") {
-                    const defaultOwner = await tx.staff.findFirst({
-                        where: { role: "OWNER" },
-                        orderBy: { createdAt: "asc" },
-                    });
-                    if (defaultOwner) {
-                        resolvedOwnerId = defaultOwner.id;
-                    }
-                }
-
-                const createdStaff = await tx.staff.create({
+                const createdUser = await tx.user.create({
                     data: {
                         email: normalizedEmail,
                         passwordHash,
                         fullName: input.fullName.trim(),
                         phoneNumber: normalizedPhone,
-                        role: assignedRole,
                         status: "ACTIVE",
                         mustChangePassword: false,
-                        ownerId: resolvedOwnerId,
                     },
                 });
 
-                if (assignedRole === "OWNER") {
-                    const cleanSlug = `ws-${createdStaff.id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8)}-${Date.now().toString(36)}`;
-                    const ownerWs = await tx.workspace.create({
-                        data: {
-                            name: `Workspace của ${createdStaff.fullName}`,
-                            slug: cleanSlug,
-                            ownerId: createdStaff.id,
-                            isActive: true,
-                        },
-                    });
-
-                    await tx.workspaceMember.create({
-                        data: {
-                            workspaceId: ownerWs.id,
-                            staffId: createdStaff.id,
-                            role: "OWNER",
-                        },
-                    }).catch(() => { });
-                } else if (resolvedOwnerId) {
-                    const ownerWs = await tx.workspace.findFirst({
-                        where: { ownerId: resolvedOwnerId },
-                    });
-                    if (ownerWs) {
-                        await tx.workspaceMember.create({
-                            data: {
-                                workspaceId: ownerWs.id,
-                                staffId: createdStaff.id,
-                                role: "STAFF",
-                            },
-                        }).catch(() => { });
-                    }
-                }
-
                 const tokenResult = this.jwtTokenService.GenerateToken({
-                    id: createdStaff.id,
-                    email: createdStaff.email,
-                    fullName: createdStaff.fullName,
-                    role: createdStaff.role,
-                    tokenVersion: createdStaff.tokenVersion,
+                    id: createdUser.id,
+                    email: createdUser.email,
+                    fullName: createdUser.fullName,
+                    tokenVersion: createdUser.tokenVersion,
                 });
 
                 const now = new Date();
@@ -129,7 +80,7 @@ export class RegisterService {
 
                 await tx.refreshToken.create({
                     data: {
-                        staffId: createdStaff.id,
+                        userId: createdUser.id,
                         familyId: randomUUID(),
                         tokenHash: refreshTokenHash,
                         expiresAt: refreshTokenExpiresAt,
@@ -139,7 +90,7 @@ export class RegisterService {
                 });
 
                 return {
-                    staff: createdStaff,
+                    user: createdUser,
                     accessToken: tokenResult.accessToken,
                     refreshToken,
                 };
@@ -149,17 +100,18 @@ export class RegisterService {
             },
         );
 
+        const userProfile = {
+            id: outcome.user.id,
+            email: outcome.user.email,
+            fullName: outcome.user.fullName,
+            phoneNumber: outcome.user.phoneNumber,
+        };
+
         return {
             response: {
                 accessToken: outcome.accessToken,
-                staff: {
-                    id: outcome.staff.id,
-                    email: outcome.staff.email,
-                    fullName: outcome.staff.fullName,
-                    phoneNumber: outcome.staff.phoneNumber,
-                    role: outcome.staff.role as StaffRole,
-                    ownerId: outcome.staff.ownerId || (outcome.staff.role === "OWNER" ? outcome.staff.id : null),
-                },
+                user: userProfile,
+                staff: userProfile,
             },
             refreshToken: outcome.refreshToken,
             refreshTokenMaxAgeSeconds: refreshTtlDays * SECONDS_PER_DAY,
