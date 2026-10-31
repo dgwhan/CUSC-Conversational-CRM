@@ -1,26 +1,75 @@
 @theme {
-  --color-brand-primary: #295097;
-  --color-brand-primary-hover: #1e3f7a;
-  --color-brand-accent: #e4be90;
+  --color-brand-primary: #2563eb;
+  --color-brand-primary-hover: #1d4ed8;
+  --color-brand-primary-active: #1e40af;
+  --color-brand-primary-light: #eff6ff;
+  --color-brand-primary-border: #bfdbfe;
 
-  --color-text-primary: #14263f;
-  --color-text-secondary: #64748b;
-  --color-text-muted: #94a3b8;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --color-text-subtle: #94a3b8;
 
   --color-bg-page: #f8fafc;
   --color-bg-surface: #ffffff;
+  --color-bg-subtle: #f1f5f9;
   --color-border-default: #cbd5e1;
   --color-border-subtle: #e2e8f0;
+  --color-border-strong: #94a3b8;
 
-  --color-focus-ring: #295097;
-  --color-state-error: #dc2626;
-  --color-state-error-bg: #fef2f2;
+  --color-focus-ring: #2563eb;
+  
   --color-state-success: #10b981;
-  --color-state-warning: #b45309;
+  --color-state-success-bg: #ecfdf5;
+  --color-state-success-border: #a7f3d0;
+  --color-state-success-text: #047857;
+
+  --color-state-warning: #f59e0b;
   --color-state-warning-bg: #fffbeb;
+  --color-state-warning-border: #fde68a;
+  --color-state-warning-text: #b45309;
+
+  --color-state-error: #ef4444;
+  --color-state-error-bg: #fef2f2;
+  --color-state-error-border: #fecaca;
+  --color-state-error-text: #b91c1c;
+
+  --color-state-info: #0284c7;
+  --color-state-info-bg: #f0f9ff;
+  --color-state-info-border: #bae6fd;
+  --color-state-info-text: #0369a1;
+
+  --color-state-neutral: #64748b;
+  --color-state-neutral-bg: #f1f5f9;
+  --color-state-neutral-border: #cbd5e1;
+  --color-state-neutral-text: #475569;
 }
 
 :root {
+  /* Brand Tokens */
+  --color-brand-primary: #2563eb;
+  --color-brand-primary-hover: #1d4ed8;
+  --color-brand-primary-active: #1e40af;
+  --color-brand-primary-light: #eff6ff;
+  --color-brand-primary-border: #bfdbfe;
+
+  /* Surface & Background */
+  --color-bg-page: #f8fafc;
+  --color-bg-surface: #ffffff;
+  --color-bg-subtle: #f1f5f9;
+
+  /* Typography Colors */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --color-text-subtle: #94a3b8;
+
+  /* Borders */
+  --color-border-subtle: #e2e8f0;
+  --color-border-default: #cbd5e1;
+  --color-border-strong: #94a3b8;
+
+  /* Pipeline Progression Stages */
   --stage-new-color: #0284c7;
   --stage-contacted-color: #2563eb;
   --stage-qualified-color: #d97706;
@@ -28,4 +77,40 @@
   --stage-submitted-color: #7c3aed;
   --stage-enrolled-color: #16a34a;
   --stage-lost-color: #dc2626;
+
+  /* Connection & System Status Tokens */
+  --color-status-connected: #10b981;
+  --color-status-connected-bg: #ecfdf5;
+  --color-status-connected-border: #a7f3d0;
+  --color-status-connected-text: #047857;
+
+  --color-status-connecting: #f59e0b;
+  --color-status-connecting-bg: #fffbeb;
+  --color-status-connecting-border: #fde68a;
+  --color-status-connecting-text: #b45309;
+
+  --color-status-disconnected: #94a3b8;
+  --color-status-disconnected-bg: #f8fafc;
+  --color-status-disconnected-border: #e2e8f0;
+  --color-status-disconnected-text: #475569;
+
+  --color-status-expired: #ea580c;
+  --color-status-expired-bg: #fff7ed;
+  --color-status-expired-border: #fed7aa;
+  --color-status-expired-text: #c2410c;
+
+  --color-status-error: #dc2626;
+  --color-status-error-bg: #fef2f2;
+  --color-status-error-border: #fecaca;
+  --color-status-error-text: #b91c1c;
+
+  --color-status-syncing: #2563eb;
+  --color-status-syncing-bg: #eff6ff;
+  --color-status-syncing-border: #bfdbfe;
+  --color-status-syncing-text: #1d4ed8;
+
+  --color-status-pending: #eab308;
+  --color-status-pending-bg: #fefce8;
+  --color-status-pending-border: #fef08a;
+  --color-status-pending-text: #a16207;
 }

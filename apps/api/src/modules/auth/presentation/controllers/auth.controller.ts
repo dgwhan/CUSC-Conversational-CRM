@@ -158,21 +158,26 @@ export class AuthController {
     ): Promise<{ success: boolean; message: string }> {
         const token = extractRefreshToken(cookieHeader, bodyToken);
         if (token) {
-            await this.refreshTokenService.revoke(token);
+            await this.refreshTokenService.revoke(token).catch(() => {});
         }
 
-        this.httpAdapterHost.httpAdapter.setCookie(
-            response,
-            REFRESH_COOKIE_NAME,
-            "",
-            {
-                httpOnly: true,
-                secure: this.configService.getOrThrow<string>("NODE_ENV") === "production",
-                sameSite: "lax",
-                path: REFRESH_COOKIE_PATH,
-                maxAge: 0,
-            },
-        );
+        const clearPaths = [REFRESH_COOKIE_PATH, '/api', '/'];
+        for (const path of clearPaths) {
+            try {
+                this.httpAdapterHost.httpAdapter.setCookie(
+                    response,
+                    REFRESH_COOKIE_NAME,
+                    "",
+                    {
+                        httpOnly: true,
+                        secure: this.configService.getOrThrow<string>("NODE_ENV") === "production",
+                        sameSite: "lax",
+                        path,
+                        maxAge: 0,
+                    },
+                );
+            } catch {}
+        }
 
         return { success: true, message: "Đăng xuất thành công." };
     }

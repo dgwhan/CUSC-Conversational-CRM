@@ -19,9 +19,7 @@ import {
   ArrowRight,
   QrCode,
   ShieldAlert,
-  Sliders,
   Smartphone,
-  AlertTriangle,
 } from 'lucide-react';
 import type { ChannelKey, DiscoveredPageDto } from '../types.js';
 import { apiClient } from '../../../lib/api-client.js';
@@ -85,7 +83,7 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
   const [qrCountdown, setQrCountdown] = useState(120);
 
   // Safety Rate Limiting config state (Chống khóa nick Zalo)
-  const [safetyConfig, setSafetyConfig] = useState({
+  const [safetyConfig] = useState({
     enabled: true,
     minIntervalMs: 2500, // 2.5s
     maxIntervalMs: 4500, // 4.5s
@@ -1532,6 +1530,14 @@ export const OAuthSimulationModal: React.FC<OAuthSimulationModalProps> = ({
                             <span>
                               Đã quét mã! Vui lòng bấm <strong>"Đăng nhập"</strong> trên ứng dụng Zalo điện thoại để hoàn tất.
                             </span>
+                            <button
+                              type="button"
+                              onClick={handleConfirmZcaQr}
+                              className="crm-btn crm-btn-sm"
+                              style={{ marginLeft: '8px', padding: '3px 8px', fontSize: '11px', background: '#16a34a', color: '#fff' }}
+                            >
+                              Xác nhận ngay
+                            </button>
                           </div>
                         ) : (
                           <div

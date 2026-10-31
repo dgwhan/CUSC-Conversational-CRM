@@ -52,7 +52,7 @@ export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
       case 'reports':
         return 'Báo Cáo & Thống Kê Tuyển Sinh (Analytics)';
       case 'workspace-settings':
-        return 'Cấu Hình Phễu & Multi-tenant';
+        return 'Quản lý cấu hình';
       case 'onboarding':
         return t('nav.onboardingBreadcrumb');
       case 'import':

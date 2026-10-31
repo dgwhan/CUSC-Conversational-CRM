@@ -41,6 +41,7 @@ class ApiClient {
   private activeWorkspaceId: string = '';
   private accessToken: string | null = null;
   private refreshPromise: Promise<string | null> | null = null;
+  private isLoggingOut: boolean = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -60,10 +61,14 @@ class ApiClient {
   }
 
   setAccessToken(token: string | null) {
+    if (token) {
+      this.isLoggingOut = false;
+    }
     this.accessToken = token;
   }
 
   getAccessToken(): string | null {
+    if (this.isLoggingOut) return null;
     if (!this.accessToken && typeof window !== 'undefined') {
       try {
         const saved =
@@ -78,6 +83,26 @@ class ApiClient {
       } catch {}
     }
     return this.accessToken;
+  }
+
+  /**
+   * Xóa sạch toàn bộ thông tin xác thực, token và session khỏi bộ nhớ & LocalStorage
+   * Đồng thời chặn cơ chế Silent Refresh không được tự động cấp lại token mới.
+   */
+  clearAuth() {
+    this.isLoggingOut = true;
+    this.accessToken = null;
+    this.activeWorkspaceId = '';
+    this.refreshPromise = null;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('polarisx_crm_auth_session');
+        localStorage.removeItem('cusc_crm_auth_session');
+        localStorage.removeItem('polarisx_crm_user_role');
+        localStorage.removeItem('cusc_crm_user_role');
+        localStorage.removeItem('polarisx_crm_active_workspace_id');
+      } catch {}
+    }
   }
 
   setActiveWorkspaceId(id: string) {
@@ -101,12 +126,16 @@ class ApiClient {
    * Sử dụng Mutex / Promise Queue để gom tất cả các request song song bị 401 lại vào 1 lần gọi duy nhất.
    */
   private async refreshAccessToken(): Promise<string | null> {
+    if (this.isLoggingOut) {
+      return null;
+    }
     if (this.refreshPromise) {
       return this.refreshPromise;
     }
 
     this.refreshPromise = (async () => {
       try {
+        if (this.isLoggingOut) return null;
         const refreshUrl = `${this.baseUrl}/auth/refresh`;
         const res = await fetch(refreshUrl, {
           method: 'POST',
@@ -578,12 +607,169 @@ class ApiClient {
       role: 'OWNER' | 'STAFF';
       isOwner: boolean;
       domain: string;
+      ownerId?: string;
       ownerName?: string;
       createdAt?: string;
     }>>('/workspaces/my-workspaces', {
       headers: {
         ...(staffId ? { 'x-staff-id': staffId } : {}),
         ...(ownerId ? { 'x-owner-id': ownerId } : {}),
+      },
+    });
+  }
+
+  createWorkspace(
+    data: { name: string; domain?: string },
+    staffId?: string,
+    ownerId?: string,
+  ) {
+    return this.post<{
+      id: string;
+      name: string;
+      slug: string;
+      role: 'OWNER' | 'STAFF';
+      isOwner: boolean;
+      domain: string;
+      ownerId?: string;
+      ownerName?: string;
+      createdAt?: string;
+    }>('/workspaces', data, {
+      headers: {
+        ...(staffId ? { 'x-staff-id': staffId } : {}),
+        ...(ownerId ? { 'x-owner-id': ownerId } : {}),
+        'x-user-role': 'OWNER',
+      },
+    });
+  }
+
+  updateWorkspace(
+    workspaceId: string,
+    data: { name?: string; domain?: string },
+    staffId?: string,
+    ownerId?: string,
+  ) {
+    return this.patch<{
+      id: string;
+      name: string;
+      slug: string;
+      role: 'OWNER' | 'STAFF';
+      isOwner: boolean;
+      domain: string;
+      ownerId?: string;
+      ownerName?: string;
+      createdAt?: string;
+    }>(`/workspaces/${workspaceId}`, data, {
+      headers: {
+        ...(staffId ? { 'x-staff-id': staffId } : {}),
+        ...(ownerId ? { 'x-owner-id': ownerId } : {}),
+        'x-user-role': 'OWNER',
+      },
+    });
+  }
+
+  deleteWorkspace(workspaceId: string, staffId?: string, ownerId?: string) {
+    return this.delete<{ success: boolean; message: string }>(`/workspaces/${workspaceId}`, {
+      headers: {
+        ...(staffId ? { 'x-staff-id': staffId } : {}),
+        ...(ownerId ? { 'x-owner-id': ownerId } : {}),
+        'x-user-role': 'OWNER',
+      },
+    });
+  }
+
+  getWorkspaceHotlines(workspaceId: string) {
+    return this.get<Array<{
+      id: string;
+      workspaceId: string;
+      phoneNumber: string;
+      label: string;
+      department: string;
+      assignedStaffId?: string;
+      assignedStaffName?: string;
+      status: 'ACTIVE' | 'INACTIVE';
+      workingHours?: string;
+      isDefault?: boolean;
+      notes?: string;
+      createdAt: string;
+      updatedAt: string;
+    }>>(`/workspaces/${workspaceId}/hotlines`);
+  }
+
+  createWorkspaceHotline(
+    workspaceId: string,
+    data: {
+      phoneNumber: string;
+      label: string;
+      department?: string;
+      assignedStaffId?: string;
+      assignedStaffName?: string;
+      status?: 'ACTIVE' | 'INACTIVE';
+      workingHours?: string;
+      isDefault?: boolean;
+      notes?: string;
+    },
+    staffId?: string,
+    ownerId?: string,
+  ) {
+    return this.post<{
+      id: string;
+      workspaceId: string;
+      phoneNumber: string;
+      label: string;
+      department: string;
+      assignedStaffId?: string;
+      assignedStaffName?: string;
+      status: 'ACTIVE' | 'INACTIVE';
+      workingHours?: string;
+      isDefault?: boolean;
+      notes?: string;
+      createdAt: string;
+      updatedAt: string;
+    }>(`/workspaces/${workspaceId}/hotlines`, data, {
+      headers: {
+        ...(staffId ? { 'x-staff-id': staffId } : {}),
+        ...(ownerId ? { 'x-owner-id': ownerId } : {}),
+        'x-user-role': 'OWNER',
+      },
+    });
+  }
+
+  updateWorkspaceHotline(
+    workspaceId: string,
+    hotlineId: string,
+    data: Record<string, unknown>,
+    staffId?: string,
+    ownerId?: string,
+  ) {
+    return this.patch<{
+      id: string;
+      workspaceId: string;
+      phoneNumber: string;
+      label: string;
+      department: string;
+      assignedStaffId?: string;
+      assignedStaffName?: string;
+      status: 'ACTIVE' | 'INACTIVE';
+      workingHours?: string;
+      isDefault?: boolean;
+      notes?: string;
+      createdAt: string;
+      updatedAt: string;
+    }>(`/workspaces/${workspaceId}/hotlines/${hotlineId}`, data, {
+      headers: {
+        ...(staffId ? { 'x-staff-id': staffId } : {}),
+        ...(ownerId ? { 'x-owner-id': ownerId } : {}),
+        'x-user-role': 'OWNER',
+      },
+    });
+  }
+
+  deleteWorkspaceHotline(workspaceId: string, hotlineId: string, staffId?: string, ownerId?: string) {
+    return this.delete<{ success: boolean; message: string }>(`/workspaces/${workspaceId}/hotlines/${hotlineId}`, {
+      headers: {
+        ...(staffId ? { 'x-staff-id': staffId } : {}),
+        ...(ownerId ? { 'x-owner-id': ownerId } : {}),
+        'x-user-role': 'OWNER',
       },
     });
   }

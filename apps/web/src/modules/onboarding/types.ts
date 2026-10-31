@@ -1,8 +1,5 @@
 export interface BusinessSetupData {
   companyName: string;
-  brandName: string;
-  businessScale: string;
-  phone: string;
   industry: string;
 }
 
@@ -18,10 +15,12 @@ export interface FanpageItem {
   selected: boolean;
 }
 
+import type { StaffRole } from '../../features/auth/constants/auth.constants.js';
+
 export interface StaffInvite {
   id: string;
   email: string;
-  role: 'ADMIN' | 'AGENT';
+  role: StaffRole;
   fullName?: string;
   status?: string;
 }
@@ -62,6 +61,7 @@ export interface DiscoveredPageDto {
   isVerified?: boolean;
   webhookStatus?: 'SUBSCRIBED' | 'NOT_SUBSCRIBED' | 'PENDING' | 'FAILED';
   verificationDetails?: VerificationDetails;
+  metadata?: Record<string, any>;
 }
 
 export interface ChannelAccountDto {

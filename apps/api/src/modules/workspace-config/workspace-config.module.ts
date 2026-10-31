@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { WorkspaceConfigService } from './workspace-config.service.js';
-import { WorkspaceConfigController } from './workspace-config.controller.js';
-import { WorkspacesController } from './workspaces.controller.js';
-import { StaffManagementService } from './staff-management.service.js';
-import { StaffManagementController } from './staff-management.controller.js';
+import { WorkspaceConfigService } from './application/workspace-config.service.js';
+import { StaffManagementService } from './application/staff-management.service.js';
+import { WorkspacesController } from './presentation/controllers/workspaces.controller.js';
+import { WorkspaceConfigController } from './presentation/controllers/workspace-config.controller.js';
+import { StaffManagementController } from './presentation/controllers/staff-management.controller.js';
 import { PrismaModule } from '../../platform/database/prisma.module.js';
 
 @Module({

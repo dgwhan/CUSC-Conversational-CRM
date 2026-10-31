@@ -137,13 +137,16 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const logout = () => {
+    apiClient.clearAuth();
     clearAccountCache();
-    apiClient.setAccessToken(null);
-    apiClient.post('/auth/logout').catch(() => { });
     setSession(null);
     try {
       localStorage.removeItem(SESSION_STORAGE_KEY);
+      localStorage.removeItem('cusc_crm_auth_session');
+      localStorage.removeItem('polarisx_crm_user_role');
+      localStorage.removeItem('cusc_crm_user_role');
     } catch { }
+    apiClient.post('/auth/logout').catch(() => { });
     notify.info('Đã đăng xuất khỏi hệ thống.', 'Phiên làm việc');
   };
 

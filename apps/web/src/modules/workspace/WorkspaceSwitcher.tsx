@@ -122,7 +122,7 @@ export const WorkspaceSwitcher: React.FC = () => {
                               </>
                             )}
                           </span>
-                          {ws.ownerName && (
+                          {ws.ownerName && ws.ownerName !== 'Chính bạn' && (
                             <span className="ws-owner-text" title={`Chủ sở hữu: ${ws.ownerName}`}>
                               • {ws.ownerName}
                             </span>

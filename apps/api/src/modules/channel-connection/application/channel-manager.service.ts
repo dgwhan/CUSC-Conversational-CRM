@@ -5,7 +5,10 @@ import {
   ForbiddenException,
   BadRequestException,
   Optional,
+  Inject,
 } from '@nestjs/common';
+import { CUSTOMER_GATEWAY } from '../../messaging/domain/customer-gateway.port.js';
+import type { CustomerGateway } from '../../messaging/domain/customer-gateway.port.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { TokenEncryptionService } from '../infrastructure/token-encryption.service.js';
 import { ZcaPersonalService } from './zca-personal.service.js';
@@ -41,6 +44,7 @@ export class ChannelManagerService {
     @Optional() private readonly messageRepo?: MessageRepository,
     @Optional() private readonly realtime?: RealtimeService,
     @Optional() private readonly zcaService?: ZcaPersonalService,
+    @Optional() @Inject(CUSTOMER_GATEWAY) private readonly customerGateway?: CustomerGateway,
   ) { }
 
   /**
@@ -914,6 +918,24 @@ export class ChannelManagerService {
         }
       }
 
+      // Tự động tìm hoặc tạo Contact & ChannelIdentity chuẩn hóa đa kênh
+      if (this.customerGateway && customerZaloId) {
+        try {
+          await this.customerGateway.findOrCreate({
+            channel: Channel.ZALO,
+            senderExternalId: customerZaloId,
+            displayName: customerName,
+            rawPayload: {
+              customerName,
+              customerAvatar,
+              user_id: customerZaloId,
+            },
+          });
+        } catch (gatewayErr) {
+          this.logger.warn(`Could not findOrCreate contact for Zalo user ${customerZaloId}: ${(gatewayErr as Error).message}`);
+        }
+      }
+
       // Lưu Conversation
       let dbConv: any = null;
       if (this.prisma.conversation) {
@@ -1233,6 +1255,25 @@ export class ChannelManagerService {
             channelAccountId: account.id,
             error: err,
           });
+        }
+      }
+
+      // Tự động tìm hoặc tạo Contact & ChannelIdentity chuẩn hóa đa kênh
+      if (this.customerGateway && customer?.id) {
+        try {
+          await this.customerGateway.findOrCreate({
+            channel: Channel.FACEBOOK,
+            senderExternalId: customer.id,
+            displayName: customerName,
+            rawPayload: {
+              customerName,
+              customerAvatar,
+              email: customer.email,
+              sender: { id: customer.id, name: customerName },
+            },
+          });
+        } catch (gatewayErr) {
+          this.logger.warn(`Could not findOrCreate contact for Facebook user ${customer.id}: ${(gatewayErr as Error).message}`);
         }
       }
 

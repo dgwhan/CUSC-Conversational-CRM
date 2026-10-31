@@ -41,60 +41,75 @@ export class CustomerController {
         @Query('workspaceId') queryWsId?: string,
         @Query('search') search?: string,
     ) {
-        const workspaceId = queryWsId || headerWsId;
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const rawWsId = (queryWsId || headerWsId || '').trim();
         const where: any = {};
 
-        if (workspaceId) {
-            where.workspaceId = workspaceId;
+        if (rawWsId) {
+            if (UUID_REGEX.test(rawWsId)) {
+                where.workspaceId = rawWsId;
+            } else {
+                // If workspaceId is not a valid UUID (e.g. initial placeholder), return empty list instead of Postgres 500 error
+                return { items: [], total: 0 };
+            }
         }
 
-        if (search) {
+        if (search && search.trim()) {
+            const cleanSearch = search.trim();
             where.OR = [
-                { fullName: { contains: search, mode: 'insensitive' } },
-                { phone: { contains: search, mode: 'insensitive' } },
-                { email: { contains: search, mode: 'insensitive' } },
+                { fullName: { contains: cleanSearch, mode: 'insensitive' } },
+                { phone: { contains: cleanSearch, mode: 'insensitive' } },
+                { email: { contains: cleanSearch, mode: 'insensitive' } },
             ];
         }
 
-        const items = await this.prisma.customer.findMany({
-            where,
-            include: {
-                conversations: {
+        try {
+            const [items, total] = await Promise.all([
+                this.prisma.customer.findMany({
+                    where,
                     include: {
-                        channelAccount: {
-                            select: {
-                                displayName: true,
-                                channel: true,
-                                avatarUrl: true,
+                        conversations: {
+                            include: {
+                                channelAccount: {
+                                    select: {
+                                        displayName: true,
+                                        channel: true,
+                                        avatarUrl: true,
+                                    },
+                                },
                             },
+                            orderBy: { lastMessageAt: 'desc' },
+                            take: 100,
                         },
                     },
-                    orderBy: { lastMessageAt: 'desc' },
-                    take: 1,
-                },
-            },
-            orderBy: { updatedAt: 'desc' },
-            take: 100,
-        });
+                    orderBy: { updatedAt: 'desc' },
+                    take: 100,
+                }),
+                this.prisma.customer.count({ where }),
+            ]);
 
-        const mappedItems = items.map((c: any) => {
-            const identities = (c.channelIdentities as any) || {};
-            const convTags = Array.isArray(c.conversations?.[0]?.tags) ? c.conversations[0].tags : [];
-            const identityTags = Array.isArray(identities.tags) ? identities.tags : [];
-            const tags = Array.from(new Set([...convTags, ...identityTags]));
-            const hasExplicitTags = Array.isArray(identities.tags) || (c.conversations?.[0] && Array.isArray(c.conversations[0].tags));
+            const mappedItems = items.map((c: any) => {
+                const identities = (c.channelIdentities as any) || {};
+                const convTags = Array.isArray(c.conversations?.[0]?.tags) ? c.conversations[0].tags : [];
+                const identityTags = Array.isArray(identities.tags) ? identities.tags : [];
+                const tags = Array.from(new Set([...convTags, ...identityTags]));
+                const hasExplicitTags = Array.isArray(identities.tags) || (c.conversations?.[0] && Array.isArray(c.conversations[0].tags));
 
-            return {
-                ...c,
-                leadStatus: c.leadStatus || identities.leadStatus || 'NEW',
-                leadStage: c.leadStage || identities.leadStage || null,
-                interestCourses: identities.interestCourses || [],
-                estimatedValue: identities.estimatedValue || 0,
-                tags: hasExplicitTags ? tags : (c.leadStatus === 'POTENTIAL' ? ['Lead'] : ['Khách hàng mới']),
-            };
-        });
+                return {
+                    ...c,
+                    leadStatus: c.leadStatus || identities.leadStatus || 'NEW',
+                    leadStage: c.leadStage || identities.leadStage || null,
+                    interestCourses: identities.interestCourses || [],
+                    estimatedValue: identities.estimatedValue || 0,
+                    tags: hasExplicitTags ? tags : (c.leadStatus === 'POTENTIAL' ? ['Lead'] : ['Khách hàng mới']),
+                };
+            });
 
-        return { items: mappedItems, total: items.length };
+            return { items: mappedItems, total };
+        } catch (error) {
+            this.logger.error(`Error in getCustomers: ${(error as Error).message}`, (error as Error).stack);
+            return { items: [], total: 0 };
+        }
     }
 
     /**

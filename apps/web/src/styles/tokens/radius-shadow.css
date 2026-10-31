@@ -1,13 +1,23 @@
 :root {
   --border-width-default: 1px;
+  --border-width-thick: 2px;
+  
+  --radius-none: 0px;
+  --radius-sm: 2px;
+  --radius-control: 0px;
+  --radius-card: 12px;
+
+  --shadow-none: none;
+  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-dropdown: 0 4px 12px 0 rgba(15, 23, 42, 0.08);
 }
 
 @theme {
-  --radius-sm: 4px;
-  --radius-control: 8px;
+  --radius-sm: 2px;
+  --radius-control: 0px;
   --radius-card: 12px;
   --radius-xl: 16px;
 
   --shadow-card: 0 8px 24px rgb(20 38 63 / 8%);
-  --shadow-popover: 0 12px 32px rgb(20 38 63 / 14%);
+  --shadow-popover: 0 4px 12px 0 rgba(15, 23, 42, 0.08);
 }

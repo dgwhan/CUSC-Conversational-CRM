@@ -10,20 +10,24 @@ import {
   Building,
   Radio,
 } from 'lucide-react';
-import type { StaffInvite, BusinessSetupData, FanpageItem } from '../types.js';
-import { useTranslation } from '../../../i18n/index.js';
+import type { StaffInvite, BusinessSetupData, FanpageItem } from '../../types.js';
+import { StaffRole } from '../../../../features/auth/constants/auth.constants.js';
+import { useTranslation } from '../../../../i18n/index.js';
 
-export interface Step3TeamInviteProps {
+export interface TeamInviteStepProps {
   business: BusinessSetupData;
   pages: FanpageItem[];
   invites: StaffInvite[];
-  onAddInvite: (email: string, role: 'ADMIN' | 'AGENT') => Promise<void> | void;
+  onAddInvite: (email: string, role: StaffRole) => Promise<void> | void;
   onRemoveInvite: (id: string) => Promise<void> | void;
   onFinish: () => void;
   onBack: () => void;
 }
 
-export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
+/**
+ * Bước 3: Mời nhân sự & tư vấn viên vào không gian làm việc (Staff Role: OWNER hoặc STAFF)
+ */
+export const TeamInviteStep: React.FC<TeamInviteStepProps> = ({
   business,
   pages,
   invites,
@@ -34,7 +38,7 @@ export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
 }) => {
   const { t } = useTranslation();
   const [emailInput, setEmailInput] = useState('');
-  const [roleInput, setRoleInput] = useState<'ADMIN' | 'AGENT'>('AGENT');
+  const [roleInput, setRoleInput] = useState<StaffRole>(StaffRole.STAFF);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -121,11 +125,11 @@ export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
             <select
               className="onboarding-select"
               value={roleInput}
-              onChange={(e) => setRoleInput(e.target.value as 'ADMIN' | 'AGENT')}
+              onChange={(e) => setRoleInput(e.target.value as StaffRole)}
               disabled={isSubmitting}
             >
-              <option value="AGENT">{t('onboarding.step3.agentRole')}</option>
-              <option value="ADMIN">{t('onboarding.step3.adminRole')}</option>
+              <option value={StaffRole.STAFF}>Nhân viên tư vấn (STAFF)</option>
+              <option value={StaffRole.OWNER}>Quản lý / Đồng sở hữu (OWNER)</option>
             </select>
           </div>
 
@@ -192,12 +196,12 @@ export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
                     </td>
                     <td>
                       <span className={`role-badge ${inv.role.toLowerCase()}`}>
-                        {inv.role === 'ADMIN' ? 'Quản trị viên (Admin)' : 'Tư vấn viên (Agent)'}
+                        {inv.role === StaffRole.OWNER ? 'Quản lý (OWNER)' : 'Tư vấn viên (STAFF)'}
                       </span>
                     </td>
                     <td className="permission-desc">
                       <div>
-                        {inv.role === 'ADMIN'
+                        {inv.role === StaffRole.OWNER
                           ? t('onboarding.step3.adminDesc')
                           : t('onboarding.step3.agentDesc')}
                       </div>
@@ -282,3 +286,7 @@ export const Step3TeamInvite: React.FC<Step3TeamInviteProps> = ({
     </div>
   );
 };
+
+// Alias tương thích ngược
+export const Step3TeamInvite = TeamInviteStep;
+export type Step3TeamInviteProps = TeamInviteStepProps;

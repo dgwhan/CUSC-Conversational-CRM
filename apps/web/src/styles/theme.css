@@ -51,6 +51,42 @@
   --color-info-bg: #f0f9ff;
   --color-info-border: #bae6fd;
 
+  /* Connection & System Status Tokens (System Root Configuration) */
+  --color-status-connected: #10b981;
+  --color-status-connected-bg: #ecfdf5;
+  --color-status-connected-border: #a7f3d0;
+  --color-status-connected-text: #047857;
+
+  --color-status-connecting: #f59e0b;
+  --color-status-connecting-bg: #fffbeb;
+  --color-status-connecting-border: #fde68a;
+  --color-status-connecting-text: #b45309;
+
+  --color-status-disconnected: #94a3b8;
+  --color-status-disconnected-bg: #f8fafc;
+  --color-status-disconnected-border: #e2e8f0;
+  --color-status-disconnected-text: #475569;
+
+  --color-status-expired: #ea580c;
+  --color-status-expired-bg: #fff7ed;
+  --color-status-expired-border: #fed7aa;
+  --color-status-expired-text: #c2410c;
+
+  --color-status-error: #dc2626;
+  --color-status-error-bg: #fef2f2;
+  --color-status-error-border: #fecaca;
+  --color-status-error-text: #b91c1c;
+
+  --color-status-syncing: #2563eb;
+  --color-status-syncing-bg: #eff6ff;
+  --color-status-syncing-border: #bfdbfe;
+  --color-status-syncing-text: #1d4ed8;
+
+  --color-status-pending: #eab308;
+  --color-status-pending-bg: #fefce8;
+  --color-status-pending-border: #fef08a;
+  --color-status-pending-text: #a16207;
+
   /* Bright Surfaces & Backgrounds */
   --color-bg-app: #f8fafc;
   --color-surface: #ffffff;
@@ -353,6 +389,73 @@ body {
   background-color: var(--color-surface-hover);
   color: var(--color-secondary-text);
   border: 1px solid var(--color-border);
+}
+
+/* ==========================================================================
+   SYSTEM STATUS BADGES & DOTS (DRIVEN BY :ROOT TOKENS)
+   ========================================================================== */
+
+.badge-status-connected {
+  background-color: var(--color-status-connected-bg);
+  color: var(--color-status-connected-text);
+  border-color: var(--color-status-connected-border);
+}
+.dot-status-connected {
+  background-color: var(--color-status-connected);
+}
+
+.badge-status-connecting {
+  background-color: var(--color-status-connecting-bg);
+  color: var(--color-status-connecting-text);
+  border-color: var(--color-status-connecting-border);
+}
+.dot-status-connecting {
+  background-color: var(--color-status-connecting);
+}
+
+.badge-status-disconnected {
+  background-color: var(--color-status-disconnected-bg);
+  color: var(--color-status-disconnected-text);
+  border-color: var(--color-status-disconnected-border);
+}
+.dot-status-disconnected {
+  background-color: var(--color-status-disconnected);
+}
+
+.badge-status-expired {
+  background-color: var(--color-status-expired-bg);
+  color: var(--color-status-expired-text);
+  border-color: var(--color-status-expired-border);
+}
+.dot-status-expired {
+  background-color: var(--color-status-expired);
+}
+
+.badge-status-error {
+  background-color: var(--color-status-error-bg);
+  color: var(--color-status-error-text);
+  border-color: var(--color-status-error-border);
+}
+.dot-status-error {
+  background-color: var(--color-status-error);
+}
+
+.badge-status-syncing {
+  background-color: var(--color-status-syncing-bg);
+  color: var(--color-status-syncing-text);
+  border-color: var(--color-status-syncing-border);
+}
+.dot-status-syncing {
+  background-color: var(--color-status-syncing);
+}
+
+.badge-status-pending {
+  background-color: var(--color-status-pending-bg);
+  color: var(--color-status-pending-text);
+  border-color: var(--color-status-pending-border);
+}
+.dot-status-pending {
+  background-color: var(--color-status-pending);
 }
 
 /* ==========================================================================

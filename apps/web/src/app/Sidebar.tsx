@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'workspace-settings' as ActiveNavTab,
-      label: 'Cấu Hình Phễu & Multi-tenant',
+      label: 'Quản lý cấu hình',
       icon: <Sliders size={18} />,
       tag: isAgent ? 'Chỉ Owner' : '',
       restricted: isAgent,

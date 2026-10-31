@@ -67,16 +67,10 @@ export interface TranslationDictionary {
       companyName: string;
       companyPlaceholder: string;
       companyHint: string;
-      brandName: string;
-      brandPlaceholder: string;
-      phone: string;
-      phonePlaceholder: string;
       industry: string;
-      scale: string;
       continueBtn: string;
       errors: {
         nameRequired: string;
-        phoneRequired: string;
       };
       industries: {
         education: string;

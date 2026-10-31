@@ -53,3 +53,69 @@ export interface WorkspaceConfig {
   productCatalog: ProductItemConfig[];
   criteria: LeadQualificationCriteria[];
 }
+
+export interface WorkspaceItem {
+  id: string;
+  name: string;
+  slug: string;
+  role: 'OWNER' | 'STAFF';
+  isOwner: boolean;
+  domain: string;
+  ownerId?: string;
+  ownerName?: string;
+  createdAt?: string;
+}
+
+export interface ManagedStaffItem {
+  id: string;
+  email: string;
+  phoneNumber?: string | null;
+  fullName: string;
+  role: string;
+  status: 'ACTIVE' | 'LOCKED';
+  ownerId: string | null;
+  lockedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkspaceConfigContextType {
+  config: WorkspaceConfig;
+  isLoading: boolean;
+  applyPreset: (domain: BusinessDomain, customName?: string) => Promise<void>;
+  updateConfig: (patch: Partial<WorkspaceConfig>) => Promise<void>;
+  addStage: (stage: Omit<PipelineStageConfig, 'id' | 'order'>) => Promise<void>;
+  updateStage: (stageId: string, patch: Partial<PipelineStageConfig>) => Promise<void>;
+  deleteStage: (stageId: string) => Promise<void>;
+  reorderStages: (sourceIndex: number, destIndex: number) => Promise<void>;
+  addProduct: (product: Omit<ProductItemConfig, 'id'>) => Promise<void>;
+  updateProduct: (productId: string, patch: Partial<ProductItemConfig>) => Promise<void>;
+  deleteProduct: (productId: string) => Promise<void>;
+  addCriteria: (criteria: Omit<LeadQualificationCriteria, 'id'>) => Promise<void>;
+  updateCriteria: (criteriaId: string, patch: Partial<LeadQualificationCriteria>) => Promise<void>;
+  deleteCriteria: (criteriaId: string) => Promise<void>;
+  // Quản lý nhân sự Staff theo workspace
+  staffMembers: ManagedStaffItem[];
+  fetchStaffList: (targetWsId?: string) => Promise<ManagedStaffItem[]>;
+  createStaffMember: (data: { email: string; fullName: string; phoneNumber?: string; password?: string; role?: 'STAFF' | 'OWNER' }, targetWsId?: string) => Promise<void>;
+  updateStaffMember: (staffId: string, data: { fullName?: string; phoneNumber?: string; password?: string; role?: 'STAFF' | 'OWNER' }, targetWsId?: string) => Promise<void>;
+  toggleLockStaffMember: (staffId: string, lock: boolean) => Promise<void>;
+  deleteStaffMember: (staffId: string, targetWsId?: string) => Promise<void>;
+  resetToDefault: () => void;
+  // Multi-Workspace & Switcher
+  myWorkspaces: WorkspaceItem[];
+  activeWorkspaceId: string;
+  activeWorkspace: WorkspaceItem | null;
+  isCurrentWorkspaceOwner: boolean;
+  switchWorkspace: (workspaceId: string) => Promise<void>;
+  fetchMyWorkspaces: () => Promise<WorkspaceItem[]>;
+  createWorkspace: (data: {
+    name: string;
+    domain?: BusinessDomain | string;
+  }) => Promise<WorkspaceItem | null>;
+  updateWorkspaceInfo: (
+    workspaceId: string,
+    data: { name?: string; domain?: string },
+  ) => Promise<WorkspaceItem>;
+  deleteWorkspace: (workspaceId: string) => Promise<void>;
+}

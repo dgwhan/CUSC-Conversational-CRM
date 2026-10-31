@@ -3,9 +3,35 @@
    ========================================================================== */
 
 .onboarding-page-container {
-  max-width: 960px;
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 32px 24px 60px;
+  padding: 16px 20px 48px;
+}
+
+/* ==========================================================================
+   WORKSPACE FLAT DETAIL & FLAT LIST - STRICT ZERO BORDER RADIUS
+   Đồng bộ hoàn toàn với triết lý thiết kế phẳng của Contact Detail
+   ========================================================================== */
+.workspace-flat-root,
+.workspace-flat-root *,
+.workspace-flat-view,
+.workspace-flat-view *,
+.workspace-flat-detail,
+.workspace-flat-detail * {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.workspace-flat-section {
+  width: 100%;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--color-divider, #D0D5DD);
+  background: transparent;
+}
+
+.workspace-flat-section:last-child {
+  border-bottom: none;
 }
 
 .onboarding-wizard-header {
@@ -22,16 +48,7 @@
 }
 
 .wizard-badge {
-  display: inline-block;
-  align-self: flex-start;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--color-primary);
-  background: var(--color-primary-light);
-  border: 1px solid var(--color-primary-border);
-  padding: 3px 8px;
-  border-radius: 4px;
+  display: none !important;
 }
 
 .wizard-headline {
@@ -55,10 +72,10 @@
 .onboarding-stepper-container {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 0 !important;
   padding: 16px 28px;
   margin-bottom: 24px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none !important;
 }
 
 .onboarding-stepper-bar {
@@ -105,46 +122,62 @@
 }
 
 .step-item.current .step-circle {
-  background: var(--gradient-primary);
-  border-color: var(--color-primary);
+  background: #2563eb;
+  border-color: #2563eb;
   color: #ffffff;
-  box-shadow: 0 0 0 4px var(--color-primary-light);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .step-item.completed .step-circle {
-  background: var(--color-success);
-  border-color: var(--color-success);
+  background: #16a34a;
+  border-color: #16a34a;
   color: #ffffff;
 }
 
+.step-text,
 .step-label-group {
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
 }
 
+.step-num,
 .step-number-tag {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--color-text-muted);
 }
 
+.step-label,
 .step-title-text {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-text-main);
+  white-space: nowrap;
 }
 
+.step-item.current .step-num {
+  color: #2563eb;
+}
+
+.step-item.current .step-label,
 .step-item.current .step-title-text {
-  color: var(--color-primary);
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.step-item.completed .step-num {
+  color: #16a34a;
 }
 
 /* Onboarding Content Card */
 .onboarding-content-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: 0 !important;
+  box-shadow: none !important;
   padding: 32px;
 }
 
@@ -292,18 +325,19 @@
 
 .channel-card {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 0 !important;
   padding: 16px;
   background: var(--color-surface);
   display: flex;
   flex-direction: column;
   transition: all 0.2s ease;
+  box-shadow: none !important;
 }
 
 .channel-card:hover {
   border-color: var(--color-primary-border);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .channel-card.connected {
@@ -375,9 +409,10 @@
 /* Fanpages Checklist Section */
 .onboarding-fanpages-section {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 0 !important;
   background: var(--color-surface-subtle);
   padding: 20px;
+  box-shadow: none !important;
 }
 
 .fanpages-header {
