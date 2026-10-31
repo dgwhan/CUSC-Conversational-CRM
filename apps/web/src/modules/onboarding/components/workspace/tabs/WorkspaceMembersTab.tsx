@@ -119,15 +119,15 @@ export const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
       />
 
       {/* 3. Bảng danh sách thành viên */}
-      <div className="border border-slate-200 rounded-none overflow-x-auto bg-white">
+      <div className="border border-slate-200/80 rounded-xl overflow-x-auto bg-white shadow-2xs">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
-              <th className="py-2.5 px-4">Thành viên</th>
-              <th className="py-2.5 px-4">Email</th>
-              <th className="py-2.5 px-4">Số điện thoại</th>
-              <th className="py-2.5 px-4">Vai trò</th>
-              <th className="py-2.5 px-4 text-right">Thao tác</th>
+              <th className="py-3 px-5 sm:px-6">Thành viên</th>
+              <th className="py-3 px-5 sm:px-6">Email</th>
+              <th className="py-3 px-5 sm:px-6">Số điện thoại</th>
+              <th className="py-3 px-5 sm:px-6">Vai trò</th>
+              <th className="py-3 px-5 sm:px-6 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 bg-white">
@@ -157,12 +157,12 @@ export const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
                 return (
                   <tr key={member.id} className="hover:bg-slate-50/70 transition-colors">
                     {/* Tên thành viên */}
-                    <td className="py-3 px-4 font-semibold text-slate-900">
+                    <td className="py-3.5 px-5 sm:px-6 font-semibold text-slate-900">
                       {member.fullName || member.email.split('@')[0]}
                     </td>
 
                     {/* Email */}
-                    <td className="py-3 px-4 text-slate-600 font-mono text-[11.5px]">
+                    <td className="py-3.5 px-5 sm:px-6 text-slate-600 font-mono text-[11.5px]">
                       {member.email}
                     </td>
 
@@ -172,9 +172,9 @@ export const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
                     </td>
 
                     {/* Nhãn vai trò tiếng Việt */}
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-5 sm:px-6">
                       <span
-                        className={`inline-block px-2 py-0.5 text-[11px] font-semibold rounded-none border ${isOwnerMember
+                        className={`inline-block px-2.5 py-0.5 text-[11px] font-semibold rounded-md border ${isOwnerMember
                             ? 'bg-blue-50 text-blue-700 border-blue-200'
                             : 'bg-slate-100 text-slate-700 border-slate-200'
                           }`}
@@ -184,7 +184,7 @@ export const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
                     </td>
 
                     {/* Cột thao tác */}
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3.5 px-5 sm:px-6 text-right">
                       {(() => {
                         // Trường hợp 1: Chính tài khoản đang đăng nhập
                         if (isCurrentUser) {
@@ -201,7 +201,7 @@ export const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
                             <button
                               type="button"
                               onClick={onLeaveWorkspace}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 hover:text-red-800 bg-transparent border-none cursor-pointer p-0"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md bg-transparent border-none cursor-pointer transition-colors"
                               title="Rời khỏi Không gian làm việc này"
                             >
                               <LogOut size={13} />

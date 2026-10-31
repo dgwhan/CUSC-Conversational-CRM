@@ -29,8 +29,8 @@ export const InterestedCoursesSection: React.FC<InterestedCoursesSectionProps> =
   onOpenAssignModal,
   onRemoveCourse,
 }) => {
-  const effectiveCourses = courses && courses.length > 0 ? courses : ['Lập trình viên Quốc tế Aptech ADSE'];
-  const effectiveTuition = estimatedValue && estimatedValue > 0 ? estimatedValue : 32000000;
+  const effectiveCourses = courses && courses.length > 0 ? courses : [];
+  const effectiveTuition = estimatedValue && estimatedValue > 0 ? estimatedValue : 0;
 
   return (
     <section className="p-4 border-b border-slate-200">
@@ -49,10 +49,15 @@ export const InterestedCoursesSection: React.FC<InterestedCoursesSectionProps> =
       </div>
 
       <div className="flex flex-col gap-2">
-        {effectiveCourses.map((course, idx) => {
-          const prod = catalog.find((p) => p.name === course || p.id === course);
-          const courseType = prod?.category || 'Dài hạn';
-          const coursePrice = prod?.defaultPrice || 32000000;
+        {effectiveCourses.length === 0 ? (
+          <div className="py-2 text-xs text-slate-400 italic">
+            Chưa có {productLabel.toLowerCase()} nào được gán
+          </div>
+        ) : (
+          effectiveCourses.map((course, idx) => {
+            const prod = catalog.find((p) => p.name === course || p.id === course);
+            const courseType = prod?.category || 'Tiêu chuẩn';
+            const coursePrice = prod?.defaultPrice || 0;
 
           return (
             <div
@@ -81,7 +86,8 @@ export const InterestedCoursesSection: React.FC<InterestedCoursesSectionProps> =
               </div>
             </div>
           );
-        })}
+          })
+        )}
 
         {/* Dòng tổng học phí dự kiến */}
         <div className="flex items-center justify-between pt-1 text-[12px]">

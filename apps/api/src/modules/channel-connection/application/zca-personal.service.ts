@@ -588,16 +588,20 @@ export class ZcaPersonalService implements OnModuleInit {
     const senderUid = String(msgData.uidFrom || '');
     const recipientUid = String(msgData.idTo || '');
     const threadId = String(message.threadId || '');
+    const myDisplayName = (channelAccount.displayName || '').trim().toLowerCase();
+    const msgSenderName = (msgData.dName || '').trim().toLowerCase();
 
     // Tin nhắn do chính tài khoản Zalo của tôi gửi nếu:
-    // - message.isSelf = true
-    // - senderUid = "0"
-    // - senderUid trùng với UID của tài khoản Zalo cá nhân của tôi (myOwnUid)
     const isSelf = Boolean(
-      message.isSelf ||
+      message.isSelf === true ||
+      msgData.isSelf === true ||
+      msgData.out === true ||
+      msgData.isOut === true ||
+      msgData.fromMe === true ||
       senderUid === '0' ||
       (myOwnUid && senderUid === myOwnUid) ||
-      (channelAccount.externalAccountId && senderUid === channelAccount.externalAccountId)
+      (channelAccount.externalAccountId && senderUid === channelAccount.externalAccountId) ||
+      (myDisplayName && msgSenderName && msgSenderName === myDisplayName)
     );
 
     // Xác định UID của đối tác hội thoại (Khách hàng)
@@ -619,7 +623,13 @@ export class ZcaPersonalService implements OnModuleInit {
     }
 
     // Bỏ qua tin nhắn không xác định được đối tác hoặc tin nhắn tự gửi cho chính mình (Cloud của tôi / My Cloud)
-    if (!customerZaloId || customerZaloId === myOwnUid || customerZaloId === '0') {
+    if (
+      !customerZaloId ||
+      customerZaloId === myOwnUid ||
+      customerZaloId === channelAccount.externalAccountId ||
+      customerZaloId === '0' ||
+      (myDisplayName && msgSenderName && msgSenderName === myDisplayName && !isSelf)
+    ) {
       this.logger.debug(`[zca-js] Bỏ qua tin nhắn Cloud cá nhân hoặc không có đối tác (UID: ${customerZaloId})`);
       return;
     }
@@ -819,7 +829,9 @@ export class ZcaPersonalService implements OnModuleInit {
           senderName: isSelf ? `${channelAccount.displayName || 'Tư vấn viên'} (Bạn)` : customerName,
           senderAvatar: isSelf ? channelAccount.avatarUrl : customerAvatar,
           sentAt: sentAt.toISOString(),
-        });
+          customerName,
+          recipientName: customerName,
+        } as any);
         this.logger.log(`[zca-js] Đã phát sự kiện Realtime Socket message:received cho tin nhắn Zalo (${customerName})`);
       } catch (err) {
         this.logger.warn(`[zca-js] Lỗi realtime broadcast: ${(err as Error).message}`);
@@ -938,66 +950,7 @@ export class ZcaPersonalService implements OnModuleInit {
       }
     }
 
-    // 2. Kéo danh sách bạn bè gần nhất để đồng bộ danh bạ hội thoại vào CRM
-    if (typeof api.getAllFriends === 'function') {
-      try {
-        const friends = await api.getAllFriends().catch(() => []);
-        if (Array.isArray(friends) && friends.length > 0) {
-          const channelAccount = await this.prisma?.channelAccount?.findFirst?.({
-            where: { channel: 'ZALO', externalAccountId: targetId },
-          });
-
-          if (channelAccount && this.prisma?.customer && this.prisma?.conversation) {
-            for (const f of friends.slice(0, 15)) {
-              const friendUid = String(f.userId || f.id);
-              const friendName = f.displayName || f.name || `Bạn Zalo #${friendUid.slice(-4)}`;
-              const friendAvatar = f.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(friendName)}&background=0068FF&color=fff`;
-
-              let customer = await this.prisma.customer.findFirst({
-                where: {
-                  workspaceId: channelAccount.workspaceId,
-                  channelIdentities: { path: ['zalo', 'id'], equals: friendUid },
-                },
-              });
-
-              if (!customer) {
-                customer = await this.prisma.customer.create({
-                  data: {
-                    workspaceId: channelAccount.workspaceId,
-                    fullName: friendName,
-                    avatarUrl: friendAvatar,
-                    leadStatus: 'NEW',
-                    leadStage: 'TIẾP CẬN',
-                    channelIdentities: { zalo: { id: friendUid, name: friendName } },
-                  },
-                });
-              }
-
-              const conv = await this.prisma.conversation.findFirst({
-                where: { channelAccountId: channelAccount.id, customerId: customer.id },
-              });
-
-              if (!conv) {
-                await this.prisma.conversation.create({
-                  data: {
-                    workspaceId: channelAccount.workspaceId,
-                    channelAccountId: channelAccount.id,
-                    customerId: customer.id,
-                    status: 'OPEN',
-                    snippet: 'Đồng bộ từ danh bạ Zalo',
-                    lastMessageAt: new Date(),
-                  },
-                });
-                conversationsSet.add(customer.id);
-                syncedCount++;
-              }
-            }
-          }
-        }
-      } catch (err) {
-        this.logger.warn(`[zca-js] getAllFriends sync error: ${(err as Error).message}`);
-      }
-    }
+    // (Đã loại bỏ việc tự động import 15 bạn bè cá nhân thành khách hàng CRM để tránh sai lệch báo cáo và sinh hội thoại rác)
 
     return {
       syncedCount,

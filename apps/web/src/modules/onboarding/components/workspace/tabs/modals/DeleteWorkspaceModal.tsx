@@ -63,7 +63,7 @@ export const DeleteWorkspaceModal: React.FC<DeleteWorkspaceModalProps> = ({
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             placeholder={`Nhập "${workspace.name}"...`}
-            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-none outline-none focus:border-red-600 box-border bg-white"
+            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md outline-none focus:border-red-600 focus:ring-2 focus:ring-red-100 shadow-xs box-border bg-white transition-all"
           />
         </div>
 

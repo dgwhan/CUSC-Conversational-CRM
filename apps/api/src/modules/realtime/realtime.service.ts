@@ -298,6 +298,15 @@ export class RealtimeService implements OnModuleDestroy {
     newStage: string;
     previousStage: string;
     updatedBy: string;
+    phone?: string;
+    email?: string;
+    avatarUrl?: string;
+    channel?: string;
+    channelAccountName?: string;
+    estimatedValue?: number;
+    interestCourses?: string[];
+    tags?: string[];
+    conversationId?: string;
   }): void {
     this.emit('pipeline:updated', payload);
   }

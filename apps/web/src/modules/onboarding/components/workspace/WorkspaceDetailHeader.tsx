@@ -116,14 +116,14 @@ export const WorkspaceDetailHeader: React.FC<WorkspaceDetailHeaderProps> = ({
               onKeyDown={handleKeyDown}
               disabled={isSavingName}
               placeholder="Nhập tên không gian làm việc..."
-              className="text-base sm:text-xl font-bold text-slate-900 border border-blue-600 px-2.5 py-1 rounded-none outline-none bg-white font-inherit min-w-[220px] max-w-sm sm:max-w-md w-full shadow-none box-border"
+              className="text-base sm:text-xl font-bold text-slate-900 border border-blue-500 px-3 py-1.5 rounded-md outline-none bg-white font-inherit min-w-[220px] max-w-sm sm:max-w-md w-full shadow-xs box-border focus:ring-2 focus:ring-blue-100"
             />
             <button
               type="button"
               onClick={handleSaveName}
               disabled={isSavingName}
               title="Lưu tên (Nhấn Enter)"
-              className="w-8 h-8 flex items-center justify-center text-white bg-blue-600 hover:bg-blue-700 rounded-none cursor-pointer border-none shrink-0"
+              className="w-8 h-8 flex items-center justify-center text-white bg-blue-600 hover:bg-blue-700 rounded-md cursor-pointer border-none shrink-0 transition-colors shadow-xs"
             >
               {isSavingName ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -136,7 +136,7 @@ export const WorkspaceDetailHeader: React.FC<WorkspaceDetailHeaderProps> = ({
               onClick={handleCancelEdit}
               disabled={isSavingName}
               title="Hủy (Nhấn Esc)"
-              className="w-8 h-8 flex items-center justify-center text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-none cursor-pointer shrink-0"
+              className="w-8 h-8 flex items-center justify-center text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-md cursor-pointer shrink-0 transition-colors"
             >
               <X size={14} />
             </button>
@@ -155,7 +155,7 @@ export const WorkspaceDetailHeader: React.FC<WorkspaceDetailHeaderProps> = ({
                 type="button"
                 onClick={handleStartEdit}
                 title="Chỉnh sửa tên trực tiếp trên dòng này"
-                className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-none transition-colors cursor-pointer inline-flex items-center justify-center border-none bg-transparent"
+                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-md transition-colors cursor-pointer inline-flex items-center justify-center border-none bg-transparent"
               >
                 <Edit2 size={16} />
               </button>
@@ -173,7 +173,7 @@ export const WorkspaceDetailHeader: React.FC<WorkspaceDetailHeaderProps> = ({
       badges={
         <>
           {isActive && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-none">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md">
               <CheckCircle2 size={12} />
               <span>Đang làm việc</span>
             </span>

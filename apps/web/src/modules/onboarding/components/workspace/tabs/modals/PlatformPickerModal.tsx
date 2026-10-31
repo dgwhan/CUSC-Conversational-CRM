@@ -38,7 +38,7 @@ export const PlatformPickerModal: React.FC<PlatformPickerModalProps> = ({
               onClose();
               onSelectPlatform(platform.key);
             }}
-            className="w-full p-4 border border-slate-200 hover:border-blue-600 hover:bg-blue-50/20 text-left rounded-none bg-white cursor-pointer transition-all flex items-center justify-between gap-4"
+            className="w-full p-4 border border-slate-200/80 hover:border-blue-500 hover:bg-blue-50/25 text-left rounded-xl bg-white cursor-pointer transition-all flex items-center justify-between gap-4 shadow-2xs"
           >
             <div>
               <div className="text-sm font-bold text-slate-900 mb-1">

@@ -62,7 +62,7 @@ export const Tabs = <T extends string = string>({
             <span>{tab.label}</span>
             {tab.count !== undefined && tab.count !== null && (
               <span
-                className={`text-xs px-1.5 py-0.2 rounded-none ${
+                className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                   isActive
                     ? 'bg-blue-100 text-blue-700 font-bold'
                     : 'bg-slate-100 text-slate-600'

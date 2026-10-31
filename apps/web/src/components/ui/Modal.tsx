@@ -126,8 +126,8 @@ export function Modal({
       <div
         className={`relative w-full ${sizeClasses[size] ?? sizeClasses.sm} overflow-hidden shadow-xl transform transition-all duration-200 ease-out ${
           isFlat
-            ? 'rounded-none border border-slate-300 bg-white p-5'
-            : 'rounded-3xl border border-border-default/60 bg-bg-surface p-7 sm:p-8'
+            ? 'rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xl'
+            : 'rounded-2xl border border-border-default/60 bg-bg-surface p-7 sm:p-8'
         } ${
           isAnimating
             ? 'opacity-100 scale-100 pointer-events-auto'

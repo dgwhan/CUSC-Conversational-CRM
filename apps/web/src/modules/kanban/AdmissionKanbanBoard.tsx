@@ -38,7 +38,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
 }) => {
   const { staffPresences, onPipelineChange, onNewMessage } = useRealtime();
 const { isOwner, isAgent, staffId } = useUserRole();
-  const { config } = useWorkspaceConfig();
+  const { config, activeWorkspaceId } = useWorkspaceConfig();
 
   const [candidates, setCandidates] = useState<KanbanCandidate[]>(() => {
     try {
@@ -83,7 +83,7 @@ const { isOwner, isAgent, staffId } = useUserRole();
     } catch {}
   }, [candidates]);
 
-  // Lắng nghe sự kiện cập nhật Kanban từ Realtime SSE
+  // Lắng nghe sự kiện cập nhật Kanban từ Realtime WebSocket
   useEffect(() => {
     const unsubscribe = onPipelineChange((event) => {
       const matchedStage = config.pipelineStages.find(
@@ -95,15 +95,56 @@ const { isOwner, isAgent, staffId } = useUserRole();
       );
       const stageToSet = matchedStage ? (matchedStage.id as LeadStage) : (event.newStage as LeadStage);
 
-      setCandidates((prev) =>
-        prev.map((c) =>
-          c.id === event.customerId || c.fullName === event.customerName || (event.customerId && c.conversationId?.includes(event.customerId))
-            ? { ...c, stage: stageToSet }
-            : c
-        )
-      );
+      setCandidates((prev) => {
+        let found = false;
+        const updated = prev.map((c) => {
+          if (
+            c.id === event.customerId ||
+            c.fullName === event.customerName ||
+            (event.customerId && c.conversationId?.includes(event.customerId))
+          ) {
+            found = true;
+            return {
+              ...c,
+              stage: stageToSet,
+              phone: event.phone && event.phone !== 'Chưa có SĐT' ? event.phone : c.phone,
+              email: event.email && event.email !== 'Chưa có Email' ? event.email : c.email,
+              avatarUrl: event.avatarUrl || c.avatarUrl,
+              estimatedTuition: event.estimatedValue !== undefined ? event.estimatedValue : c.estimatedTuition,
+              interestCourses: event.interestCourses || c.interestCourses,
+              tags: event.tags || c.tags,
+            };
+          }
+          return c;
+        });
+
+        if (!found && event.customerName) {
+          // Khách hàng vừa được phân loại ở Inbox -> Đổ ngay vào Kanban
+          const firstStageId = config.pipelineStages[0]?.id || 'STAGE_NEW';
+          const avatar = event.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(event.customerName)}&background=0284c7&color=fff&bold=true`;
+          updated.unshift({
+            id: event.customerId || `cand-${Date.now()}`,
+            fullName: event.customerName,
+            phone: event.phone || 'Chưa có SĐT',
+            email: event.email || 'Chưa có Email',
+            avatarUrl: avatar,
+            channel: (event.channel as ChannelType) || 'ZALO',
+            channelAccountName: event.channelAccountName || 'Kênh trực tuyến',
+            stage: stageToSet || (firstStageId as LeadStage),
+            estimatedTuition: event.estimatedValue || 0,
+            priority: 'MEDIUM',
+            interestCourses: event.interestCourses || [],
+            lastActivityAt: 'Vừa xong',
+            notesCount: 0,
+            tags: event.tags || ['Lead'],
+            conversationId: event.conversationId,
+          });
+        }
+        return updated;
+      });
+
       notify.info(
-        `${event.updatedBy} đã chuyển ${config.terminology.entityName.toLowerCase()} "${event.customerName}" sang giai đoạn "${matchedStage?.name || event.newStage}".`,
+        `${event.updatedBy || 'Tư vấn viên'} đã chuyển "${event.customerName}" sang giai đoạn "${matchedStage?.name || event.newStage}".`,
         'Đồng bộ Phễu Realtime'
       );
     });
@@ -113,7 +154,20 @@ const { isOwner, isAgent, staffId } = useUserRole();
   // Lắng nghe sự kiện cập nhật trạng thái Lead nội bộ từ Inbox
   useEffect(() => {
     const handleLeadUpdated = (e: Event) => {
-      const customEvent = e as CustomEvent<{ customerId?: string; fullName?: string; conversationId?: string; leadStage?: LeadStage }>;
+      const customEvent = e as CustomEvent<{
+        customerId?: string;
+        fullName?: string;
+        conversationId?: string;
+        leadStage?: LeadStage;
+        phone?: string;
+        email?: string;
+        avatarUrl?: string;
+        channel?: ChannelType;
+        channelAccountName?: string;
+        estimatedTuition?: number;
+        interestCourses?: string[];
+        tags?: string[];
+      }>;
       if (!customEvent.detail) return;
       const { customerId, fullName, conversationId, leadStage } = customEvent.detail;
       if (!leadStage) return;
@@ -127,15 +181,52 @@ const { isOwner, isAgent, staffId } = useUserRole();
       );
       const targetStage = matchedStage ? (matchedStage.id as LeadStage) : leadStage;
 
-      setCandidates((prev) =>
-        prev.map((c) =>
-          (customerId && c.id === customerId) ||
-          (conversationId && c.conversationId === conversationId) ||
-          (fullName && c.fullName === fullName)
-            ? { ...c, stage: targetStage }
-            : c
-        )
-      );
+      setCandidates((prev) => {
+        let found = false;
+        const updated = prev.map((c) => {
+          if (
+            (customerId && c.id === customerId) ||
+            (conversationId && c.conversationId === conversationId) ||
+            (fullName && c.fullName === fullName)
+          ) {
+            found = true;
+            return {
+              ...c,
+              stage: targetStage,
+              phone: customEvent.detail.phone || c.phone,
+              email: customEvent.detail.email || c.email,
+              avatarUrl: customEvent.detail.avatarUrl || c.avatarUrl,
+              estimatedTuition: customEvent.detail.estimatedTuition !== undefined ? customEvent.detail.estimatedTuition : c.estimatedTuition,
+              interestCourses: customEvent.detail.interestCourses || c.interestCourses,
+              tags: customEvent.detail.tags || c.tags,
+            };
+          }
+          return c;
+        });
+
+        if (!found && fullName) {
+          // Khách hàng vừa được phân loại ở Inbox -> Đổ ngay vào Kanban
+          const firstStageId = config.pipelineStages[0]?.id || 'STAGE_NEW';
+          updated.unshift({
+            id: customerId || `cand-${Date.now()}`,
+            fullName: fullName,
+            phone: customEvent.detail.phone || 'Chưa có SĐT',
+            email: customEvent.detail.email || 'Chưa có Email',
+            avatarUrl: customEvent.detail.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=0284c7&color=fff&bold=true`,
+            channel: customEvent.detail.channel || 'ZALO',
+            channelAccountName: customEvent.detail.channelAccountName || 'Kênh trực tuyến',
+            stage: targetStage || (firstStageId as LeadStage),
+            estimatedTuition: customEvent.detail.estimatedTuition || 0,
+            priority: 'MEDIUM',
+            interestCourses: customEvent.detail.interestCourses || [],
+            lastActivityAt: 'Vừa xong',
+            notesCount: 0,
+            tags: customEvent.detail.tags || ['Lead'],
+            conversationId: conversationId,
+          });
+        }
+        return updated;
+      });
     };
     window.addEventListener('crm:lead-updated', handleLeadUpdated);
     return () => window.removeEventListener('crm:lead-updated', handleLeadUpdated);
@@ -146,7 +237,7 @@ const { isOwner, isAgent, staffId } = useUserRole();
     let isMounted = true;
     const loadDbCustomers = async () => {
       try {
-        const data = await apiClient.getCustomers();
+        const data = await apiClient.getCustomers({ workspaceId: activeWorkspaceId || undefined });
         if (!isMounted || !data?.items || data.items.length === 0) return;
 
         const firstStageId = config.pipelineStages[0]?.id || 'STAGE_NEW';
@@ -219,7 +310,7 @@ const { isOwner, isAgent, staffId } = useUserRole();
 
     loadDbCustomers();
     return () => { isMounted = false; };
-  }, [config.pipelineStages]);
+  }, [config.pipelineStages, activeWorkspaceId]);
 
   // Lắng nghe tin nhắn mới để tự động đổ khách hàng vào phễu Kanban theo thời gian thực
   useEffect(() => {

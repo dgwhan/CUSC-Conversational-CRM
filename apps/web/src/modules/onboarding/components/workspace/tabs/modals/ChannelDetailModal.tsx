@@ -66,7 +66,7 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2.5 m-0">
             Thông tin kết nối
           </h4>
-          <div className="border border-slate-200 rounded-none divide-y divide-slate-100 text-xs">
+          <div className="border border-slate-200/80 rounded-xl divide-y divide-slate-100 text-xs overflow-hidden shadow-2xs">
             <div className="p-2.5 flex items-center justify-between">
               <span className="text-slate-500">Tên trang / Tài khoản</span>
               <span className="font-semibold text-slate-900">{channel.displayName}</span>
@@ -97,7 +97,7 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2.5 m-0">
             Tính năng & Thiết lập
           </h4>
-          <div className="border border-slate-200 rounded-none divide-y divide-slate-100 text-xs">
+          <div className="border border-slate-200/80 rounded-xl divide-y divide-slate-100 text-xs overflow-hidden shadow-2xs">
             <div className="p-2.5 flex items-center justify-between">
               <span className="text-slate-500">Đồng bộ tin nhắn</span>
               <span className="font-semibold text-emerald-600">
@@ -126,7 +126,7 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
                 onOpenConnectModal(channel.channel);
                 onClose();
               }}
-              className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 hover:border-blue-600 hover:text-blue-600 text-slate-700 rounded-none cursor-pointer transition-colors shadow-none flex items-center gap-1.5"
+              className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 hover:border-blue-600 hover:text-blue-600 text-slate-700 rounded-md cursor-pointer transition-colors shadow-xs flex items-center gap-1.5"
             >
               <RotateCcw size={13} />
               <span>Kết nối lại</span>
@@ -138,7 +138,7 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
                 onSyncChannel(channel.id);
                 onClose();
               }}
-              className="px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-none border-none cursor-pointer transition-colors shadow-none flex items-center gap-1.5"
+              className="px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-md border-none cursor-pointer transition-colors shadow-xs flex items-center gap-1.5"
             >
               <RefreshCw size={13} />
               <span>Đồng bộ ngay</span>
@@ -153,7 +153,7 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
               onClose();
               onDisconnectChannel(id, name);
             }}
-            className="px-3 py-1.5 text-xs font-semibold bg-white border border-red-200 hover:bg-red-50 text-red-600 rounded-none cursor-pointer transition-colors shadow-none flex items-center gap-1.5"
+            className="px-3 py-1.5 text-xs font-semibold bg-white border border-red-200 hover:bg-red-50 text-red-600 rounded-md cursor-pointer transition-colors shadow-xs flex items-center gap-1.5"
           >
             <Trash2 size={13} />
             <span>Ngắt kết nối</span>

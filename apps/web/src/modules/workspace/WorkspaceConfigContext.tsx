@@ -67,6 +67,9 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
   const saveConfig = (newConfig: WorkspaceConfig) => {
     setConfig(newConfig);
     try {
+      if (newConfig.workspaceId) {
+        localStorage.setItem(`${STORAGE_KEY}_ws_${newConfig.workspaceId}`, JSON.stringify(newConfig));
+      }
       const ownerStorageKey = effectiveOwnerId ? `${STORAGE_KEY}_${effectiveOwnerId}` : STORAGE_KEY;
       localStorage.setItem(ownerStorageKey, JSON.stringify(newConfig));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfig));

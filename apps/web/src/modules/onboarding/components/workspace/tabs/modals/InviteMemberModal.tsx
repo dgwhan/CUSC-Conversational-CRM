@@ -60,7 +60,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
             placeholder="name@example.com"
-            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-none outline-none focus:border-blue-600 box-border"
+            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 shadow-xs box-border transition-all"
           />
         </div>
 
@@ -73,7 +73,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
             value={inviteFullName}
             onChange={(e) => setInviteFullName(e.target.value)}
             placeholder="Nhập họ và tên..."
-            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-none outline-none focus:border-blue-600 box-border"
+            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 shadow-xs box-border transition-all"
           />
         </div>
 
@@ -86,7 +86,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
             value={invitePhone}
             onChange={(e) => setInvitePhone(e.target.value)}
             placeholder="VD: 0901.234.567"
-            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-none outline-none focus:border-blue-600 box-border font-mono"
+            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 shadow-xs box-border font-mono transition-all"
           />
         </div>
 
@@ -97,7 +97,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
           <select
             value={inviteRole}
             onChange={(e) => setInviteRole(e.target.value as StaffRole)}
-            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-none bg-white text-slate-700 outline-none focus:border-blue-600 cursor-pointer box-border"
+            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md bg-white text-slate-700 outline-none focus:border-blue-600 shadow-xs cursor-pointer box-border transition-all"
           >
             <option value={StaffRole.STAFF}>Nhân viên tư vấn</option>
             <option value={StaffRole.OWNER}>Chủ sở hữu</option>

@@ -4,23 +4,26 @@
 
 .onboarding-page-container {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1140px;
   margin: 0 auto;
-  padding: 16px 20px 48px;
+  padding: 24px 32px 48px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .onboarding-page-container {
+    padding: 16px 16px 36px;
+  }
 }
 
 /* ==========================================================================
    WORKSPACE FLAT DETAIL & FLAT LIST - STRICT ZERO BORDER RADIUS
    Đồng bộ hoàn toàn với triết lý thiết kế phẳng của Contact Detail
    ========================================================================== */
-.workspace-flat-root,
-.workspace-flat-root *,
+/* Bo góc nhẹ tinh tế, khoảng cách nội dung thoáng đãng 2 bên */
 .workspace-flat-view,
-.workspace-flat-view *,
-.workspace-flat-detail,
-.workspace-flat-detail * {
-  border-radius: 0 !important;
-  box-shadow: none !important;
+.workspace-flat-detail {
+  box-sizing: border-box;
 }
 
 .workspace-flat-section {
@@ -72,7 +75,7 @@
 .onboarding-stepper-container {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 0 !important;
+  border-radius: 8px;
   padding: 16px 28px;
   margin-bottom: 24px;
   box-shadow: none !important;
@@ -176,7 +179,7 @@
 .onboarding-content-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 0 !important;
+  border-radius: 8px;
   box-shadow: none !important;
   padding: 32px;
 }
@@ -325,7 +328,7 @@
 
 .channel-card {
   border: 1px solid var(--color-border);
-  border-radius: 0 !important;
+  border-radius: 8px;
   padding: 16px;
   background: var(--color-surface);
   display: flex;
@@ -409,7 +412,7 @@
 /* Fanpages Checklist Section */
 .onboarding-fanpages-section {
   border: 1px solid var(--color-border);
-  border-radius: 0 !important;
+  border-radius: 8px;
   background: var(--color-surface-subtle);
   padding: 20px;
   box-shadow: none !important;

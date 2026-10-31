@@ -89,12 +89,12 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   const effectiveCourses =
     customer.interestCourses && customer.interestCourses.length > 0
       ? customer.interestCourses
-      : ['Lập trình viên Quốc tế Aptech ADSE'];
+      : [];
 
   const effectiveEstimatedTuition =
     customer.estimatedValue && customer.estimatedValue > 0
       ? customer.estimatedValue
-      : 32000000;
+      : 0;
 
   return (
     <aside className={`contact-detail-sidebar pancake-col-right ${isMobileOpen ? 'mobile-visible' : ''}`}>

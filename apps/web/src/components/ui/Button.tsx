@@ -29,7 +29,7 @@ export function Button({
   const baseClasses =
     "inline-flex items-center justify-center font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 select-none box-border whitespace-nowrap shadow-none";
 
-  const radiusClass = flat ? "rounded-none" : "rounded-control";
+  const radiusClass = className.includes("rounded-") ? "" : flat ? "rounded-md" : "rounded-control";
 
   const variantClasses: Record<string, string> = {
     primary:

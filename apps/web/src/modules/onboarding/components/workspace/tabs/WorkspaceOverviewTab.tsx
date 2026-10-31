@@ -74,16 +74,16 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
         hasDivider
         className="pb-6"
       >
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-8">
-          <div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          <div className="p-4 sm:p-5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-colors shadow-2xs">
             <div className="text-xs font-medium text-slate-500 mb-1">Thành viên</div>
             <div className="text-2xl font-bold text-slate-900 tracking-tight">{membersCount}</div>
           </div>
-          <div>
+          <div className="p-4 sm:p-5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-colors shadow-2xs">
             <div className="text-xs font-medium text-slate-500 mb-1">Kênh kết nối</div>
             <div className="text-2xl font-bold text-slate-900 tracking-tight">{channelsCount}</div>
           </div>
-          <div>
+          <div className="p-4 sm:p-5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-colors shadow-2xs">
             <div className="text-xs font-medium text-slate-500 mb-1">Khách hàng liên hệ</div>
             <div className="text-2xl font-bold text-slate-900 tracking-tight">
               {isLoadingContacts ? (
@@ -113,8 +113,8 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
           ) : undefined
         }
       >
-        <div className="divide-y divide-slate-100 text-sm">
-          <div className="py-3 flex items-center justify-between gap-4">
+        <div className="border border-slate-200/80 rounded-xl bg-white px-5 sm:px-6 divide-y divide-slate-100 shadow-2xs text-sm">
+          <div className="py-3.5 px-1 flex items-center justify-between gap-4">
             <span className="text-slate-500 shrink-0">Tên không gian làm việc</span>
             {isEditingNameInline ? (
               <div className="flex items-center gap-1.5 max-w-sm w-full justify-end">
@@ -128,13 +128,13 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
                     if (e.key === 'Escape') setIsEditingNameInline(false);
                   }}
                   disabled={isSavingName}
-                  className="px-2 py-1 text-xs border border-blue-600 outline-none rounded-none w-full bg-white font-semibold text-slate-900"
+                  className="px-3 py-1.5 text-xs border border-blue-500 outline-none rounded-md w-full bg-white font-semibold text-slate-900 shadow-xs focus:ring-2 focus:ring-blue-100"
                 />
                 <button
                   type="button"
                   onClick={handleSaveInlineName}
                   disabled={isSavingName}
-                  className="w-7 h-7 flex items-center justify-center text-white bg-blue-600 hover:bg-blue-700 rounded-none cursor-pointer border-none shrink-0"
+                  className="w-7 h-7 flex items-center justify-center text-white bg-blue-600 hover:bg-blue-700 rounded-md cursor-pointer border-none shrink-0 transition-colors"
                   title="Lưu (Enter)"
                 >
                   {isSavingName ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
@@ -143,7 +143,7 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
                   type="button"
                   onClick={() => setIsEditingNameInline(false)}
                   disabled={isSavingName}
-                  className="w-7 h-7 flex items-center justify-center text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-none cursor-pointer shrink-0"
+                  className="w-7 h-7 flex items-center justify-center text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-md cursor-pointer shrink-0 transition-colors"
                   title="Hủy (Esc)"
                 >
                   <X size={13} />
@@ -163,7 +163,7 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
                     type="button"
                     onClick={() => setIsEditingNameInline(true)}
                     title="Chỉnh sửa tên trực tiếp trên dòng này"
-                    className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-none transition-colors cursor-pointer border-none bg-transparent"
+                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-md transition-colors cursor-pointer border-none bg-transparent"
                   >
                     <Edit2 size={13} />
                   </button>
@@ -171,7 +171,7 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
               </div>
             )}
           </div>
-          <div className="py-3 flex items-center justify-between">
+          <div className="py-3.5 px-1 flex items-center justify-between">
             <span className="text-slate-500">Lĩnh vực / Ngành nghề</span>
             <span className="font-semibold text-slate-900">{domainLabel}</span>
           </div>
@@ -191,7 +191,7 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
           </div>
           <div className="py-3 flex items-center justify-between">
             <span className="text-slate-500">Mã ID hệ thống</span>
-            <span className="font-mono text-xs text-slate-500">{workspace.id}</span>
+            <span className="font-mono text-xs text-slate-600 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200/80">{workspace.id}</span>
           </div>
         </div>
       </PageSection>
@@ -202,7 +202,7 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
           title="Khu vực quản trị cấp cao"
           subtitle="Các thao tác nhạy cảm liên quan đến sự tồn tại của Không gian làm việc"
         >
-          <div className="p-4 border border-red-200 bg-red-50/20 flex items-center justify-between gap-4 flex-wrap">
+          <div className="p-5 sm:p-6 border border-red-200/80 bg-red-50/30 rounded-xl flex items-center justify-between gap-4 flex-wrap shadow-2xs">
             <div>
               <div className="text-xs font-bold text-red-900 mb-0.5">Xóa Không gian làm việc này</div>
               <div className="text-[11px] text-red-600">

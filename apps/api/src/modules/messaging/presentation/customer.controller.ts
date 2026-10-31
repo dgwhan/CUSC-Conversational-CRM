@@ -131,6 +131,7 @@ export class CustomerController {
             tags?: string[];
             conversationId?: string;
         },
+        @Headers('x-workspace-id') headerWsId?: string,
     ) {
         const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         let existing: any = null;
@@ -138,7 +139,7 @@ export class CustomerController {
         //Match exact standard UUID
         if (UUID_REGEX.test(id)) {
             try {
-                existing = await this.prisma.customer.findUnique({ where: { id } });
+                existing = await this.prisma.customer.findUnique({ where: { id }, include: { conversations: { include: { channelAccount: true }, take: 1, orderBy: { lastMessageAt: 'desc' } } } });
             } catch {
                 existing = null;
             }
@@ -149,7 +150,7 @@ export class CustomerController {
             const strippedUuid = id.replace(/^(cust|cand)-/, '');
             if (UUID_REGEX.test(strippedUuid)) {
                 try {
-                    existing = await this.prisma.customer.findUnique({ where: { id: strippedUuid } });
+                    existing = await this.prisma.customer.findUnique({ where: { id: strippedUuid }, include: { conversations: { include: { channelAccount: true }, take: 1, orderBy: { lastMessageAt: 'desc' } } } });
                 } catch {
                     existing = null;
                 }
@@ -182,11 +183,13 @@ export class CustomerController {
                                 OR: [
                                     ...(channel ? [{ channelIdentities: { path: [channel], equals: senderExternalId } }] : []),
                                     { channelIdentities: { path: ['facebook'], equals: senderExternalId } },
+                                    { channelIdentities: { path: ['zalo', 'id'], equals: senderExternalId } },
                                     { channelIdentities: { path: ['zalo'], equals: senderExternalId } },
                                     { channelIdentities: { path: ['socialId'], equals: senderExternalId } },
                                 ],
                             },
                             orderBy: { updatedAt: 'desc' },
+                            include: { conversations: { include: { channelAccount: true }, take: 1, orderBy: { lastMessageAt: 'desc' } } },
                         });
                     } catch {
                         existing = null;
@@ -207,6 +210,7 @@ export class CustomerController {
                     where: {
                         OR: [
                             { channelIdentities: { path: ['facebook'], equals: cleanSocialId } },
+                            { channelIdentities: { path: ['zalo', 'id'], equals: cleanSocialId } },
                             { channelIdentities: { path: ['zalo'], equals: cleanSocialId } },
                             { channelIdentities: { path: ['socialId'], equals: cleanSocialId } },
                             { channelIdentities: { path: ['facebook'], equals: id } },
@@ -216,7 +220,8 @@ export class CustomerController {
                         ],
                     },
                     orderBy: { updatedAt: 'desc' },
-                });
+                            include: { conversations: { include: { channelAccount: true }, take: 1, orderBy: { lastMessageAt: 'desc' } } },
+                        });
             } catch {
                 existing = null;
             }
@@ -231,6 +236,7 @@ export class CustomerController {
             try {
                 newCust = await this.prisma.customer.create({
                     data: {
+                        ...(headerWsId && UUID_REGEX.test(headerWsId) ? { workspaceId: headerWsId } : {}),
                         fullName: body.fullName || (id.startsWith('cand-') ? 'Ứng viên mới' : 'Khách hàng'),
                         phone: validPhone,
                         email: validEmail,
@@ -250,6 +256,7 @@ export class CustomerController {
             } catch {
                 newCust = await this.prisma.customer.create({
                     data: {
+                        ...(headerWsId && UUID_REGEX.test(headerWsId) ? { workspaceId: headerWsId } : {}),
                         fullName: body.fullName || (id.startsWith('cand-') ? 'Ứng viên mới' : 'Khách hàng'),
                         phone: validPhone,
                         email: validEmail,
@@ -336,6 +343,7 @@ export class CustomerController {
             updated = await this.prisma.customer.update({
                 where: { id: existing.id },
                 data: {
+                    ...(headerWsId && UUID_REGEX.test(headerWsId) && !existing.workspaceId ? { workspaceId: headerWsId } : {}),
                     ...(body.fullName ? { fullName: body.fullName } : {}),
                     ...(body.phone !== undefined ? { phone: body.phone } : {}),
                     ...(body.email !== undefined ? { email: body.email } : {}),
@@ -348,6 +356,7 @@ export class CustomerController {
             updated = await this.prisma.customer.update({
                 where: { id: existing.id },
                 data: {
+                    ...(headerWsId && UUID_REGEX.test(headerWsId) && !existing.workspaceId ? { workspaceId: headerWsId } : {}),
                     ...(body.fullName ? { fullName: body.fullName } : {}),
                     ...(body.phone !== undefined ? { phone: body.phone } : {}),
                     ...(body.email !== undefined ? { email: body.email } : {}),
@@ -387,13 +396,23 @@ export class CustomerController {
 
         if (body.leadStage !== undefined || body.leadStatus !== undefined) {
             try {
+                const firstConv = existing.conversations?.[0];
                 this.realtime?.broadcastPipelineChange({
                     customerId: existing.id,
                     customerName: updated.fullName,
                     newStage: (body.leadStage || existing.leadStage || 'STAGE_NEW') as string,
                     previousStage: (existing.leadStage || 'STAGE_NEW') as string,
                     updatedBy: body.updatedBy || 'Hệ thống CRM',
-                });
+                    phone: updated.phone || undefined,
+                    email: updated.email || undefined,
+                    avatarUrl: updated.avatarUrl || undefined,
+                    channel: firstConv?.channelAccount?.channel || 'ZALO',
+                    channelAccountName: firstConv?.channelAccount?.displayName || 'Kênh trực tuyến',
+                    estimatedValue: updatedIdentities.estimatedValue || 0,
+                    interestCourses: updatedIdentities.interestCourses || [],
+                    tags: cleanTags || updatedIdentities.tags || ['Lead'],
+                    conversationId: body.conversationId || firstConv?.id,
+                } as any);
             } catch { }
         }
 

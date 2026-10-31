@@ -333,7 +333,7 @@ export const WorkspaceDetailPage: React.FC<WorkspaceDetailPageProps> = ({
   const domainLabel = getDomainLabel(workspace.domain);
 
   return (
-    <div className="workspace-flat-detail w-full max-w-[1200px] mx-auto pb-16 bg-white">
+    <div className="workspace-flat-detail w-full max-w-[1140px] mx-auto px-4 sm:px-6 md:px-8 py-2 pb-16 bg-white">
       {/* 1. Header chi tiết Workspace & Dãy nút thao tác (Tách component) */}
       <div className="pb-6 border-b border-slate-200">
         <WorkspaceDetailHeader

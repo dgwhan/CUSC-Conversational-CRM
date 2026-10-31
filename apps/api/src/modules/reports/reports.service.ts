@@ -50,12 +50,38 @@ export class ReportsService {
     );
 
     // Xác định workspaceId dạng UUID nếu có
-    const targetWsId =
-      workspaceId && isUuid(workspaceId)
-        ? workspaceId
-        : config.workspaceId && isUuid(config.workspaceId)
-          ? config.workspaceId
-          : undefined;
+    let targetWsId = workspaceId && isUuid(workspaceId) ? workspaceId : undefined;
+    if (!targetWsId && config.workspaceId && isUuid(config.workspaceId)) {
+      targetWsId = config.workspaceId;
+    }
+    if (!targetWsId) {
+      targetWsId = (await this.configService.resolveWorkspaceForOwner(ownerId || currentStaffId || '')) || undefined;
+    }
+
+    // Tự động dọn dẹp các hội thoại & customer rác cũ (tự sinh từ danh bạ bạn bè Zalo cũ không có tin nhắn)
+    if (targetWsId && this.prisma?.customer) {
+      try {
+        await (this.prisma as any).conversation.deleteMany({
+          where: {
+            workspaceId: targetWsId,
+            snippet: 'Đồng bộ từ danh bạ Zalo',
+            messages: { none: {} },
+          },
+        }).catch(() => {});
+
+        await this.prisma.customer.deleteMany({
+          where: {
+            workspaceId: targetWsId,
+            fullName: { startsWith: 'Bạn Zalo #' },
+            conversations: {
+              none: {
+                messages: { some: {} },
+              },
+            },
+          },
+        }).catch(() => {});
+      } catch {}
+    }
 
     // 2. Xác định mốc thời gian lọc
     const now = new Date();

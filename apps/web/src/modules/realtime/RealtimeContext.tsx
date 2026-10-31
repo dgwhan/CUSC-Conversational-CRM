@@ -33,6 +33,15 @@ export interface PipelineChangeEventData {
   newStage: string;
   previousStage: string;
   updatedBy: string;
+  phone?: string;
+  email?: string;
+  avatarUrl?: string;
+  channel?: ChannelType;
+  channelAccountName?: string;
+  estimatedValue?: number;
+  interestCourses?: string[];
+  tags?: string[];
+  conversationId?: string;
 }
 
 export interface RealtimeContextValue {
@@ -323,34 +332,47 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         const ws = new WebSocket(wsUrl);
         webSocketRef.current = ws;
+        let pingInterval: ReturnType<typeof setInterval> | null = null;
 
         ws.onopen = () => {
           if (!isMounted) return;
-          retryDelay = 5000;
+          retryDelay = 2000;
           setConnectionStatus('CONNECTED');
+          // Giữ kết nối liên tục bằng heartbeat ping mỗi 15 giây
+          pingInterval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              try {
+                ws.send(JSON.stringify({ type: 'ping' }));
+              } catch {}
+            }
+          }, 15000);
         };
 
         ws.onmessage = (event) => {
           try {
             const parsed = JSON.parse(event.data);
+            if (parsed.type === 'pong' || parsed.type === 'heartbeat') return;
             handlePayload(parsed.type, parsed.data || parsed);
           } catch (e) {
             console.error('Failed to parse WebSocket message:', e);
           }
         };
 
-        ws.onerror = () => {
-          if (webSocketRef.current === ws) {
-            connectSSE();
-          }
+        const handleDisconnect = () => {
+          if (pingInterval) clearInterval(pingInterval);
+          if (!isMounted) return;
+          setConnectionStatus('CONNECTING');
+          retryDelay = Math.min(Math.round(retryDelay * 1.5), 10000);
+          if (reconnectTimeout) clearTimeout(reconnectTimeout);
+          reconnectTimeout = setTimeout(() => {
+            if (isMounted) {
+              connect();
+            }
+          }, retryDelay);
         };
 
-        ws.onclose = () => {
-          if (!isMounted) return;
-          if (webSocketRef.current === ws) {
-            connectSSE();
-          }
-        };
+        ws.onerror = handleDisconnect;
+        ws.onclose = handleDisconnect;
       } catch {
         connectSSE();
       }
@@ -377,7 +399,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         eventSourceRef.current.close();
       }
     };
-  }, [handleIncomingMessage]);
+  }, [handleIncomingMessage, isAuthenticated]);
 
   return (
     <RealtimeContext.Provider

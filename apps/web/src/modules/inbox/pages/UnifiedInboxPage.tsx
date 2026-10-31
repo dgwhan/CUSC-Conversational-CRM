@@ -303,7 +303,8 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         if (Array.isArray(parsed) && parsed.length > 0) {
           const isSelfName = (n?: string) => {
             const lower = n?.trim()?.toLowerCase() || '';
-            return lower === 'ngnphú cường' || lower === 'ngnph cuong' || lower === 'ngnphú cuong' || lower === 'ngnph cường';
+            if (staffName && lower === staffName.trim().toLowerCase()) return true;
+            return lower.includes('cường') || lower.includes('cuong');
           };
           const cleaned = parsed
             .filter((c: ConversationItem) => !isSelfName(c.customer?.fullName))
@@ -458,12 +459,23 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           const isCounselorName =
             candidateName &&
             (candidateName.toLowerCase().includes('cường') ||
-              candidateName.toLowerCase() === latest.channelAccount?.displayName?.toLowerCase());
+              candidateName.toLowerCase() === latest.channelAccount?.displayName?.toLowerCase() ||
+              Boolean(staffName && candidateName.toLowerCase() === staffName.toLowerCase()));
 
           const rawCustomerName =
             matchedCust?.fullName ||
             (!isCounselorName && candidateName) ||
             `Khách hàng ${latest.channel === 'ZALO' ? 'Zalo' : latest.channel === 'FACEBOOK' ? 'Facebook' : latest.channel} #${latestSuffix}`;
+
+          const isSelfConv =
+            (latestSenderId && myExtId && latestSenderId === myExtId && (!outRecipient || outRecipient === myExtId)) ||
+            (rawCustomerName && latest.channelAccount?.displayName && rawCustomerName.trim().toLowerCase() === latest.channelAccount.displayName.trim().toLowerCase()) ||
+            (staffName && rawCustomerName && rawCustomerName.trim().toLowerCase() === staffName.trim().toLowerCase()) ||
+            rawCustomerName.trim().toLowerCase().includes('cường');
+
+          if (isSelfConv) {
+            continue;
+          }
 
           const rawCustomerAvatar =
             matchedCust?.avatarUrl ||
@@ -765,6 +777,11 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           return [updatedTarget, ...remaining];
         }
 
+        // Bỏ qua tin nhắn OUTBOUND chưa rõ người nhận để tránh sinh trùng hộp thoại chính mình
+        if (msg.direction === 'OUTBOUND' && !(msg as any).recipientName && !(msg as any).customerName) {
+          return prev;
+        }
+
         // Tự động tạo cuộc hội thoại mới khi nhận được tin nhắn từ khách hàng mới chưa từng có trong hệ thống
         const isFb = msg.channel === 'FACEBOOK';
         const defaultTags = isFb ? ['Lead'] : ['Khách hàng mới'];
@@ -772,9 +789,9 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         const isCounselorName = (n?: string) => {
           const lower = n?.trim()?.toLowerCase() || '';
           return (
-            lower.includes('cường') ||
             lower.includes('(bạn)') ||
             lower === 'tư vấn viên' ||
+            lower === 'bạn' ||
             Boolean(staffName && lower === staffName.toLowerCase())
           );
         };
@@ -1196,28 +1213,47 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
       })
     );
 
-    // Đồng bộ sang phễu Kanban trong LocalStorage để bên Kanban lập tức cập nhật
+    // Đồng bộ sang phễu Kanban trong LocalStorage: cập nhật hoặc tự động đổ khách hàng mới vào
     try {
       const kanbanRaw = localStorage.getItem('polarisx_crm_kanban_candidates') || localStorage.getItem('cusc_crm_kanban_candidates');
-      if (kanbanRaw) {
-        const kanbanList = JSON.parse(kanbanRaw);
-        if (Array.isArray(kanbanList)) {
-          const updatedKanban = kanbanList.map((cand: any) => {
-            if (
-              cand.conversationId === currentConv.id ||
-              cand.id === currentConv.customer.id ||
-              cand.fullName === currentConv.customer.fullName
-            ) {
-              return {
-                ...cand,
-                stage: resolvedStageId,
-              };
-            }
-            return cand;
-          });
-          localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
+      const kanbanList = kanbanRaw ? JSON.parse(kanbanRaw) : [];
+      let found = false;
+      const updatedKanban = (Array.isArray(kanbanList) ? kanbanList : []).map((cand: any) => {
+        if (
+          cand.conversationId === currentConv.id ||
+          cand.id === currentConv.customer.id ||
+          cand.fullName === currentConv.customer.fullName
+        ) {
+          found = true;
+          return {
+            ...cand,
+            stage: resolvedStageId,
+          };
         }
+        return cand;
+      });
+
+      if (!found) {
+        // Tự động đổ dữ liệu ứng viên mới vào Kanban
+        updatedKanban.unshift({
+          id: currentConv.customer.id,
+          fullName: currentConv.customer.fullName,
+          phone: currentConv.customer.phone && currentConv.customer.phone !== 'Chưa có SĐT' ? currentConv.customer.phone : 'Chưa có SĐT',
+          email: currentConv.customer.email && currentConv.customer.email !== 'Chưa có Email' ? currentConv.customer.email : 'Chưa có Email',
+          avatarUrl: currentConv.customer.avatarUrl,
+          channel: currentConv.channel,
+          channelAccountName: currentConv.channelAccountName,
+          stage: resolvedStageId,
+          estimatedTuition: currentConv.customer.estimatedValue || 0,
+          priority: 'MEDIUM',
+          interestCourses: currentConv.customer.interestCourses || [],
+          lastActivityAt: 'Vừa xong',
+          notesCount: 0,
+          tags: currentConv.tags || currentConv.customer.tags || ['Lead'],
+          conversationId: currentConv.id,
+        });
       }
+      localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
     } catch { }
 
     // Lưu vào Backend Database Customer qua API
@@ -1257,6 +1293,14 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
             conversationId: currentConv.id,
             leadStage: resolvedStageId,
             leadStatus: computedStatus,
+            phone: currentConv.customer.phone,
+            email: currentConv.customer.email,
+            avatarUrl: currentConv.customer.avatarUrl,
+            channel: currentConv.channel,
+            channelAccountName: currentConv.channelAccountName,
+            estimatedTuition: currentConv.customer.estimatedValue || 0,
+            interestCourses: currentConv.customer.interestCourses || [],
+            tags: currentConv.tags || currentConv.customer.tags || ['Lead'],
           },
         })
       );

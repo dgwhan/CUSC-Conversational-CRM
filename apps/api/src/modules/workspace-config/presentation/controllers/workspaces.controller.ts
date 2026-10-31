@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Param,
@@ -12,9 +13,11 @@ import {
 import { WorkspaceConfigService } from '../../application/workspace-config.service.js';
 import { WorkspaceRolesGuard } from '../../../../common/guards/workspace-roles.guard.js';
 import { Roles } from '../../../../common/decorators/roles.decorator.js';
+import type { WorkspaceConfig } from '../../../../contracts/workspace-config.js';
 import type {
   CreateWorkspaceRequestDto,
   UpdateWorkspaceRequestDto,
+  UpdateWorkspaceConfigRequestDto,
   CreateHotlineRequestDto,
   UpdateHotlineRequestDto,
   WorkspaceItemResponseDto,
@@ -77,6 +80,32 @@ export class WorkspacesController {
     @Headers('x-owner-id') ownerId?: string,
   ): Promise<DeleteWorkspaceResponseDto> {
     return this.configService.deleteWorkspace(workspaceId, staffId, ownerId);
+  }
+
+  /**
+   * Lấy cấu hình của một Workspace cụ thể theo ID
+   */
+  @Get(':id/config')
+  async getWorkspaceConfig(
+    @Param('id') workspaceId: string,
+    @Headers('x-owner-id') ownerId?: string,
+    @Headers('x-staff-id') staffId?: string,
+  ): Promise<WorkspaceConfig> {
+    return this.configService.getConfig(workspaceId, ownerId, staffId);
+  }
+
+  /**
+   * Cập nhật cấu hình của một Workspace cụ thể theo ID
+   */
+  @Put(':id/config')
+  @Roles('OWNER')
+  async updateWorkspaceConfig(
+    @Param('id') workspaceId: string,
+    @Body() body: UpdateWorkspaceConfigRequestDto,
+    @Headers('x-owner-id') ownerId?: string,
+    @Headers('x-staff-id') staffId?: string,
+  ): Promise<WorkspaceConfig> {
+    return this.configService.updateConfig(workspaceId, body, ownerId, staffId);
   }
 
   /**

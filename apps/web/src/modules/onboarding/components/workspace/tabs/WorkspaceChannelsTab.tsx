@@ -171,12 +171,12 @@ export const WorkspaceChannelsTab: React.FC<WorkspaceChannelsTabProps> = ({
         )}
 
         {!isLoading && filteredChannels.length > 0 && (
-          <div className="border border-slate-200 rounded-none bg-white">
+          <div className="border border-slate-200/80 rounded-xl bg-white overflow-hidden shadow-2xs">
             {/* Header thanh lịch cho danh sách kênh */}
-            <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600 font-semibold uppercase tracking-wider">
+            <div className="px-5 sm:px-6 py-3 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600 font-semibold uppercase tracking-wider">
               <div className="flex items-center gap-2">
                 <span>Kênh đã kết nối</span>
-                <span className="px-1.5 py-0.5 text-[11px] font-bold bg-white text-slate-700 border border-slate-200">
+                <span className="px-2 py-0.5 text-[11px] font-bold bg-white text-slate-700 border border-slate-200 rounded-md">
                   {filteredChannels.length}
                 </span>
               </div>
@@ -204,12 +204,12 @@ export const WorkspaceChannelsTab: React.FC<WorkspaceChannelsTabProps> = ({
                 return (
                   <div
                     key={ch.id}
-                    className="p-4 flex items-center justify-between flex-wrap gap-4 hover:bg-slate-50/70 transition-colors"
+                    className="p-4 sm:p-5 px-5 sm:px-6 flex items-center justify-between flex-wrap gap-4 hover:bg-slate-50/70 transition-colors"
                   >
                     {/* Left: Tên nền tảng, Tên trang & StatusBadge */}
                     <div className="flex items-center gap-3.5 min-w-[260px]">
                       {/* Platform Icon Badge */}
-                      <div className="w-10 h-10 border border-slate-200 bg-slate-50 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 border border-slate-200/80 bg-slate-50 rounded-lg flex items-center justify-center shrink-0">
                         {ch.channel === 'FACEBOOK' && (
                           <span className="font-bold text-xs text-blue-600 tracking-wider">FB</span>
                         )}
@@ -280,7 +280,7 @@ export const WorkspaceChannelsTab: React.FC<WorkspaceChannelsTabProps> = ({
                         type="button"
                         onClick={() => onToggleChannel(ch.id, ch.isActive)}
                         disabled={togglingChannelId === ch.id}
-                        className="inline-flex items-center justify-center w-[30px] h-[30px] text-xs font-medium bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-none cursor-pointer transition-colors"
+                        className="inline-flex items-center justify-center w-[32px] h-[32px] text-xs font-medium bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md cursor-pointer transition-colors"
                         title={ch.isActive ? 'Tạm dừng nhận tin nhắn' : 'Kích hoạt lại kênh'}
                       >
                         <Power size={13} className={ch.isActive ? 'text-slate-400' : 'text-emerald-600'} />
@@ -289,7 +289,7 @@ export const WorkspaceChannelsTab: React.FC<WorkspaceChannelsTabProps> = ({
                       <button
                         type="button"
                         onClick={() => onDisconnectChannel(ch.id, ch.displayName)}
-                        className="inline-flex items-center justify-center w-[30px] h-[30px] text-xs font-medium bg-white border border-red-200 hover:bg-red-50 text-red-600 rounded-none cursor-pointer transition-colors"
+                        className="inline-flex items-center justify-center w-[32px] h-[32px] text-xs font-medium bg-white border border-red-200 hover:bg-red-50 text-red-600 rounded-md cursor-pointer transition-colors"
                         title="Ngắt kết nối trang này khỏi không gian làm việc"
                       >
                         <Trash2 size={13} />
@@ -313,7 +313,7 @@ export const WorkspaceChannelsTab: React.FC<WorkspaceChannelsTabProps> = ({
           {CHANNEL_PLATFORMS_CONFIG.map((platform) => (
             <div
               key={platform.key}
-              className="border border-slate-200 rounded-none bg-white p-4 flex flex-col justify-between gap-3 hover:border-blue-500 transition-colors"
+              className="border border-slate-200/80 rounded-xl bg-white p-5 flex flex-col justify-between gap-4 hover:border-blue-500 hover:shadow-xs transition-all"
             >
               <div>
                 <div className="text-sm font-bold text-slate-900 mb-1 flex items-center justify-between">

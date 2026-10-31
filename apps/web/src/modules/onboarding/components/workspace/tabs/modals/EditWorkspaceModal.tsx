@@ -80,7 +80,7 @@ export const EditWorkspaceModal: React.FC<EditWorkspaceModalProps> = ({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="VD: CUSC Cần Thơ..."
-            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-none outline-none focus:border-blue-600 box-border bg-white"
+            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 shadow-xs box-border bg-white transition-all"
           />
         </div>
 
@@ -91,7 +91,7 @@ export const EditWorkspaceModal: React.FC<EditWorkspaceModalProps> = ({
           <select
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
-            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-none bg-white text-slate-700 outline-none focus:border-blue-600 cursor-pointer box-border"
+            className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md bg-white text-slate-700 outline-none focus:border-blue-600 shadow-xs cursor-pointer box-border transition-all"
           >
             {DOMAIN_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>

@@ -179,7 +179,7 @@ export class WorkspaceConfigService {
       for (const ws of ownedWorkspaces) {
         resultMap.set(ws.id, {
           id: ws.id,
-          name: ws.configuration?.workspaceName || ws.name || 'PolarisX Workspace',
+          name: ws.name || ws.configuration?.workspaceName || 'PolarisX Workspace',
           slug: ws.slug,
           role: 'OWNER',
           isOwner: true,
@@ -626,20 +626,17 @@ export class WorkspaceConfigService {
     if (!this.prisma) return (workspaceId && isUuid(workspaceId)) ? workspaceId : null;
 
     try {
-      // 1. Nếu workspaceId truyền lên là UUID hợp lệ, kiểm tra xem có thuộc về Owner này không
-      if (workspaceId && isUuid(workspaceId)) {
+      // 1. Nếu workspaceId truyền lên hợp lệ, kiểm tra xem có thuộc về Owner này không
+      if (workspaceId && workspaceId !== 'ws-default-001') {
         const directWs = await this.prisma.workspace.findFirst({
-          where: { id: workspaceId, ownerId: resolvedOwner },
+          where: isUuid(workspaceId)
+            ? { id: workspaceId, ownerId: resolvedOwner }
+            : { OR: [{ id: workspaceId }, { slug: workspaceId }] },
         });
         if (directWs) return directWs.id;
-
-        const anyWs = await this.prisma.workspace.findUnique({
-          where: { id: workspaceId },
-        });
-        if (anyWs && anyWs.ownerId === resolvedOwner) return anyWs.id;
       }
 
-      // 2. Tìm workspace sẵn có của Owner này trong bảng workspaces
+      // 2. Fallback sang workspace đầu tiên của Owner nếu không truyền hoặc không khớp
       const existingOwnerWs = await this.prisma.workspace.findFirst({
         where: { ownerId: resolvedOwner },
         orderBy: { createdAt: 'asc' },
@@ -685,14 +682,13 @@ export class WorkspaceConfigService {
         if (resolvedOwner) {
           const actualWsId = await this.resolveWorkspaceForOwner(resolvedOwner, workspaceId);
 
-          let dbConfig = await this.prisma.workspaceConfiguration.findFirst({
-            where: {
-              OR: [
-                { ownerId: resolvedOwner },
-                ...(actualWsId ? [{ workspaceId: actualWsId }] : []),
-              ],
-            },
-          });
+          let dbConfig = actualWsId
+            ? await this.prisma.workspaceConfiguration.findFirst({
+                where: { workspaceId: actualWsId },
+              })
+            : await this.prisma.workspaceConfiguration.findFirst({
+                where: { ownerId: resolvedOwner, workspaceId: null },
+              });
 
           // Tự động khởi tạo và lưu vào DB nếu Owner này chưa có cấu hình
           if (!dbConfig) {
@@ -795,14 +791,13 @@ export class WorkspaceConfigService {
         if (resolvedOwner) {
           const actualWsId = await this.resolveWorkspaceForOwner(resolvedOwner, workspaceId);
 
-          const existing = await this.prisma.workspaceConfiguration.findFirst({
-            where: {
-              OR: [
-                { ownerId: resolvedOwner },
-                ...(actualWsId ? [{ workspaceId: actualWsId }] : []),
-              ],
-            },
-          });
+          const existing = actualWsId
+            ? await this.prisma.workspaceConfiguration.findFirst({
+                where: { workspaceId: actualWsId },
+              })
+            : await this.prisma.workspaceConfiguration.findFirst({
+                where: { ownerId: resolvedOwner, workspaceId: null },
+              });
 
           const wsToLink = actualWsId || existing?.workspaceId || (isUuid(workspaceId) ? workspaceId : null);
 
