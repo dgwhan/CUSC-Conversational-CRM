@@ -203,7 +203,11 @@ export class MessageRepository implements OnModuleInit {
                     if (!customerId && customerExternalId && customerExternalId !== 'unknown') {
                         const cust = await this.prisma.customer.findFirst({
                             where: {
-                                channelIdentities: { path: [e.channel.toLowerCase()], equals: String(customerExternalId) },
+                                OR: [
+                                    { channelIdentities: { path: [e.channel.toLowerCase()], equals: String(customerExternalId) } },
+                                    { channelIdentities: { path: [e.channel.toLowerCase(), 'id'], equals: String(customerExternalId) } },
+                                    { channelIdentities: { path: ['socialId'], equals: String(customerExternalId) } },
+                                ],
                             },
                             select: { id: true },
                         });
@@ -354,7 +358,11 @@ export class MessageRepository implements OnModuleInit {
                 if (!customerId && customerExternalId) {
                     const cust = await this.prisma.customer.findFirst({
                         where: {
-                            channelIdentities: { path: [msg.channel.toLowerCase()], equals: String(customerExternalId) },
+                            OR: [
+                                { channelIdentities: { path: [msg.channel.toLowerCase()], equals: String(customerExternalId) } },
+                                { channelIdentities: { path: [msg.channel.toLowerCase(), 'id'], equals: String(customerExternalId) } },
+                                { channelIdentities: { path: ['socialId'], equals: String(customerExternalId) } },
+                            ],
                         },
                         select: { id: true },
                     });

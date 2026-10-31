@@ -893,10 +893,12 @@ export class ChannelManagerService {
           dbCustomer = await this.prisma.customer.findFirst({
             where: {
               workspaceId: targetWsId,
-              channelIdentities: {
-                path: ['zalo', 'id'],
-                equals: customerZaloId,
-              },
+              OR: [
+                { channelIdentities: { path: ['zalo', 'id'], equals: customerZaloId } },
+                { channelIdentities: { path: ['zalo'], equals: customerZaloId } },
+                { channelIdentities: { path: ['socialId'], equals: customerZaloId } },
+                ...(customerName && !customerName.startsWith('Khách hàng') ? [{ fullName: customerName }] : []),
+              ],
             },
           });
 
@@ -1000,7 +1002,7 @@ export class ChannelManagerService {
 
         // Bắn sự kiện Realtime WebSocket về Unified Inbox
         if (this.realtime && created.length > 0) {
-          const convKey = `ZALO_${account.externalAccountId}_${customerZaloId}`;
+          const convKey = dbConv?.id || `ZALO_${account.externalAccountId}_${customerZaloId}`;
           this.realtime.broadcastNewMessage({
             id: created[0].id,
             conversationId: convKey,

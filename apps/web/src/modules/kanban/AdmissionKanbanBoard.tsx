@@ -232,24 +232,26 @@ const { isOwner, isAgent, staffId } = useUserRole();
     return () => window.removeEventListener('crm:lead-updated', handleLeadUpdated);
   }, [config.pipelineStages]);
 
-  // Tự động tải danh sách khách hàng từ CSDL vào Phễu Kanban
+  // Tự động tải danh sách khách hàng từ CSDL vào Phễu Kanban (Nguồn chân lý chuẩn xác)
   useEffect(() => {
     let isMounted = true;
     const loadDbCustomers = async () => {
       try {
         const data = await apiClient.getCustomers({ workspaceId: activeWorkspaceId || undefined });
-        if (!isMounted || !data?.items || data.items.length === 0) return;
+        if (!isMounted) return;
+        if (!data || !Array.isArray(data.items)) return;
 
         const firstStageId = config.pipelineStages[0]?.id || 'STAGE_NEW';
 
         setCandidates((prev) => {
-          let updated = [...prev];
-          for (const cust of data.items) {
+          // Ánh xạ toàn bộ khách hàng từ DB - Đảm bảo số lượng và thông tin khớp tuyệt đối với DB
+          return data.items.map((cust: any) => {
             const latestConv = cust.conversations?.[0];
-            const existingIdx = updated.findIndex(
+            const identities = (cust.channelIdentities as any) || {};
+            const existing = prev.find(
               (c) => c.id === cust.id || (latestConv?.id && c.conversationId === latestConv.id) || c.fullName === cust.fullName
             );
-            const dbStage = cust.leadStage || cust.channelIdentities?.leadStage;
+            const dbStage = cust.leadStage || identities.leadStage;
             const matchedConfig = config.pipelineStages.find(
               (s) =>
                 s.id === dbStage ||
@@ -257,51 +259,34 @@ const { isOwner, isAgent, staffId } = useUserRole();
                 s.id.replace('STAGE_', '') === dbStage ||
                 s.name.toLowerCase() === String(dbStage).toLowerCase()
             );
+            const resolvedStage = matchedConfig ? (matchedConfig.id as LeadStage) : ((dbStage as LeadStage) || existing?.stage || (firstStageId as LeadStage));
+            const avatar = cust.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(cust.fullName)}&background=0284c7&color=fff&bold=true`;
+            const chType = (latestConv?.channelAccount?.channel as ChannelType) || (identities.channel as ChannelType) || 'ZALO';
+            const chName = latestConv?.channelAccount?.displayName || `Kênh ${chType}`;
+            const timeStr = latestConv?.lastMessageAt
+              ? new Date(latestConv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : (existing?.lastActivityAt || 'Vừa xong');
 
-            if (existingIdx >= 0) {
-              const existing = updated[existingIdx];
-              const resolvedStage = matchedConfig ? (matchedConfig.id as LeadStage) : ((dbStage as LeadStage) || existing.stage);
-              // Cập nhật lại các mục đã gán từ DB nếu có thay đổi
-              const shouldUpdateTuition =
-                cust.interestCourses &&
-                cust.interestCourses.length > 0 &&
-                (!existing.interestCourses || existing.interestCourses.length === 0 || existing.estimatedTuition === 0);
-
-              updated[existingIdx] = {
-                ...existing,
-                stage: resolvedStage,
-                interestCourses: shouldUpdateTuition ? (cust.interestCourses || []) : existing.interestCourses,
-                estimatedTuition: shouldUpdateTuition ? (cust.estimatedValue || existing.estimatedTuition) : existing.estimatedTuition,
-              };
-            } else {
-              const resolvedStage = matchedConfig ? (matchedConfig.id as LeadStage) : ((dbStage as LeadStage) || (firstStageId as LeadStage));
-              const avatar = cust.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(cust.fullName)}&background=0284c7&color=fff&bold=true`;
-              const chType = (latestConv?.channelAccount?.channel as ChannelType) || 'FACEBOOK';
-              const chName = latestConv?.channelAccount?.displayName || `Kênh ${chType}`;
-              const timeStr = latestConv?.lastMessageAt ? new Date(latestConv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong';
-
-              updated.unshift({
-                id: cust.id,
-                fullName: cust.fullName,
-                phone: cust.phone || 'Chưa có SĐT',
-                email: cust.email || 'Chưa có Email',
-                avatarUrl: avatar,
-                channel: chType,
-                channelAccountName: chName,
-                stage: resolvedStage || (firstStageId as LeadStage),
-                estimatedTuition: cust.estimatedValue || 0,
-                priority: 'MEDIUM',
-                interestCourses: cust.interestCourses || [],
-                lastActivityAt: timeStr,
-                notesCount: 0,
-                tags: Array.isArray(cust.tags) && cust.tags.length > 0
-                  ? cust.tags.map((t: string) => t.trim().toLowerCase() === 'facebook lead' ? 'Lead' : t)
-                  : ['Khách hàng DB', 'Lead'],
-                conversationId: latestConv?.id,
-              });
-            }
-          }
-          return updated;
+            return {
+              id: cust.id,
+              fullName: cust.fullName,
+              phone: cust.phone || existing?.phone || 'Chưa có SĐT',
+              email: cust.email || existing?.email || 'Chưa có Email',
+              avatarUrl: avatar,
+              channel: chType,
+              channelAccountName: chName,
+              stage: resolvedStage,
+              estimatedTuition: cust.estimatedValue !== undefined ? cust.estimatedValue : (existing?.estimatedTuition || 0),
+              priority: existing?.priority || 'MEDIUM',
+              interestCourses: (cust.interestCourses && cust.interestCourses.length > 0) ? cust.interestCourses : (existing?.interestCourses || []),
+              lastActivityAt: timeStr,
+              notesCount: existing?.notesCount || 0,
+              tags: Array.isArray(cust.tags) && cust.tags.length > 0
+                ? cust.tags.map((t: string) => t.trim().toLowerCase() === 'facebook lead' ? 'Lead' : t)
+                : (existing?.tags || ['Lead']),
+              conversationId: latestConv?.id || existing?.conversationId,
+            };
+          });
         });
       } catch {
         // Backend có thể chưa khởi động
@@ -316,7 +301,6 @@ const { isOwner, isAgent, staffId } = useUserRole();
   useEffect(() => {
     const unsubscribe = onNewMessage((msg) => {
       if (msg.direction === 'INBOUND') {
-        const firstStageId = config.pipelineStages[0]?.id || 'STAGE_NEW';
         setCandidates((prev) => {
           const exists = prev.some(
             (c) => (msg.conversationId && c.conversationId === msg.conversationId) || c.fullName === msg.senderName
@@ -328,38 +312,59 @@ const { isOwner, isAgent, staffId } = useUserRole();
                 : c
             );
           }
-
-          const newAvatar = msg.senderAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.senderName || 'Lead')}&background=0284c7&color=fff&bold=true`;
-          const newCand: KanbanCandidate = {
-            id: `cand-${Date.now()}`,
-            fullName: msg.senderName || 'Khách hàng mới',
-            phone: msg.customerPhone || 'Chưa có SĐT',
-            email: msg.customerEmail || 'Chưa có Email',
-            avatarUrl: newAvatar,
-            channel: (msg.channel as ChannelType) || 'FACEBOOK',
-            channelAccountName: `Kênh ${msg.channel || 'Facebook'}`,
-            stage: firstStageId as LeadStage,
-            estimatedTuition: 0,
-            priority: 'MEDIUM',
-            interestCourses: [],
-            lastActivityAt: 'Vừa xong',
-            notesCount: 0,
-            tags: ['Lead Mới', 'Facebook'],
-            conversationId: msg.conversationId,
-          };
-
-          notify.info(
-            `Ứng viên mới "${newCand.fullName}" từ Facebook đã tự động được thêm vào Phễu!`,
-            'Tự động đổ phễu'
-          );
-
-          return [newCand, ...prev];
+          return prev;
         });
+
+        // Tự động kéo từ DB nếu đây là khách hàng mới để đảm bảo dữ liệu chuẩn xác
+        apiClient.getCustomers({ workspaceId: activeWorkspaceId || undefined }).then((data) => {
+          if (!data?.items) return;
+          const firstStageId = config.pipelineStages[0]?.id || 'STAGE_NEW';
+          setCandidates((prev) => {
+            return data.items.map((cust: any) => {
+              const latestConv = cust.conversations?.[0];
+              const identities = (cust.channelIdentities as any) || {};
+              const existing = prev.find((c) => c.id === cust.id || c.fullName === cust.fullName);
+              const dbStage = cust.leadStage || identities.leadStage;
+              const matchedConfig = config.pipelineStages.find(
+                (s) =>
+                  s.id === dbStage ||
+                  s.id === `STAGE_${dbStage}` ||
+                  s.id.replace('STAGE_', '') === dbStage ||
+                  s.name.toLowerCase() === String(dbStage).toLowerCase()
+              );
+              const resolvedStage = matchedConfig ? (matchedConfig.id as LeadStage) : ((dbStage as LeadStage) || existing?.stage || (firstStageId as LeadStage));
+              const avatar = cust.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(cust.fullName)}&background=0284c7&color=fff&bold=true`;
+              const chType = (latestConv?.channelAccount?.channel as ChannelType) || (identities.channel as ChannelType) || 'ZALO';
+              const chName = latestConv?.channelAccount?.displayName || `Kênh ${chType}`;
+              const timeStr = latestConv?.lastMessageAt ? new Date(latestConv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Vừa xong';
+
+              return {
+                id: cust.id,
+                fullName: cust.fullName,
+                phone: cust.phone || existing?.phone || 'Chưa có SĐT',
+                email: cust.email || existing?.email || 'Chưa có Email',
+                avatarUrl: avatar,
+                channel: chType,
+                channelAccountName: chName,
+                stage: resolvedStage,
+                estimatedTuition: cust.estimatedValue !== undefined ? cust.estimatedValue : (existing?.estimatedTuition || 0),
+                priority: existing?.priority || 'MEDIUM',
+                interestCourses: (cust.interestCourses && cust.interestCourses.length > 0) ? cust.interestCourses : (existing?.interestCourses || []),
+                lastActivityAt: timeStr,
+                notesCount: existing?.notesCount || 0,
+                tags: Array.isArray(cust.tags) && cust.tags.length > 0
+                  ? cust.tags.map((t: string) => t.trim().toLowerCase() === 'facebook lead' ? 'Lead' : t)
+                  : (existing?.tags || ['Lead']),
+                conversationId: latestConv?.id || existing?.conversationId,
+              };
+            });
+          });
+        }).catch(() => {});
       }
     });
 
     return unsubscribe;
-  }, [onNewMessage, config.pipelineStages]);
+  }, [onNewMessage, config.pipelineStages, activeWorkspaceId]);
 
   
 

@@ -25,6 +25,7 @@ export class PrismaService
     try {
       await this.$connect();
       this.logger.log('Connected to PostgreSQL database successfully via Prisma');
+      this.deduplicateCustomersAndConversations().catch(() => {});
 
       // Tự động đảm bảo các cột và bảng cấu hình workspace & ràng buộc staff-owner tồn tại
       try {
@@ -101,6 +102,149 @@ export class PrismaService
     } catch (error) {
       this.logger.error('Failed to connect to PostgreSQL database', error);
       throw error;
+    }
+  }
+
+    async deduplicateCustomersAndConversations(): Promise<void> {
+    try {
+      const customers = await this.customer.findMany({
+        include: {
+          conversations: {
+            include: {
+              messages: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      const groups = new Map<string, typeof customers>();
+      for (const cust of customers) {
+        const identities = (cust.channelIdentities as any) || {};
+        const rawZalo = identities.zalo?.id || (typeof identities.zalo === 'string' ? identities.zalo : null) || identities.zaloId || identities.socialId;
+        const rawFb = identities.facebook;
+        const realName = cust.fullName && !cust.fullName.startsWith('Khách hàng') && !cust.fullName.startsWith('Lead')
+          ? cust.fullName.trim().toLowerCase()
+          : null;
+
+        let placeholderKey: string | null = null;
+        if (cust.fullName?.startsWith('Khách hàng Zalo #')) {
+          placeholderKey = cust.fullName.replace('Khách hàng Zalo #', '').trim();
+        }
+
+        const groupKey = rawZalo
+          ? `zalo_${rawZalo}`
+          : (rawFb
+            ? `fb_${rawFb}`
+            : (realName
+              ? `name_${realName}`
+              : (placeholderKey ? `ph_${placeholderKey}` : null)));
+
+        if (!groupKey) continue;
+        if (!groups.has(groupKey)) groups.set(groupKey, []);
+        groups.get(groupKey)!.push(cust);
+      }
+
+      for (const [key, duplicates] of groups.entries()) {
+        if (duplicates.length <= 1) continue;
+
+        const primary = duplicates.reduce((best, curr) => {
+          const score = (c: typeof curr) =>
+            (c.fullName.startsWith('Khách hàng') ? 0 : 20) +
+            (c.avatarUrl && !c.avatarUrl.includes('ui-avatars.com') ? 10 : 0) +
+            (c.phone && c.phone !== 'Chưa có SĐT' ? 5 : 0) +
+            c.conversations.reduce((acc, cv) => acc + cv.messages.length, 0);
+          return score(curr) > score(best) ? curr : best;
+        });
+
+        const others = duplicates.filter((c) => c.id !== primary.id);
+
+        for (const duplicate of others) {
+          for (const conv of duplicate.conversations) {
+            const existingPrimaryConv = primary.conversations.find((pc) => pc.channelAccountId === conv.channelAccountId);
+            if (existingPrimaryConv && existingPrimaryConv.id !== conv.id) {
+              await this.message.updateMany({
+                where: { conversationId: conv.id },
+                data: { conversationId: existingPrimaryConv.id },
+              });
+              await this.conversation.delete({ where: { id: conv.id } }).catch(() => {});
+            } else {
+              await this.conversation.update({
+                where: { id: conv.id },
+                data: { customerId: primary.id },
+              }).catch(() => {});
+            }
+          }
+
+          await this.customer.delete({ where: { id: duplicate.id } }).catch(() => {});
+          this.logger.log(`[Deduplicate] Đã gộp customer trùng: "${duplicate.fullName}" (${duplicate.id}) vào "${primary.fullName}" (${primary.id})`);
+        }
+      }
+
+      await this.customer.deleteMany({
+        where: {
+          fullName: 'Khách hàng',
+          avatarUrl: null,
+          conversations: {
+            none: {
+              messages: { some: {} },
+            },
+          },
+        },
+      }).catch(() => {});
+
+      // Xử lý các hội thoại mồ côi (customerId IS NULL) hoặc không có tin nhắn
+      const orphanConvs = await this.conversation.findMany({
+        where: { customerId: null },
+        include: { messages: true },
+      }).catch(() => []);
+
+      for (const conv of orphanConvs) {
+        if (!conv.messages || conv.messages.length === 0) {
+          await this.conversation.delete({ where: { id: conv.id } }).catch(() => {});
+          continue;
+        }
+
+        // Tìm khách hàng tương ứng từ tin nhắn
+        for (const msg of conv.messages) {
+          const payload = (msg.rawPayload as any) || {};
+          const matchedCustName = payload.customerName;
+          const matchedZaloId = payload.idTo || payload.recipient?.id || payload.uidFrom;
+
+          if (matchedCustName || matchedZaloId) {
+            const cust = await this.customer.findFirst({
+              where: {
+                OR: [
+                  matchedCustName ? { fullName: matchedCustName } : undefined,
+                  matchedZaloId ? { channelIdentities: { path: ['zalo', 'id'], equals: String(matchedZaloId) } } : undefined,
+                  matchedZaloId ? { channelIdentities: { path: ['zaloId'], equals: String(matchedZaloId) } } : undefined,
+                  matchedZaloId ? { channelIdentities: { path: ['socialId'], equals: String(matchedZaloId) } } : undefined,
+                ].filter(Boolean) as any,
+              },
+              include: { conversations: true },
+            });
+
+            if (cust) {
+              const primaryConv = cust.conversations[0];
+              if (primaryConv && primaryConv.id !== conv.id) {
+                await this.message.updateMany({
+                  where: { conversationId: conv.id },
+                  data: { conversationId: primaryConv.id },
+                });
+                await this.conversation.delete({ where: { id: conv.id } }).catch(() => {});
+              } else {
+                await this.conversation.update({
+                  where: { id: conv.id },
+                  data: { customerId: cust.id },
+                }).catch(() => {});
+              }
+              break;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`Deduplicate routine notice: ${(err as Error).message}`);
     }
   }
 

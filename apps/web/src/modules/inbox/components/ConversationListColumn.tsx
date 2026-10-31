@@ -16,6 +16,10 @@ export interface ConversationListColumnProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onSyncFacebook?: () => void;
+  isSyncingFacebook?: boolean;
+  onSyncZalo?: () => void;
+  isSyncingZalo?: boolean;
+  /** Backward compatibility */
   isSyncing?: boolean;
 }
 
@@ -61,8 +65,13 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
   selectedId,
   onSelect,
   onSyncFacebook,
+  isSyncingFacebook,
+  onSyncZalo,
+  isSyncingZalo,
   isSyncing,
 }) => {
+  const syncingFb = isSyncingFacebook ?? isSyncing;
+  const syncingZl = isSyncingZalo ?? false;
   const { t } = useTranslation();
   const { isAgent, staffId } = useUserRole();
   const [searchQuery, setSearchQuery] = useState('');
@@ -143,28 +152,55 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
               <span className="unread-total-badge">{totalUnread} {t('inbox.unreadCount')}</span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {onSyncFacebook && (
               <button
                 type="button"
                 className="crm-btn crm-btn-secondary crm-btn-sm"
                 style={{
-                  padding: '3px 8px',
+                  padding: '3px 7px',
                   fontSize: '11px',
+                  fontWeight: 600,
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  color: '#2563eb',
+                  gap: '3px',
+                  color: '#1877f2',
                   borderColor: '#bfdbfe',
                   background: '#eff6ff',
-                  cursor: isSyncing ? 'not-allowed' : 'pointer',
+                  cursor: syncingFb ? 'not-allowed' : 'pointer',
+                  borderRadius: '6px',
                 }}
-                disabled={isSyncing}
+                disabled={syncingFb}
                 onClick={onSyncFacebook}
                 title="Kéo các tin nhắn từ Fanpage Facebook về hộp thư"
               >
-                <RefreshCw size={11} className={isSyncing ? 'animate-spin' : ''} />
-                <span>{isSyncing ? 'Đang kéo...' : 'Kéo tin FB'}</span>
+                <RefreshCw size={11} className={syncingFb ? 'animate-spin' : ''} />
+                <span>{syncingFb ? 'Đang kéo...' : 'Kéo tin FB'}</span>
+              </button>
+            )}
+            {onSyncZalo && (
+              <button
+                type="button"
+                className="crm-btn crm-btn-secondary crm-btn-sm"
+                style={{
+                  padding: '3px 7px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  color: '#0068ff',
+                  borderColor: '#bae6fd',
+                  background: '#f0f9ff',
+                  cursor: syncingZl ? 'not-allowed' : 'pointer',
+                  borderRadius: '6px',
+                }}
+                disabled={syncingZl}
+                onClick={onSyncZalo}
+                title="Kéo các tin nhắn từ Zalo OA & Zalo Cá nhân về hộp thư"
+              >
+                <RefreshCw size={11} className={syncingZl ? 'animate-spin' : ''} />
+                <span>{syncingZl ? 'Đang kéo...' : 'Kéo tin Zalo'}</span>
               </button>
             )}
             <span className="total-convs-label">{conversations.length} {t('inbox.contactsCount')}</span>

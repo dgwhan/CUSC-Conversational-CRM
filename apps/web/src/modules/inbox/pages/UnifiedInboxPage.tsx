@@ -185,6 +185,33 @@ export const mergeDuplicateConversations = (conversations: ConversationItem[]): 
         return true;
       }
 
+      // 8. Khớp tin nhắn cuối cùng giống hệt nhau trong cùng kênh liên lạc
+      if (m.messages.length > 0 && conv.messages.length > 0) {
+        const lastM = m.messages[m.messages.length - 1];
+        const lastC = conv.messages[conv.messages.length - 1];
+        if (
+          lastM &&
+          lastC &&
+          lastM.content &&
+          lastC.content &&
+          lastM.content.trim() === lastC.content.trim() &&
+          m.channel === conv.channel
+        ) {
+          return true;
+        }
+      }
+
+      // 9. Gộp placeholder 'Khách hàng' hoặc 'Khách hàng Zalo #xxxx' nếu trùng ảnh hoặc trùng trích dẫn
+      const isPlaceholder = (n?: string) => !n || n === 'Khách hàng' || n.startsWith('Khách hàng Zalo #') || n.startsWith('Lead');
+      if (
+        m.channel === conv.channel &&
+        (isPlaceholder(mCust.fullName) || isPlaceholder(cCust.fullName)) &&
+        ((mCust.avatarUrl && cCust.avatarUrl && mCust.avatarUrl === cCust.avatarUrl && !mCust.avatarUrl.includes('ui-avatars.com')) ||
+         (m.snippet && conv.snippet && m.snippet.trim() === conv.snippet.trim()))
+      ) {
+        return true;
+      }
+
       return false;
     });
 
@@ -409,9 +436,12 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           }
         }
 
-        const convId = item.channel === 'FACEBOOK' && channelAccountExtId
-          ? `FACEBOOK_${channelAccountExtId}_${senderId}`
-          : `${item.channel}_${senderId}`;
+        const dbConvId = (item as any).conversationId || (item as any).conversation?.id;
+        const convId = dbConvId || (
+          item.channel === 'FACEBOOK' && channelAccountExtId
+            ? `FACEBOOK_${channelAccountExtId}_${senderId}`
+            : `${item.channel}_${senderId}`
+        );
 
         if (!groups[convId]) groups[convId] = [];
         groups[convId].push(item);
@@ -629,25 +659,27 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     loadSavedMessages();
   }, [loadSavedMessages, activeWorkspaceId]);
 
-  // Kéo các cuộc trò chuyện và tin nhắn mới nhất từ Meta Graph API của các Fanpage đã kết nối
+  const [isSyncingZalo, setIsSyncingZalo] = useState(false);
+
+  // Kéo các cuộc trò chuyện và tin nhắn từ Fanpage Facebook
   const handleSyncFacebook = async () => {
     setIsSyncingFb(true);
-    notify.info('Đang kết nối Meta Graph API để kéo tin nhắn từ các Fanpage...', 'Đồng bộ Facebook');
+    notify.info('Đang kết nối Meta Graph API để kéo tin nhắn từ các Fanpage Facebook...', 'Đồng bộ Facebook');
     try {
-      const channels = await apiClient.getChannels();
-      const activeChannels = channels.filter(
-        (c: any) => (c.channel === 'FACEBOOK' || c.channel === 'ZALO') && c.isActive,
+      const channels = await apiClient.getChannels(activeWorkspaceId || undefined);
+      const activeChannels = (channels || []).filter(
+        (c: any) => c.channel === 'FACEBOOK' && c.isActive,
       );
 
       if (activeChannels.length === 0) {
-        notify.warning('Chưa có kênh Zalo hoặc Facebook nào được kích hoạt trong Workspace. Vui lòng kết nối kênh trước.');
+        notify.warning('Chưa có Fanpage Facebook nào được kích hoạt trong Workspace.');
         return;
       }
 
       let totalSynced = 0;
       for (const ch of activeChannels) {
         try {
-          const res = await apiClient.syncChannel(ch.id as string);
+          const res = await apiClient.syncChannel(ch.id as string, activeWorkspaceId || undefined);
           totalSynced += res.syncedCount;
         } catch (err) {
           notify.warning(`Không thể kéo tin từ ${(ch as any).displayName}: ${(err as Error).message}`);
@@ -656,14 +688,52 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
 
       if (totalSynced > 0) {
         await loadSavedMessages();
-        notify.success(`Đã kéo thành công ${totalSynced} tin nhắn từ Zalo & Facebook vào Hộp thư!`, 'Đồng bộ hoàn tất');
+        notify.success(`Đã kéo thành công ${totalSynced} tin nhắn từ Facebook vào Hộp thư!`, 'Đồng bộ Facebook');
       } else {
-        notify.info('Đã quét các kênh: Hiện chưa có tin nhắn khách hàng mới nào cần kéo về.');
+        notify.info('Đã quét Fanpage: Hiện chưa có tin nhắn khách hàng mới nào.');
       }
     } catch (err) {
-      notify.error(`Lỗi khi đồng bộ: ${(err as Error).message}`);
+      notify.error(`Lỗi khi đồng bộ Facebook: ${(err as Error).message}`);
     } finally {
       setIsSyncingFb(false);
+    }
+  };
+
+  // Kéo các cuộc trò chuyện và tin nhắn từ Zalo (Zalo OA & Zalo Cá nhân zca-js)
+  const handleSyncZalo = async () => {
+    setIsSyncingZalo(true);
+    notify.info('Đang kết nối Zalo để đồng bộ tin nhắn...', 'Đồng bộ Zalo');
+    try {
+      const channels = await apiClient.getChannels(activeWorkspaceId || undefined);
+      const activeChannels = (channels || []).filter(
+        (c: any) => c.channel === 'ZALO' && c.isActive,
+      );
+
+      if (activeChannels.length === 0) {
+        notify.warning('Chưa có tài khoản Zalo nào được kích hoạt trong Workspace.');
+        return;
+      }
+
+      let totalSynced = 0;
+      for (const ch of activeChannels) {
+        try {
+          const res = await apiClient.syncChannel(ch.id as string, activeWorkspaceId || undefined);
+          totalSynced += res.syncedCount;
+        } catch (err) {
+          notify.warning(`Không thể kéo tin từ ${(ch as any).displayName}: ${(err as Error).message}`);
+        }
+      }
+
+      if (totalSynced > 0) {
+        await loadSavedMessages();
+        notify.success(`Đã kéo thành công ${totalSynced} tin nhắn từ Zalo vào Hộp thư!`, 'Đồng bộ Zalo');
+      } else {
+        notify.info('Đã quét Zalo: Hiện chưa có tin nhắn khách hàng mới nào cần kéo về.');
+      }
+    } catch (err) {
+      notify.error(`Lỗi khi đồng bộ Zalo: ${(err as Error).message}`);
+    } finally {
+      setIsSyncingZalo(false);
     }
   };
 
@@ -1550,7 +1620,9 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         selectedId={currentConv?.id || null}
         onSelect={handleSelectConversation}
         onSyncFacebook={handleSyncFacebook}
-        isSyncing={isSyncingFb}
+        isSyncingFacebook={isSyncingFb}
+        onSyncZalo={handleSyncZalo}
+        isSyncingZalo={isSyncingZalo}
       />
 
       {/* CỘT 2 (Giữa): Cửa sổ Chat Trực tuyến hoặc Placeholder trống */}

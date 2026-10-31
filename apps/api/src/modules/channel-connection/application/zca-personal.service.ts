@@ -637,47 +637,58 @@ export class ZcaPersonalService implements OnModuleInit {
     // Xác định Tên & Avatar của khách hàng
     let customerName = '';
     let customerAvatar = '';
+    let dbCustomer: any = null;
 
-    if (isSelf) {
-      // Khi tôi gửi tin, msgData.dName là tên của TÔI, tuyệt đối không dùng làm tên khách hàng
-      if (this.prisma?.customer && targetWsId) {
-        try {
-          const existingCust = await this.prisma.customer.findFirst({
-            where: {
-              workspaceId: targetWsId,
-              channelIdentities: {
-                path: ['zalo', 'id'],
-                equals: customerZaloId,
-              },
-            },
-          });
-          if (existingCust?.fullName) {
-            customerName = existingCust.fullName;
-            customerAvatar = existingCust.avatarUrl || '';
+    // 1. Luôn tra cứu Customer đã tồn tại trong DB theo customerZaloId (bất kể INBOUND hay OUTBOUND)
+    if (this.prisma?.customer && targetWsId) {
+      try {
+        dbCustomer = await this.prisma.customer.findFirst({
+          where: {
+            workspaceId: targetWsId,
+            OR: [
+              { channelIdentities: { path: ['zalo', 'id'], equals: customerZaloId } },
+              { channelIdentities: { path: ['zalo'], equals: customerZaloId } },
+              { channelIdentities: { path: ['socialId'], equals: customerZaloId } },
+            ],
+          },
+        });
+        if (dbCustomer) {
+          if (dbCustomer.fullName && !dbCustomer.fullName.startsWith('Khách hàng')) {
+            customerName = dbCustomer.fullName;
           }
-        } catch {}
-      }
-
-      // Nếu chưa có, thử tra cứu profile người nhận qua Zalo API
-      if (!customerName && api && typeof api.getUserInfo === 'function') {
-        try {
-          const info = await api.getUserInfo(customerZaloId).catch(() => null);
-          const uProfile = info?.profile || info?.[customerZaloId] || info;
-          if (uProfile?.displayName || uProfile?.name) {
-            customerName = uProfile.displayName || uProfile.name;
-            customerAvatar = uProfile.avatar || '';
+          if (dbCustomer.avatarUrl && !dbCustomer.avatarUrl.includes('ui-avatars.com')) {
+            customerAvatar = dbCustomer.avatarUrl;
           }
-        } catch {}
-      }
-
-      if (!customerName) {
-        customerName = `Khách hàng Zalo #${customerZaloId.slice(-4)}`;
-      }
-    } else {
-      // Khi khách gửi đến, msgData.dName chính là tên của khách
-      customerName = msgData.dName || `Khách hàng Zalo #${customerZaloId.slice(-4)}`;
+        }
+      } catch {}
     }
 
+    // 2. Thử lấy tên từ gói tin đến (nếu không phải là tin nhắn do chính mình gửi)
+    if (!isSelf && msgData.dName && !msgData.dName.startsWith('Khách hàng')) {
+      if (!customerName || customerName.startsWith('Khách hàng')) {
+        customerName = msgData.dName;
+      }
+    }
+
+    // 3. Tra cứu profile Zalo thật qua api.getUserInfo nếu chưa có tên thật hoặc avatar thật
+    if ((!customerName || customerName.startsWith('Khách hàng') || !customerAvatar || customerAvatar.includes('ui-avatars.com')) && api && typeof api.getUserInfo === 'function') {
+      try {
+        const info = await api.getUserInfo(customerZaloId).catch(() => null);
+        const uProfile = info?.profile || info?.[customerZaloId] || info?.data || info;
+        const realName = uProfile?.displayName || uProfile?.name || uProfile?.zaloName;
+        const realAvatar = uProfile?.avatar || uProfile?.avatarUrl || uProfile?.picture;
+        if (realName && (!customerName || customerName.startsWith('Khách hàng'))) {
+          customerName = realName;
+        }
+        if (realAvatar && (!customerAvatar || customerAvatar.includes('ui-avatars.com'))) {
+          customerAvatar = realAvatar;
+        }
+      } catch {}
+    }
+
+    if (!customerName) {
+      customerName = `Khách hàng Zalo #${customerZaloId.slice(-4)}`;
+    }
     if (!customerAvatar) {
       customerAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName)}&background=0068FF&color=fff&bold=true`;
     }
@@ -687,19 +698,8 @@ export class ZcaPersonalService implements OnModuleInit {
     );
 
     // 2. Tìm hoặc tạo Customer (luôn là đối tác, không bao giờ là bản thân tư vấn viên)
-    let dbCustomer: any = null;
     if (this.prisma?.customer) {
       try {
-        dbCustomer = await this.prisma.customer.findFirst({
-          where: {
-            workspaceId: targetWsId,
-            channelIdentities: {
-              path: ['zalo', 'id'],
-              equals: customerZaloId,
-            },
-          },
-        });
-
         if (!dbCustomer) {
           dbCustomer = await this.prisma.customer.create({
             data: {
@@ -709,27 +709,35 @@ export class ZcaPersonalService implements OnModuleInit {
               leadStatus: 'NEW',
               leadStage: 'TIẾP CẬN',
               channelIdentities: {
-                zalo: {
-                  id: customerZaloId,
-                  name: customerName,
-                },
+                zalo: customerZaloId,
+                socialId: customerZaloId,
+                channel: 'ZALO',
+                name: customerName,
+                id: customerZaloId,
               },
             },
           });
           this.logger.log(`[zca-js] Đã tạo mới Customer ${customerName} (ID: ${dbCustomer.id})`);
-        } else if (
-          customerName &&
-          !customerName.includes('Khách hàng Zalo #') &&
-          dbCustomer.fullName?.includes('Khách hàng Zalo #')
-        ) {
-          // Cập nhật lại tên thật nếu trước đó bị fallback
-          dbCustomer = await this.prisma.customer.update({
-            where: { id: dbCustomer.id },
-            data: {
-              fullName: customerName,
-              avatarUrl: customerAvatar || dbCustomer.avatarUrl,
-            },
-          });
+        } else {
+          // Cập nhật lại tên thật & avatar thật nếu trước đó bị fallback
+          const isBetterName = customerName && !customerName.startsWith('Khách hàng') && dbCustomer.fullName?.startsWith('Khách hàng');
+          const isBetterAvatar = customerAvatar && !customerAvatar.includes('ui-avatars.com') && (!dbCustomer.avatarUrl || dbCustomer.avatarUrl.includes('ui-avatars.com'));
+          if (isBetterName || isBetterAvatar) {
+            dbCustomer = await this.prisma.customer.update({
+              where: { id: dbCustomer.id },
+              data: {
+                ...(isBetterName ? { fullName: customerName } : {}),
+                ...(isBetterAvatar ? { avatarUrl: customerAvatar } : {}),
+                channelIdentities: {
+                  ...((dbCustomer.channelIdentities as any) || {}),
+                  zalo: customerZaloId,
+                  socialId: customerZaloId,
+                  channel: 'ZALO',
+                  id: customerZaloId,
+                },
+              },
+            });
+          }
         }
       } catch (err) {
         this.logger.warn(`[zca-js] Lỗi Customer findOrCreate: ${(err as Error).message}`);

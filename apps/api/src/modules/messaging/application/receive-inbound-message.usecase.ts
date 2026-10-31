@@ -107,7 +107,12 @@ export class ReceiveInboundMessage {
 
                             dbCustomer = await this.prisma.customer.findFirst({
                                 where: {
-                                    channelIdentities: { path: [event.channel.toLowerCase()], equals: event.senderExternalId },
+                                    OR: [
+                                        { channelIdentities: { path: [event.channel.toLowerCase()], equals: event.senderExternalId } },
+                                        { channelIdentities: { path: [event.channel.toLowerCase(), 'id'], equals: event.senderExternalId } },
+                                        { channelIdentities: { path: ['socialId'], equals: event.senderExternalId } },
+                                        ...(customerName && !customerName.startsWith('Khách hàng') && !customerName.startsWith('Lead') ? [{ fullName: customerName }] : []),
+                                    ],
                                 },
                             });
 
