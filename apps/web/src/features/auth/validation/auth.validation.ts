@@ -1,3 +1,15 @@
+import {
+  isValidVietnamesePhoneNumber,
+  validateVietnamesePhoneNumber,
+  standardizeVietnamesePhoneNumber,
+  formatVietnamesePhoneNumber,
+} from '../../../lib/phone.js';
+
+export {
+  standardizeVietnamesePhoneNumber,
+  formatVietnamesePhoneNumber,
+};
+
 export const OTP_LENGTH = 6;
 export const OTP_PATTERN = /^\d{6}$/;
 export const RESEND_COOLDOWN_SECONDS = 60;
@@ -53,7 +65,7 @@ export function isEmail(value: string): boolean {
 }
 
 export function isPhone(value: string): boolean {
-  return PHONE_FORMAT_PATTERN.test(value.trim());
+  return isValidVietnamesePhoneNumber(value.trim());
 }
 
 export function validateEmail(value: string): string {
@@ -72,8 +84,9 @@ export function validatePhone(value: string, required = false): string {
   if (!normalized) {
     return required ? AUTH_MESSAGES.PHONE_REQUIRED : '';
   }
-  if (!isPhone(normalized)) {
-    return AUTH_MESSAGES.PHONE_INVALID;
+  const result = validateVietnamesePhoneNumber(normalized);
+  if (!result.isValid) {
+    return result.error || AUTH_MESSAGES.PHONE_INVALID;
   }
   return '';
 }
@@ -93,10 +106,8 @@ export function validateIdentifier(value: string): string {
   }
 
   // Otherwise check phone/digits
-  if (/^[0-9+]+$/.test(normalized)) {
-    if (!isPhone(normalized)) {
-      return AUTH_MESSAGES.PHONE_INVALID;
-    }
+  const phoneRes = validateVietnamesePhoneNumber(normalized);
+  if (phoneRes.isValid) {
     return '';
   }
 

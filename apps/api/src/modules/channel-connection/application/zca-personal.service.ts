@@ -560,8 +560,19 @@ export class ZcaPersonalService implements OnModuleInit {
         myOwnUid = String(api.getOwnId() || '');
       }
     } catch {}
-    if (!myOwnUid) {
+    if (!myOwnUid || !/^\d+$/.test(myOwnUid)) {
       myOwnUid = String(channelAccount.externalAccountId || targetId || '');
+    }
+    // Tự động đồng bộ externalAccountId chính chủ vào DB nếu trước đó bị lưu sessionId
+    if (api && typeof api.getOwnId === 'function') {
+      const realId = String(api.getOwnId() || '');
+      if (realId && /^\d+$/.test(realId) && channelAccount.externalAccountId !== realId && this.prisma?.channelAccount) {
+        myOwnUid = realId;
+        this.prisma.channelAccount.update({
+          where: { id: channelAccount.id },
+          data: { externalAccountId: realId },
+        }).catch(() => null);
+      }
     }
 
     // Tự động dọn dẹp nếu trước đó vô tình tạo nhầm Customer bản thân tư vấn viên
@@ -677,7 +688,7 @@ export class ZcaPersonalService implements OnModuleInit {
     if ((!customerName || customerName.startsWith('Khách hàng') || !customerAvatar || customerAvatar.includes('ui-avatars.com')) && api && typeof api.getUserInfo === 'function') {
       try {
         const info = await api.getUserInfo(customerZaloId).catch(() => null);
-        const uProfile = info?.profile || info?.[customerZaloId] || info?.data || info;
+        const uProfile = info?.changed_profiles?.[customerZaloId] || info?.unchanged_profiles?.[customerZaloId];
         const realName = uProfile?.displayName || uProfile?.name || uProfile?.zaloName;
         const realAvatar = uProfile?.avatar || uProfile?.avatarUrl || uProfile?.picture;
         if (realName && (!customerName || customerName.startsWith('Khách hàng'))) {
@@ -687,6 +698,11 @@ export class ZcaPersonalService implements OnModuleInit {
           customerAvatar = realAvatar;
         }
       } catch {}
+    }
+
+    // Tuyệt đối không bao giờ lấy avatar của chính tư vấn viên / channel account gán cho khách hàng
+    if (channelAccount.avatarUrl && customerAvatar === channelAccount.avatarUrl) {
+      customerAvatar = '';
     }
 
     if (!customerName) {
@@ -834,13 +850,14 @@ export class ZcaPersonalService implements OnModuleInit {
         this.realtime.broadcastNewMessage({
           id: externalMessageId,
           conversationId: dbConv?.id || `conv_${customerZaloId}`,
-          channel: 'ZALO',
+          channel: 'ZALO_PERSONAL',
           direction: isSelf ? 'OUTBOUND' : 'INBOUND',
           content,
           senderName: isSelf ? `${channelAccount.displayName || 'Tư vấn viên'} (Bạn)` : customerName,
           senderAvatar: isSelf ? channelAccount.avatarUrl : customerAvatar,
           sentAt: sentAt.toISOString(),
           customerName,
+          customerAvatar,
           recipientName: customerName,
         } as any);
         this.logger.log(`[zca-js] Đã phát sự kiện Realtime Socket message:received cho tin nhắn Zalo (${customerName})`);

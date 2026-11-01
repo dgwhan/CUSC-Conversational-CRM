@@ -82,7 +82,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
       : [
           {
             channel: customer.channel || 'FACEBOOK',
-            externalUserId: customer.socialId || '1344305088771625',
+            externalUserId: customer.socialId || '',
           },
         ];
 
@@ -126,12 +126,14 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
 
       <div className="flat-sidebar-body">
 
-        {/* B. ĐỊNH DANH KÊNH HỘI THOẠI */}
-        <ChannelIdentitiesSection
-          identities={effectiveIdentities}
-          copiedField={copiedField}
-          onCopy={handleCopy}
-        />
+        {/* B. ĐỊNH DANH KÊNH HỘI THOẠI (Chỉ hiển thị khi có từ 2 kênh trở lên để không lặp lại Header) */}
+        {effectiveIdentities.length > 1 && (
+          <ChannelIdentitiesSection
+            identities={effectiveIdentities}
+            copiedField={copiedField}
+            onCopy={handleCopy}
+          />
+        )}
 
         {/* D. THÔNG TIN LIÊN HỆ */}
         <ContactInfoSection

@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Copy, Check, PenLine } from 'lucide-react';
 import { notify } from '../../../../../components/feedback/toastEmitter.js';
+import {
+  standardizeVietnamesePhoneNumber,
+  formatVietnamesePhoneNumber,
+} from '../../../../../lib/phone.js';
 
 interface ContactInfoSectionProps {
   phone?: string;
@@ -62,10 +66,25 @@ export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
 
   const handleSavePhone = () => {
     const trimmed = phoneInput.trim();
-    if (onUpdateContactInfo) {
-      onUpdateContactInfo({ phone: trimmed });
+    if (!trimmed) {
+      if (onUpdateContactInfo) {
+        onUpdateContactInfo({ phone: '' });
+      }
+      notify.success('Đã xóa số điện thoại');
+      setIsEditingPhone(false);
+      return;
     }
-    notify.success(trimmed ? 'Đã lưu số điện thoại!' : 'Đã xóa số điện thoại');
+
+    const standardized = standardizeVietnamesePhoneNumber(trimmed);
+    if (!standardized) {
+      notify.error('Số điện thoại sai độ dài hoặc không hợp lệ (yêu cầu đúng 10 chữ số)!');
+      return;
+    }
+
+    if (onUpdateContactInfo) {
+      onUpdateContactInfo({ phone: standardized });
+    }
+    notify.success(`Đã chuẩn hóa và lưu: ${standardized}`);
     setIsEditingPhone(false);
   };
 
@@ -127,7 +146,7 @@ export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
           ) : (
             <div className="flex items-center gap-2 justify-end flex-1 min-w-0">
               <span className={`font-medium truncate ${!hasPhone ? 'text-slate-400 italic' : 'text-slate-800'}`}>
-                {hasPhone ? phone : 'Chưa có SĐT'}
+                {hasPhone ? (formatVietnamesePhoneNumber(phone, 'space') || phone) : 'Chưa có SĐT'}
               </span>
               <div className="flex items-center gap-1 shrink-0">
                 {hasPhone && (

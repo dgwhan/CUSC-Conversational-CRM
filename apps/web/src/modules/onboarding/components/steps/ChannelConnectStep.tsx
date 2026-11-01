@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { ChannelKey, FanpageItem, DiscoveredPageDto } from '../../types.js';
 import { OAuthSimulationModal } from '../OAuthSimulationModal.js';
+import { OFFICIAL_CHANNEL_ICONS } from '../../../../lib/channel-meta.js';
 import { useTranslation } from '../../../../i18n/index.js';
 import { apiClient } from '../../../../lib/api-client.js';
 import { notify } from '../../../../components/feedback/toastEmitter.js';
@@ -66,6 +67,7 @@ export const ChannelConnectStep: React.FC<ChannelConnectStepProps> = ({
     brandColor: string;
     gradient: string;
     iconText: string;
+    iconUrl?: string;
   }[] = [
     {
       key: 'FACEBOOK',
@@ -75,6 +77,7 @@ export const ChannelConnectStep: React.FC<ChannelConnectStepProps> = ({
       brandColor: '#1877F2',
       gradient: 'linear-gradient(135deg, #1877F2 0%, #0d5bbd 100%)',
       iconText: 'FB',
+      iconUrl: OFFICIAL_CHANNEL_ICONS.FACEBOOK,
     },
     {
       key: 'ZALO',
@@ -84,6 +87,7 @@ export const ChannelConnectStep: React.FC<ChannelConnectStepProps> = ({
       brandColor: '#0068FF',
       gradient: 'linear-gradient(135deg, #0068FF 0%, #004ecc 100%)',
       iconText: 'OA',
+      iconUrl: OFFICIAL_CHANNEL_ICONS.ZALO,
     },
     {
       key: 'TIKTOK',
@@ -92,6 +96,7 @@ export const ChannelConnectStep: React.FC<ChannelConnectStepProps> = ({
       brandColor: '#000000',
       gradient: 'linear-gradient(135deg, #111827 0%, #000000 100%)',
       iconText: 'TT',
+      iconUrl: OFFICIAL_CHANNEL_ICONS.TIKTOK,
     },
     {
       key: 'INSTAGRAM',
@@ -100,6 +105,7 @@ export const ChannelConnectStep: React.FC<ChannelConnectStepProps> = ({
       brandColor: '#E1306C',
       gradient: 'linear-gradient(135deg, #f09433 0%, #dc2743 50%, #bc1888 100%)',
       iconText: 'IG',
+      iconUrl: OFFICIAL_CHANNEL_ICONS.INSTAGRAM,
     },
   ];
 
@@ -149,10 +155,14 @@ export const ChannelConnectStep: React.FC<ChannelConnectStepProps> = ({
               <div>
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <div
-                    className="w-8 h-8 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm"
+                    className="w-8 h-8 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm overflow-hidden p-1.5"
                     style={{ background: ch.gradient }}
                   >
-                    {ch.iconText}
+                    {ch.iconUrl ? (
+                      <img src={ch.iconUrl} alt={ch.title} className="w-full h-full object-contain" />
+                    ) : (
+                      ch.iconText
+                    )}
                   </div>
                   {ch.badge && !isConnected && (
                     <span className="px-2 py-0.5 text-[10.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">

@@ -61,6 +61,7 @@ export class MessageRepository implements OnModuleInit {
                             displayName: true,
                             externalAccountId: true,
                             avatarUrl: true,
+                            metadata: true,
                         },
                     },
                     conversation: {

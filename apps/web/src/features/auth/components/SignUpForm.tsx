@@ -18,6 +18,7 @@ import {
   validateFullName,
   validatePassword,
   validatePhone,
+  standardizeVietnamesePhoneNumber,
 } from '../validation/auth.validation.js';
 
 export type SignUpFormProps = {
@@ -94,7 +95,7 @@ export function SignUpForm({
       const response = await register({
         fullName: fullName.trim(),
         email: email.trim(),
-        phoneNumber: phoneNumber.trim(),
+        phoneNumber: standardizeVietnamesePhoneNumber(phoneNumber.trim()) || phoneNumber.trim(),
         password,
       });
 
