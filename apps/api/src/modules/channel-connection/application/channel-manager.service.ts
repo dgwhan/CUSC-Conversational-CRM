@@ -1411,7 +1411,10 @@ export class ChannelManagerService {
   }
 
   private mapToDto(account: any): ChannelAccountDto {
+    const isPersonal = Boolean(account.metadata?.isPersonal || account.metadata?.engine === 'zca-js' || account.channel === 'ZALO_PERSONAL');
     return {
+      isPersonal,
+      metadata: account.metadata || null,
       id: account.id,
       workspaceId: account.workspaceId,
       channel: account.channel as any,

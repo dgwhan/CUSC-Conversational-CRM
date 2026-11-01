@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import type { ChannelIdentityItem } from '../../../types.js';
 import { notify } from '../../../../../components/feedback/toastEmitter.js';
+import { resolveChannelInfo } from '../../../../../lib/channel-meta.js';
 
 export interface ChannelIdentitiesSectionProps {
   identities: ChannelIdentityItem[];
@@ -10,7 +11,7 @@ export interface ChannelIdentitiesSectionProps {
 }
 
 /**
- * Section: Định danh kênh hội thoại (Facebook Messenger, Zalo OA...)
+ * Section: Định danh kênh hội thoại (Facebook Messenger, Zalo OA, Zalo Cá nhân...)
  * Tách biệt thành component độc lập, sử dụng Tailwind CSS chuẩn hệ thống
  */
 export const ChannelIdentitiesSection: React.FC<ChannelIdentitiesSectionProps> = ({
@@ -46,15 +47,7 @@ export const ChannelIdentitiesSection: React.FC<ChannelIdentitiesSectionProps> =
       {/* Danh sách định danh từng kênh */}
       <div className="flex flex-col gap-2">
         {identities.map((item, idx) => {
-          const chUpper = (item.channel || 'FACEBOOK').toUpperCase();
-          const isFb = chUpper.includes('FACEBOOK') || chUpper.includes('FB');
-          const isZalo = chUpper.includes('ZALO');
-          const channelLabel = isFb
-            ? 'Facebook Messenger'
-            : isZalo
-              ? 'Zalo OA'
-              : item.channel;
-
+          const meta = resolveChannelInfo(item.channel, item.externalUserId);
           const isCopied =
             internalCopied === item.externalUserId ||
             copiedField === `Kênh ${item.channel}` ||
@@ -66,20 +59,30 @@ export const ChannelIdentitiesSection: React.FC<ChannelIdentitiesSectionProps> =
               className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-md"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                {/* Badge icon đại diện kênh */}
+                {/* Badge icon đại diện kênh chính thức */}
                 <span
-                  className={`w-5 h-5 rounded-full text-white text-[11px] font-bold flex items-center justify-center shrink-0 ${
-                    isFb ? 'bg-[#1877f2]' : isZalo ? 'bg-[#0068ff]' : 'bg-slate-700'
-                  }`}
-                  title={channelLabel}
+                  className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center shrink-0 border border-white shadow-sm"
+                  style={{ backgroundColor: meta.badgeBg }}
+                  title={meta.label}
                 >
-                  {isFb ? 'f' : isZalo ? 'Z' : 'C'}
+                  {meta.iconUrl ? (
+                    <img
+                      src={meta.iconUrl}
+                      alt={meta.label}
+                      className="w-full h-full object-cover rounded-full"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span className="text-white text-[10px] font-bold">{meta.badgeText}</span>
+                  )}
                 </span>
 
                 {/* Thông tin kênh & ID */}
                 <div className="flex flex-col min-w-0">
                   <span className="text-[11px] text-slate-500 font-medium leading-tight">
-                    {channelLabel}
+                    {meta.label}
                   </span>
                   <span
                     className="text-[12px] font-mono font-medium text-slate-800 truncate select-all leading-tight"

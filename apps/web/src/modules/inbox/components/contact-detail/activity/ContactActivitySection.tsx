@@ -119,9 +119,7 @@ export const ContactActivitySection: React.FC<ContactActivitySectionProps> = ({
         )}
       </div>
 
-      <p className="text-[12px] text-slate-500 m-0 mb-3 leading-snug">
-        Theo dõi những lượt tương tác quan trọng của khách hàng.
-      </p>
+      
 
       {/* 2. Sub-component: Đánh dấu khách hàng tiềm năng */}
       <LeadStatusToggle

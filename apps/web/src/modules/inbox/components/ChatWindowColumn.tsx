@@ -12,13 +12,13 @@ import {
   Volume2,
   AlertTriangle,
   Smile,
-  Radio,
   ArrowLeft,
   User,
 } from 'lucide-react';
 import type { ConversationItem, AssignedStaff, QuickReplyItem, MessageAttachment } from '../types.js';
 import { QuickReplyBar } from './QuickReplyBar.js';
 import { Avatar } from '../../../components/common/Avatar.js';
+import { resolveChannelInfo } from '../../../lib/channel-meta.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useTranslation } from '../../../i18n/index.js';
 import { useUserRole } from '../../auth/UserRoleContext.js';
@@ -29,7 +29,7 @@ export interface ChatWindowColumnProps {
   quickReplies: QuickReplyItem[];
   onSendMessage: (text: string, attachments?: MessageAttachment[]) => void;
   onAssignStaff: (staffId: string) => void;
-  onToggleStatus: () => void;
+  onToggleStatus?: () => void;
   onBackToList?: () => void;
   onToggleProfile?: () => void;
   onOpenQuickReplySettings?: () => void;
@@ -91,13 +91,13 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
   quickReplies,
   onSendMessage,
   onAssignStaff,
-  onToggleStatus,
   onBackToList,
   onToggleProfile,
   onOpenQuickReplySettings,
 }) => {
   const { t } = useTranslation();
   const { isOwner, staffId } = useUserRole();
+  const channelMeta = resolveChannelInfo(conversation.channel);
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [currentTimestamp] = useState(() => Date.now());
@@ -176,18 +176,27 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
               size={40}
               className="chat-header-avatar"
             />
-            <span className={`chat-online-dot ${conversation.status === 'OPEN' ? 'online' : ''}`} />
           </div>
 
           <div className="chat-user-details">
             <div className="chat-user-name-row">
-              <h3 className="chat-user-name">{conversation.customer.fullName}</h3>
-              <span className={`channel-indicator-badge ${conversation.channel.toLowerCase()}`}>
-                {conversation.channel}
-              </span>
+              <h3 className="chat-user-name" title={conversation.customer.fullName}>
+                {conversation.customer.fullName}
+              </h3>
             </div>
             <div className="chat-user-sub">
-              <span>{t('inbox.chatHeader.messagingVia')} <strong>{conversation.channelAccountName}</strong></span>
+              {channelMeta.iconUrl && (
+                <img src={channelMeta.iconUrl} alt={channelMeta.label} className="chat-channel-icon-mini" />
+              )}
+              <span className="chat-channel-label">{channelMeta.label}</span>
+              {conversation.channelAccountName &&
+                !conversation.channelAccountName.startsWith('Kênh ') &&
+                conversation.channelAccountName.toLowerCase() !== channelMeta.label.toLowerCase() && (
+                  <>
+                    <span className="chat-sub-dot">•</span>
+                    <span className="chat-account-name">{conversation.channelAccountName}</span>
+                  </>
+                )}
             </div>
           </div>
         </div>
@@ -211,7 +220,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
               ) : (
                 <>
                   <AlertTriangle size={13} />
-                  <span>{t('inbox.chatHeader.meta24hExpired')}</span>
+                  <span>Hết hạn 24h</span>
                 </>
               )}
             </div>
@@ -280,25 +289,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
             </div>
           )}
 
-          {/* Nút Đổi trạng thái Giải quyết */}
-          <button
-            type="button"
-            className="crm-btn crm-btn-sm crm-btn-secondary"
-            onClick={onToggleStatus}
-            title={conversation.status === 'RESOLVED' ? t('inbox.chatHeader.reopenBtn') : t('inbox.chatHeader.resolveBtn')}
-          >
-            {conversation.status === 'RESOLVED' ? (
-              <>
-                <Radio size={14} style={{ color: 'var(--color-primary)' }} />
-                <span>{t('inbox.chatHeader.reopenBtn')}</span>
-              </>
-            ) : (
-              <>
-                <Check size={14} style={{ color: 'var(--color-success)' }} />
-                <span>{t('inbox.chatHeader.resolveBtn')}</span>
-              </>
-            )}
-          </button>
+          {/* Bỏ nút hoàn tất theo yêu cầu người dùng */}
 
           {/* Nút Xem Hồ Sơ trên Mobile */}
           {onToggleProfile && (
@@ -345,9 +336,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
               )}
 
               <div className="msg-bubble-content-box">
-                {!isOutbound && (
-                  <span className="msg-sender-label">{msg.senderName}</span>
-                )}
+                {/* Bỏ lặp tên người gửi trên từng bong bóng tin nhắn trong chat 1-1 */}
 
                 <div className={`chat-bubble ${isOutbound ? 'bubble-outbound' : 'bubble-inbound'}`}>
                   {/* Nội dung văn bản */}

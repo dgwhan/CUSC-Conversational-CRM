@@ -10,6 +10,7 @@ import type { ConversationItem, ChannelType } from '../types.js';
 import { useTranslation } from '../../../i18n/index.js';
 import { useUserRole } from '../../auth/UserRoleContext.js';
 import { Avatar } from '../../../components/common/Avatar.js';
+import { resolveChannelInfo } from '../../../lib/channel-meta.js';
 
 export interface ConversationListColumnProps {
   conversations: ConversationItem[];
@@ -91,8 +92,14 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
     }
 
     // Lọc theo kênh
-    if (selectedChannel !== 'ALL' && item.channel !== selectedChannel) {
-      return false;
+    if (selectedChannel !== 'ALL') {
+      if (selectedChannel === 'ZALO') {
+        if (item.channel !== 'ZALO' && item.channel !== 'ZALO_PERSONAL') {
+          return false;
+        }
+      } else if (item.channel !== selectedChannel) {
+        return false;
+      }
     }
 
     // Lọc theo trạng thái
@@ -119,26 +126,36 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
     }
 
     return true;
+  }).sort((a, b) => {
+    const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+    const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+    return timeB - timeA;
   });
 
   const totalUnread = filteredConversations.reduce((acc, curr) => acc + curr.unreadCount, 0);
 
   // Helper render channel icon tag
   const renderChannelBadge = (channel: ChannelType) => {
-    switch (channel) {
-      case 'FACEBOOK':
-        return <span className="channel-corner-icon fb">FB</span>;
-      case 'ZALO':
-        return <span className="channel-corner-icon zalo">OA</span>;
-      case 'ZALO_PERSONAL':
-        return <span className="channel-corner-icon zalo" style={{ background: '#ea580c' }} title="Zalo Cá nhân">ZL</span>;
-      case 'TIKTOK':
-        return <span className="channel-corner-icon tiktok">TT</span>;
-      case 'INSTAGRAM':
-        return <span className="channel-corner-icon ig">IG</span>;
-      default:
-        return null;
-    }
+    const meta = resolveChannelInfo(channel);
+    return (
+      <span
+        className="channel-corner-icon"
+        style={{ backgroundColor: meta.badgeBg }}
+        title={meta.label}
+      >
+        {meta.iconUrl ? (
+          <img
+            src={meta.iconUrl}
+            alt={meta.label}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        ) : (
+          meta.badgeText
+        )}
+      </span>
+    );
   };
 
   return (
@@ -148,62 +165,36 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
         <div className="inbox-title-row">
           <div className="title-with-badge">
             <h2 className="inbox-title">{t('inbox.conversationsTitle')}</h2>
+            <span className="total-convs-label">({conversations.length})</span>
             {totalUnread > 0 && (
-              <span className="unread-total-badge">{totalUnread} {t('inbox.unreadCount')}</span>
+              <span className="unread-total-badge">{totalUnread}</span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="inbox-sync-btn-group">
             {onSyncFacebook && (
               <button
                 type="button"
-                className="crm-btn crm-btn-secondary crm-btn-sm"
-                style={{
-                  padding: '3px 7px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                  color: '#1877f2',
-                  borderColor: '#bfdbfe',
-                  background: '#eff6ff',
-                  cursor: syncingFb ? 'not-allowed' : 'pointer',
-                  borderRadius: '6px',
-                }}
+                className="inbox-sync-pill fb"
                 disabled={syncingFb}
                 onClick={onSyncFacebook}
-                title="Kéo các tin nhắn từ Fanpage Facebook về hộp thư"
+                title="Kéo tin nhắn từ Fanpage Facebook"
               >
                 <RefreshCw size={11} className={syncingFb ? 'animate-spin' : ''} />
-                <span>{syncingFb ? 'Đang kéo...' : 'Kéo tin FB'}</span>
+                <span>{syncingFb ? 'Kéo...' : 'FB'}</span>
               </button>
             )}
             {onSyncZalo && (
               <button
                 type="button"
-                className="crm-btn crm-btn-secondary crm-btn-sm"
-                style={{
-                  padding: '3px 7px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                  color: '#0068ff',
-                  borderColor: '#bae6fd',
-                  background: '#f0f9ff',
-                  cursor: syncingZl ? 'not-allowed' : 'pointer',
-                  borderRadius: '6px',
-                }}
+                className="inbox-sync-pill zalo"
                 disabled={syncingZl}
                 onClick={onSyncZalo}
-                title="Kéo các tin nhắn từ Zalo OA & Zalo Cá nhân về hộp thư"
+                title="Kéo tin nhắn từ Zalo OA & Zalo Cá nhân"
               >
                 <RefreshCw size={11} className={syncingZl ? 'animate-spin' : ''} />
-                <span>{syncingZl ? 'Đang kéo...' : 'Kéo tin Zalo'}</span>
+                <span>{syncingZl ? 'Kéo...' : 'Zalo'}</span>
               </button>
             )}
-            <span className="total-convs-label">{conversations.length} {t('inbox.contactsCount')}</span>
           </div>
         </div>
 
@@ -240,7 +231,7 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
             className={`channel-pill zalo ${selectedChannel === 'ZALO' ? 'active' : ''}`}
             onClick={() => setSelectedChannel('ZALO')}
           >
-            Zalo OA
+            Zalo
           </button>
           <button
             type="button"
@@ -269,7 +260,7 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
               )
             }
           >
-            <option value="ALL">{t('inbox.filterAll')}</option>
+            <option value="ALL">Mọi trạng thái</option>
             <option value="UNREAD">{t('inbox.filterUnread')}</option>
             <option value="ASSIGNED_TO_ME">{t('inbox.filterAssignedToMe')}</option>
             <option value="UNASSIGNED">{t('inbox.filterUnassigned')}</option>

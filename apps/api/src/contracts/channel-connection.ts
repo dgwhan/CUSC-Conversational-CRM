@@ -109,6 +109,8 @@ export interface ChannelAccountDto {
   isWebhookSubscribed: boolean;
   hasToken: boolean;
   tokenExpiresAt: Date | null;
+  metadata?: Record<string, any> | null;
+  isPersonal?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

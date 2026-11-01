@@ -115,10 +115,9 @@ export function AuthPage({
                 onSuccess={(res) =>
                   onLoginSuccess?.({
                     ...res,
-                    staff: {
-                      ...res.staff,
-                      mustChangePassword: false,
-                    },
+                    staff: res.staff
+                      ? { ...res.staff, mustChangePassword: false }
+                      : { ...res.user, mustChangePassword: false },
                   })
                 }
                 onSwitchToLogin={() => handleTabChange(AUTH_TAB.LOGIN)}
