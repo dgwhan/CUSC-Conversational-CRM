@@ -91,6 +91,7 @@ export interface CustomerProfile {
   interestCourses: string[];
   notes: InternalNote[];
   channelIdentities?: ChannelIdentityItem[];
+  linkedConversations?: { id: string; channel: ChannelType; channelAccountName?: string }[];
 }
 
 export interface AssignedStaff {

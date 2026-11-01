@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { RealtimeService } from '../../realtime/realtime.service.js';
+import { ContactMergeService } from '../application/contact-merge.service.js';
+import { standardizeVietnamesePhoneNumber } from '../../customers/domain/phone-standardizer.js';
 import {
     deduplicateTags,
     tagSyncLogger,
@@ -30,6 +32,7 @@ export class CustomerController {
     constructor(
         private readonly prisma: PrismaService,
         @Optional() private readonly realtime?: RealtimeService,
+        @Optional() private readonly mergeService?: ContactMergeService,
     ) { }
 
     /**
@@ -365,6 +368,56 @@ export class CustomerController {
             });
         }
 
+        // Xử lý chuẩn hóa SĐT và tự động gộp Contact theo SĐT (CUS-04)
+        let mergedResult: any = null;
+        if (body.phone && body.phone !== 'Chưa có SĐT' && this.mergeService) {
+            const normalizedPhone = standardizeVietnamesePhoneNumber(body.phone);
+            if (normalizedPhone) {
+                try {
+                    const currentIdentities = (existing.channelIdentities as any) || {};
+                    const fbId = currentIdentities.facebook || (existing.id.startsWith('facebook-') ? existing.id.replace('facebook-', '') : null);
+                    const zaloId = currentIdentities.zalo?.id || (typeof currentIdentities.zalo === 'string' ? currentIdentities.zalo : null) || currentIdentities.zaloId || currentIdentities.socialId;
+
+                    let currentContact = null;
+                    if (fbId || zaloId) {
+                        const idnt = await this.prisma.channelIdentity.findFirst({
+                            where: {
+                                OR: [
+                                    fbId ? { channel: 'FACEBOOK', externalUserId: String(fbId) } : undefined,
+                                    zaloId ? { channel: 'ZALO', externalUserId: String(zaloId) } : undefined,
+                                ].filter(Boolean) as any,
+                            },
+                            include: { contact: true },
+                        });
+                        currentContact = idnt?.contact || null;
+                    }
+
+                    const collisionCheck = await this.mergeService.checkDuplicatePhone(normalizedPhone, currentContact?.id);
+                    if (collisionCheck.hasCollision && collisionCheck.existingContact) {
+                        if (currentContact && currentContact.id !== collisionCheck.existingContact.id) {
+                            mergedResult = await this.mergeService.mergeContacts({
+                                targetContactId: collisionCheck.existingContact.id,
+                                sourceContactId: currentContact.id,
+                                phoneNormalized: normalizedPhone,
+                                actorId: body.updatedBy,
+                                mergeType: 'AUTO_PHONE_MATCH',
+                                reason: 'Tự động gộp khách hàng theo SĐT (CUS-04)',
+                                workspaceId: headerWsId,
+                            });
+                            this.logger.log(`[CUS-04] Auto-merged contact ${currentContact.id} into ${collisionCheck.existingContact.id} via phone ${normalizedPhone}`);
+                        }
+                    } else if (currentContact && !currentContact.phoneNormalized) {
+                        await this.prisma.contact.update({
+                            where: { id: currentContact.id },
+                            data: { phoneNormalized: normalizedPhone },
+                        }).catch(() => {});
+                    }
+                } catch (mergeErr) {
+                    this.logger.warn(`Lưu ý khi xử lý gộp SĐT CUS-04: ${(mergeErr as Error).message}`);
+                }
+            }
+        }
+
         // Đồng bộ cập nhật tag vào cuộc hội thoại
         if (cleanTags !== undefined && this.prisma.conversation) {
             try {
@@ -423,6 +476,7 @@ export class CustomerController {
             interestCourses: updatedIdentities.interestCourses || [],
             estimatedValue: updatedIdentities.estimatedValue || 0,
             tags: cleanTags || updatedIdentities.tags || [],
+            ...(mergedResult ? { isMerged: true, mergeResult: mergedResult } : {}),
         };
     }
 

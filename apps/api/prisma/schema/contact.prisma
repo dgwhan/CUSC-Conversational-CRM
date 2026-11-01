@@ -1,14 +1,19 @@
 model Contact {
-    id              String            @id @default(uuid()) @db.Uuid
-    displayName     String            @map("display_name") @db.VarChar(255)
-    phoneNormalized String?           @unique @map("phone_normalized") @db.VarChar(50)
-    email           String?           @db.VarChar(255)
-    notes           String?           @db.Text
-    createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-    updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+    id                  String            @id @default(uuid()) @db.Uuid
+    displayName         String            @map("display_name") @db.VarChar(255)
+    phoneNormalized     String?           @unique @map("phone_normalized") @db.VarChar(50)
+    email               String?           @db.VarChar(255)
+    notes               String?           @db.Text
+    isMerged            Boolean           @default(false) @map("is_merged")
+    mergedIntoContactId String?           @map("merged_into_contact_id") @db.Uuid
+    createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+    updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-    channelIdentities ChannelIdentity[]
+    channelIdentities   ChannelIdentity[]
+    mergeLogsTarget     ContactMergeLog[] @relation("MergeTargetContact")
 
+    @@index([isMerged])
+    @@index([mergedIntoContactId])
     @@map("contacts")
 }
 
@@ -25,4 +30,25 @@ model ChannelIdentity {
     @@unique([channel, externalUserId])
     @@index([contactId])
     @@map("channel_identities")
+}
+
+model ContactMergeLog {
+    id              String    @id @default(uuid()) @db.Uuid
+    targetContactId String    @map("target_contact_id") @db.Uuid
+    sourceContactId String    @map("source_contact_id") @db.Uuid
+    phoneNormalized String    @map("phone_normalized") @db.VarChar(50)
+    mergeType       String    @default("AUTO_PHONE_MATCH") @map("merge_type") @db.VarChar(50)
+    actorId         String?   @map("actor_id") @db.Uuid
+    snapshotData    Json      @map("snapshot_data") @db.JsonB
+    isReverted      Boolean   @default(false) @map("is_reverted")
+    revertedAt      DateTime? @map("reverted_at") @db.Timestamptz(3)
+    revertedBy      String?   @map("reverted_by") @db.Uuid
+    createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+    targetContact   Contact   @relation("MergeTargetContact", fields: [targetContactId], references: [id], onDelete: Cascade)
+
+    @@index([targetContactId])
+    @@index([sourceContactId])
+    @@index([phoneNormalized])
+    @@map("contact_merge_logs")
 }

@@ -33,6 +33,7 @@ export interface ChatWindowColumnProps {
   onBackToList?: () => void;
   onToggleProfile?: () => void;
   onOpenQuickReplySettings?: () => void;
+  onSelectConversation?: (conversationId: string) => void;
 }
 
 const formatMessageTime = (timeStr?: string): string => {
@@ -94,6 +95,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
   onBackToList,
   onToggleProfile,
   onOpenQuickReplySettings,
+  onSelectConversation,
 }) => {
   const { t } = useTranslation();
   const { isOwner, staffId } = useUserRole();
@@ -102,6 +104,9 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [currentTimestamp] = useState(() => Date.now());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const hasMultipleChannels = (conversation.customer.channelIdentities || []).length > 1;
+  const filteredMessages = conversation.messages;
 
   // Tự động cuộn xuống tin nhắn cuối cùng khi có tin mới
   useEffect(() => {
@@ -306,12 +311,64 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
         </div>
       </div>
 
+      {/* CUS-04: Banner liên kết hội thoại khác kênh của cùng khách hàng */}
+      {conversation.customer.linkedConversations && conversation.customer.linkedConversations.length > 0 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 16px',
+          background: '#f0f9ff',
+          borderBottom: '1px solid #bae6fd',
+          fontSize: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+            <span style={{ fontWeight: 600, color: '#0369a1' }}>Kênh liên kết:</span>
+            <span style={{ color: '#475569', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+              Khách hàng này có {conversation.customer.linkedConversations.length} cuộc hội thoại khác trên{' '}
+              {conversation.customer.linkedConversations.map((lc) => lc.channelAccountName || lc.channel).join(', ')}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: '8px' }}>
+            {conversation.customer.linkedConversations.map((lc) => {
+              const meta = resolveChannelInfo(lc.channel);
+              return (
+                <button
+                  key={lc.id}
+                  type="button"
+                  onClick={() => onSelectConversation && onSelectConversation(lc.id)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    background: '#ffffff',
+                    color: '#0284c7',
+                    fontWeight: 600,
+                    fontSize: '11px',
+                    border: '1px solid #7dd3fc',
+                    cursor: 'pointer'
+                  }}
+                  title={`Chuyển sang xem cuộc hội thoại trên ${meta.label}`}
+                >
+                  {meta.iconUrl && (
+                    <img src={meta.iconUrl} alt={meta.label} style={{ width: '14px', height: '14px', borderRadius: '50%' }} />
+                  )}
+                  <span>Xem chat {meta.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 2. Luồng Tin Nhắn (Message Stream) */}
       <div className="chat-messages-stream">
-        {conversation.messages.map((msg, index) => {
+        {filteredMessages.map((msg, index) => {
           const isOutbound = msg.direction === 'OUTBOUND';
           const currentDateLabel = getDateDividerLabel(msg.sentAt);
-          const prevMsg = index > 0 ? conversation.messages[index - 1] : null;
+          const prevMsg = index > 0 ? filteredMessages[index - 1] : null;
           const prevDateLabel = prevMsg ? getDateDividerLabel(prevMsg.sentAt) : null;
           const showDateDivider = index === 0 || currentDateLabel !== prevDateLabel;
 
@@ -377,6 +434,21 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
 
                   {/* Thời gian và Trạng thái đã gửi / đã xem */}
                   <div className="bubble-meta-row">
+                                        {hasMultipleChannels && (
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          padding: '1px 4px',
+                          borderRadius: '4px',
+                          background: ((msg.senderName || '').toLowerCase().includes('zalo') || (msg.conversationId || '').startsWith('ZALO')) ? '#e0f2fe' : '#dbeafe',
+                          color: ((msg.senderName || '').toLowerCase().includes('zalo') || (msg.conversationId || '').startsWith('ZALO')) ? '#0369a1' : '#1d4ed8',
+                          marginRight: '4px',
+                        }}
+                      >
+                        {((msg.senderName || '').toLowerCase().includes('zalo') || (msg.conversationId || '').startsWith('ZALO')) ? 'Zalo' : 'Facebook'}
+                      </span>
+                    )}
                     <span className="bubble-time">{formatMessageTime(msg.sentAt)}</span>
                     {isOutbound && (
                       <span className="bubble-status-icon">

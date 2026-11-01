@@ -1,4 +1,5 @@
 import type { ChatMessage, ConversationItem, LeadStatus } from '../types.js';
+import { standardizeVietnamesePhoneNumber } from '../../../lib/phone.js';
 
 /**
  * Chuẩn hóa hiển thị thời gian cho tin nhắn
@@ -65,7 +66,8 @@ export const deduplicateMessages = (messages: ChatMessage[]): ChatMessage[] => {
 };
 
 /**
- * Khử trùng lặp và gộp các cuộc hội thoại trùng khách hàng hoặc trùng kênh
+ * Khử trùng lặp và gộp các cuộc hội thoại trùng kênh,
+ * ĐỒNG THỜI giữ tách biệt các cuộc hội thoại khác kênh và định danh chung về 1 Customer (CUS-04).
  */
 export const mergeDuplicateConversations = (
   conversations: ConversationItem[],
@@ -85,6 +87,18 @@ export const mergeDuplicateConversations = (
   for (const conv of conversations) {
     const existingIdx = merged.findIndex((m) => {
       if (m.id === conv.id) return true;
+
+      // CUS-04: KHÔNG gộp 2 cuộc hội thoại thuộc 2 kênh khác nhau thành 1 cuộc hội thoại!
+      // Mỗi kênh giữ nguyên cuộc hội thoại riêng rẽ để tư vấn viên chat đúng kênh.
+      // Chỉ gộp khi CÙNG KÊNH:
+      const isSameChannel =
+        m.channel === conv.channel ||
+        ((m.channel === 'ZALO' || m.channel === 'ZALO_PERSONAL') &&
+          (conv.channel === 'ZALO' || conv.channel === 'ZALO_PERSONAL'));
+
+      if (!isSameChannel) {
+        return false;
+      }
 
       const mCust = m.customer;
       const cCust = conv.customer;
@@ -116,38 +130,17 @@ export const mergeDuplicateConversations = (
       }
 
       if (
-        mCust.phone &&
-        cCust.phone &&
-        mCust.phone !== 'Chưa có SĐT' &&
-        mCust.phone === cCust.phone
-      ) {
-        return true;
-      }
-
-      if (
-        mCust.email &&
-        cCust.email &&
-        mCust.email !== 'Chưa có Email' &&
-        mCust.email.toLowerCase() === cCust.email.toLowerCase()
-      ) {
-        return true;
-      }
-
-      if (
         isRealName(mCust.fullName) &&
         isRealName(cCust.fullName) &&
         mCust.fullName.trim().toLowerCase() === cCust.fullName.trim().toLowerCase()
       ) {
-        if (m.channel === conv.channel) {
-          return true;
-        }
+        return true;
       }
 
       // Gộp placeholder 'Khách hàng' hoặc 'Khách hàng Zalo #xxxx' nếu trùng ảnh hoặc trùng trích dẫn
       const isPlaceholder = (n?: string) =>
         !n || n === 'Khách hàng' || n.startsWith('Khách hàng Zalo #') || n.startsWith('Lead');
       if (
-        m.channel === conv.channel &&
         (isPlaceholder(mCust.fullName) || isPlaceholder(cCust.fullName)) &&
         ((mCust.avatarUrl && cCust.avatarUrl && mCust.avatarUrl === cCust.avatarUrl && !mCust.avatarUrl.includes('ui-avatars.com')) ||
           (m.snippet && conv.snippet && m.snippet.trim() === conv.snippet.trim()))
@@ -162,11 +155,7 @@ export const mergeDuplicateConversations = (
       merged.push({ ...conv, messages: deduplicateMessages(conv.messages) });
     } else {
       const target = merged[existingIdx];
-
-      // Gộp và khử trùng lặp toàn bộ tin nhắn, sắp xếp theo thời gian
       const combinedMessages = deduplicateMessages([...target.messages, ...conv.messages]);
-
-      // Gộp các nhãn phân loại (tags), ánh xạ Facebook Lead sang Lead và khử trùng lặp
       const rawCombined = [
         ...(target.customer?.tags || target.tags || []),
         ...(conv.customer?.tags || conv.tags || []),
@@ -180,7 +169,6 @@ export const mergeDuplicateConversations = (
           ? allTags.filter((t) => t !== 'Khách hàng mới')
           : allTags;
 
-      // Ưu tiên trạng thái Lead cao hơn
       const priority: Record<LeadStatus, number> = {
         CONVERTED: 4,
         POTENTIAL: 3,
@@ -192,7 +180,6 @@ export const mergeDuplicateConversations = (
           ? target.customer.leadStatus
           : conv.customer.leadStatus;
 
-      // Ưu tiên Avatar ảnh thật của khách hàng, bỏ qua avatar của tư vấn viên
       const preferAvatar = (a1?: string, a2?: string) => {
         if (a1 && excludedAvatars?.has(a1)) a1 = undefined;
         if (a2 && excludedAvatars?.has(a2)) a2 = undefined;
@@ -208,7 +195,6 @@ export const mergeDuplicateConversations = (
           : target.customer.fullName;
 
       const latestMsg = combinedMessages[combinedMessages.length - 1];
-
       const finalChannel =
         target.channel === 'ZALO_PERSONAL' || conv.channel === 'ZALO_PERSONAL'
           ? 'ZALO_PERSONAL'
@@ -245,10 +231,111 @@ export const mergeDuplicateConversations = (
     }
   }
 
+  // CUS-04: ĐỒNG BỘ ĐỊNH DANH 2 SỐ ĐIỆN THOẠI TRÙNG VỀ 1 CUSTOMER
+  // (Giữ nguyên 2 cuộc hội thoại riêng biệt trong danh sách, nhưng gộp chung Customer Profile & Identities)
+  const phoneCustomerMap = new Map<string, {
+    contactId?: string;
+    customerId?: string;
+    fullName: string;
+    avatarUrl: string;
+    phone: string;
+    email: string;
+    tags: string[];
+    leadStatus: LeadStatus;
+    leadStage?: any;
+    interestCourses: string[];
+    estimatedValue: number;
+    identities: any[];
+    linkedConversations: { id: string; channel: any; channelAccountName?: string }[];
+  }>();
+
+  for (const item of merged) {
+    const rawPhone = item.customer.phone;
+    const stdPhone = rawPhone && rawPhone !== 'Chưa có SĐT' ? standardizeVietnamesePhoneNumber(rawPhone) : null;
+    const groupKey = stdPhone || (item.customer.id && !item.customer.id.startsWith('cust-conv_') ? item.customer.id : null);
+    if (!groupKey) continue;
+
+    const existingGroup = phoneCustomerMap.get(groupKey);
+    const itemIdentities = item.customer.channelIdentities && item.customer.channelIdentities.length > 0
+      ? item.customer.channelIdentities
+      : (item.customer.socialId ? [{ channel: item.channel, externalUserId: item.customer.socialId }] : []);
+
+    if (!existingGroup) {
+      phoneCustomerMap.set(groupKey, {
+        contactId: item.customer.contactId,
+        customerId: item.customer.id,
+        fullName: item.customer.fullName,
+        avatarUrl: item.customer.avatarUrl,
+        phone: rawPhone || 'Chưa có SĐT',
+        email: item.customer.email || 'Chưa có Email',
+        tags: item.customer.tags || [],
+        leadStatus: item.customer.leadStatus,
+        leadStage: item.customer.leadStage,
+        interestCourses: item.customer.interestCourses || [],
+        estimatedValue: item.customer.estimatedValue || 0,
+        identities: [...itemIdentities],
+        linkedConversations: [{ id: item.id, channel: item.channel, channelAccountName: item.channelAccountName }],
+      });
+    } else {
+      // Gộp identities đa kênh
+      const idMap = new Map<string, any>();
+      for (const idnt of [...existingGroup.identities, ...itemIdentities]) {
+        idMap.set(`${idnt.channel}_${idnt.externalUserId}`, idnt);
+      }
+      existingGroup.identities = Array.from(idMap.values());
+      if (item.customer.contactId && !existingGroup.contactId) {
+        existingGroup.contactId = item.customer.contactId;
+      }
+      if (item.customer.id && !existingGroup.customerId) {
+        existingGroup.customerId = item.customer.id;
+      }
+
+      if (isRealName(item.customer.fullName) && !isRealName(existingGroup.fullName)) {
+        existingGroup.fullName = item.customer.fullName;
+      }
+      if (item.customer.avatarUrl && !item.customer.avatarUrl.includes('ui-avatars.com') && existingGroup.avatarUrl.includes('ui-avatars.com')) {
+        existingGroup.avatarUrl = item.customer.avatarUrl;
+      }
+      existingGroup.tags = Array.from(new Set([...existingGroup.tags, ...(item.customer.tags || [])]));
+      existingGroup.interestCourses = Array.from(new Set([...existingGroup.interestCourses, ...(item.customer.interestCourses || [])]));
+      if (item.customer.estimatedValue && item.customer.estimatedValue > existingGroup.estimatedValue) {
+        existingGroup.estimatedValue = item.customer.estimatedValue;
+      }
+      if (rawPhone && rawPhone !== 'Chưa có SĐT' && existingGroup.phone === 'Chưa có SĐT') {
+        existingGroup.phone = rawPhone;
+      }
+      existingGroup.linkedConversations.push({ id: item.id, channel: item.channel, channelAccountName: item.channelAccountName });
+    }
+  }
+
+  // Áp dụng định danh thống nhất cho từng cuộc hội thoại
+  for (const item of merged) {
+    const rawPhone = item.customer.phone;
+    const stdPhone = rawPhone && rawPhone !== 'Chưa có SĐT' ? standardizeVietnamesePhoneNumber(rawPhone) : null;
+    const groupKey = stdPhone || (item.customer.id && !item.customer.id.startsWith('cust-conv_') ? item.customer.id : null);
+    if (groupKey && phoneCustomerMap.has(groupKey)) {
+      const unified = phoneCustomerMap.get(groupKey)!;
+      item.customer = {
+        ...item.customer,
+        contactId: unified.contactId || item.customer.contactId,
+        fullName: unified.fullName,
+        avatarUrl: unified.avatarUrl,
+        phone: unified.phone,
+        email: unified.email,
+        tags: unified.tags,
+        leadStatus: unified.leadStatus,
+        leadStage: unified.leadStage || item.customer.leadStage,
+        interestCourses: unified.interestCourses,
+        estimatedValue: unified.estimatedValue,
+        channelIdentities: unified.identities,
+        linkedConversations: unified.linkedConversations.filter((lc) => lc.id !== item.id),
+      };
+    }
+  }
+
   return merged.sort((a, b) => {
     const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
     const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
     return timeB - timeA;
   });
 };
-

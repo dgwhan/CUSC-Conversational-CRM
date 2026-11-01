@@ -132,6 +132,10 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
             identities={effectiveIdentities}
             copiedField={copiedField}
             onCopy={handleCopy}
+            contactId={customer.contactId}
+            onUnmergeSuccess={() => {
+              window.location.reload();
+            }}
           />
         )}
 

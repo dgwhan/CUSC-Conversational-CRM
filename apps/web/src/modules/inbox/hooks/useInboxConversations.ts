@@ -291,7 +291,16 @@ export const useInboxConversations = ({
           const isRealName = (n?: string) =>
             Boolean(n && n.length > 1 && !n.includes('#') && !n.toLowerCase().startsWith('khách hàng') && !n.toLowerCase().startsWith('lead'));
 
+          const isSameChannelFamily = (ch1: string, ch2: string) => {
+            if (ch1 === ch2) return true;
+            if (ch1.startsWith('ZALO') && ch2.startsWith('ZALO')) return true;
+            return false;
+          };
+
           const existingIndex = updated.findIndex((c) => {
+            // CUS-04: Giữ tách biệt 2 cuộc hội thoại khác kênh, không gộp tin nhắn của kênh này vào kênh kia
+            if (!isSameChannelFamily(c.channel, effectiveConvChannel)) return false;
+
             if (c.id === convId) return true;
             if (c.id.includes(convId) || convId.includes(c.id)) return true;
             if (latestSenderId && latestSenderId !== 'khách' && latestSenderId !== 'anonymous') {
@@ -440,25 +449,18 @@ export const useInboxConversations = ({
         }
         if (!targetId) targetId = `conv-${Date.now()}`;
 
+        const isSameChannelFamily = (ch1: string, ch2: string) => {
+          if (ch1 === ch2) return true;
+          if (ch1.startsWith('ZALO') && ch2.startsWith('ZALO')) return true;
+          return false;
+        };
+
         const existingIdx = prev.findIndex((c) => {
+          // CUS-04: Bắt buộc cùng kênh mới gộp tin nhắn vào cuộc hội thoại
+          if (!isSameChannelFamily(c.channel, effectiveMsgChannel)) return false;
+
           if (c.id === targetId || (msg.conversationId && c.id === msg.conversationId)) return true;
           if (msgSenderId && (c.customer.socialId === msgSenderId || c.id.includes(msgSenderId))) return true;
-          if (
-            msg.customerPhone &&
-            c.customer.phone &&
-            c.customer.phone !== 'Chưa có SĐT' &&
-            c.customer.phone === msg.customerPhone
-          ) {
-            return true;
-          }
-          if (
-            msg.customerEmail &&
-            c.customer.email &&
-            c.customer.email !== 'Chưa có Email' &&
-            c.customer.email === msg.customerEmail
-          ) {
-            return true;
-          }
           return false;
         });
 
@@ -502,9 +504,9 @@ export const useInboxConversations = ({
             messages: updatedMessages,
           };
 
-          // Đưa hội thoại vừa có tương tác mới lên đầu danh sách
+          // Đưa hội thoại vừa có tương tác mới lên đầu danh sách và đồng bộ Customer Profile
           const remaining = prev.filter((_, idx) => idx !== existingIdx);
-          return [updatedTarget, ...remaining];
+          return mergeDuplicateConversations([updatedTarget, ...remaining]);
         }
 
         // Bỏ qua tin nhắn OUTBOUND chưa rõ người nhận để tránh sinh trùng hộp thoại chính mình
