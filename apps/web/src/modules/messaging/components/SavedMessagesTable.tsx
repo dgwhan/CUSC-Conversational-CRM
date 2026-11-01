@@ -1,7 +1,7 @@
+import { SearchInput } from '../../../components/ui/SearchInput.js';
 import React, { useEffect, useState } from 'react';
 import {
   RefreshCw,
-  Search,
   Filter,
   CheckCircle2,
   Clock,
@@ -129,17 +129,16 @@ export const SavedMessagesTable: React.FC = () => {
         <CardContent>
           {/* Thanh Tìm Kiếm và Lọc Kênh */}
           <div className="crm-filter-toolbar">
-            <div className="crm-search-box">
-              <Search size={16} className="search-icon" />
-              <input
-                type="text"
-                className="form-input form-input-with-padding"
-                placeholder="Tìm kiếm nội dung hoặc mã tin nhắn..."
+            <div className="crm-search-box" style={{ padding: '0', background: 'transparent', border: 'none' }}>
+              <SearchInput
                 value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
+                onChange={(val: string) => {
+                  setSearchTerm(val);
                   setPage(1);
                 }}
+                placeholder="Tìm kiếm nội dung hoặc mã tin nhắn..."
+                size="sm"
+                className="w-full min-w-[280px]"
               />
             </div>
 

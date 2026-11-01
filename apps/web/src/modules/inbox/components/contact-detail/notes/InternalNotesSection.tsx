@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, MessageSquarePlus } from 'lucide-react';
 import type { InternalNote } from '../../../types.js';
+import { Button } from '../../../../../components/ui/Button.js';
 
 interface InternalNotesSectionProps {
   notes?: InternalNote[];
@@ -8,10 +9,6 @@ interface InternalNotesSectionProps {
   onRemoveNote: (noteId: string) => void;
 }
 
-/**
- * Section: Ghi Chú Nội Bộ
- * Thiết kế phẳng bằng Tailwind CSS
- */
 export const InternalNotesSection: React.FC<InternalNotesSectionProps> = ({
   notes = [],
   onAddNote,
@@ -28,49 +25,52 @@ export const InternalNotesSection: React.FC<InternalNotesSectionProps> = ({
   };
 
   return (
-    <section className="p-4 border-b border-slate-200">
-      <div className="flex items-center justify-between mb-2.5">
-        <h3 className="text-[13px] font-semibold text-slate-800 m-0">
+    <div className="p-4 bg-white space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="m-0 text-xs font-bold text-slate-800 uppercase tracking-wider">
           Ghi Chú Nội Bộ ({notes.length})
-        </h3>
+        </h4>
       </div>
 
       {/* Form nhập ghi chú */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2 mb-3">
+      <form onSubmit={handleSubmit} className="space-y-2">
         <textarea
           rows={2}
-          placeholder="Thêm ghi chú nội bộ..."
+          placeholder="Thêm ghi chú nội bộ cho tư vấn viên..."
           value={newNoteInput}
           onChange={(e) => setNewNoteInput(e.target.value)}
-          className="w-full p-2 text-[12px] border border-slate-300 rounded bg-white text-slate-800 outline-none focus:border-blue-500 resize-none"
+          className="w-full min-h-[50px] p-2.5 text-xs border border-slate-200 rounded-xl bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 resize-none transition-all leading-relaxed"
         />
         <div className="flex justify-end">
-          <button
+          <Button
             type="submit"
+            variant="primary"
+            size="sm"
+            icon={<MessageSquarePlus size={13} />}
             disabled={!newNoteInput.trim()}
-            className="px-2.5 py-1 text-[11.5px] font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed border-0 cursor-pointer transition-colors"
+            className="h-7 px-3 text-xs"
           >
             Lưu ghi chú
-          </button>
+          </Button>
         </div>
       </form>
 
       {/* Danh sách ghi chú */}
       {notes.length > 0 && (
-        <div className="flex flex-col gap-2">
+        <div className="space-y-2 pt-1">
           {notes.map((note) => (
             <div
               key={note.id}
-              className="p-2.5 bg-slate-50 border border-slate-200 rounded-md text-[12px]"
+              className="p-3 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs space-y-1.5"
             >
-              <div className="flex items-center justify-between mb-1 text-[11px] text-slate-500">
+              <div className="flex items-center justify-between text-[11px] text-slate-400">
                 <span className="font-semibold text-slate-700">{note.author}</span>
                 <div className="flex items-center gap-2">
                   <span>{note.createdAt}</span>
                   <button
                     type="button"
                     onClick={() => onRemoveNote(note.id)}
-                    className="text-slate-400 hover:text-red-500 bg-transparent border-0 cursor-pointer p-0"
+                    className="p-0.5 text-slate-400 hover:text-red-600 rounded transition-colors cursor-pointer"
                     title="Xóa ghi chú"
                   >
                     <Trash2 size={12} />
@@ -84,6 +84,6 @@ export const InternalNotesSection: React.FC<InternalNotesSectionProps> = ({
           ))}
         </div>
       )}
-    </section>
+    </div>
   );
 };

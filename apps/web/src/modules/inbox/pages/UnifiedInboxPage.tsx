@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { AssignedStaff } from '../types.js';
-import { InboxZaloAlertBanner } from '../components/InboxZaloAlertBanner.js';
 import { useRealtime } from '../../realtime/RealtimeContext.js';
 import { useUserRole } from '../../auth/index.js';
 import { useWorkspaceConfig } from '../../workspace/WorkspaceConfigContext.js';
@@ -10,6 +9,7 @@ import {
   CustomerProfileColumn,
   EmptyInboxView,
   QuickReplyModal,
+  InboxZaloAlertBanner,
 } from '../components/index.js';
 import {
   useQuickReplies,
@@ -34,22 +34,77 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   initialConversationId,
 }) => {
   const { onNewMessage, onPipelineChange, staffPresences, setUnreadCount } = useRealtime();
-  const { staffName, staffId, ownerId, isOwner } = useUserRole();
-  const { config, activeWorkspaceId } = useWorkspaceConfig();
+  const { staffName, staffId, ownerId, isOwner, staffEmail } = useUserRole();
+  const { config, activeWorkspaceId, staffMembers, isCurrentWorkspaceOwner } = useWorkspaceConfig();
 
   const [isProfileMobileOpen, setIsProfileMobileOpen] = useState(false);
 
-  // 1. Quản lý danh sách nhân sự trực tuyến
-  const staffList: AssignedStaff[] = useMemo(
-    () =>
-      Object.values(staffPresences).map((s) => ({
+  // 1. Quản lý danh sách nhân sự (lấy chuẩn vai trò thực từ hệ thống: OWNER, STAFF)
+  const staffList: AssignedStaff[] = useMemo(() => {
+    const isOwnerEffective = Boolean(isOwner || isCurrentWorkspaceOwner);
+    const matchedCurrentMember = staffMembers?.find(
+      (m) => m.id === staffId || (staffEmail && m.email === staffEmail)
+    );
+    const currentUserRole = isOwnerEffective
+      ? 'Chủ doanh nghiệp'
+      : matchedCurrentMember?.role === 'OWNER'
+      ? 'Chủ doanh nghiệp'
+      : 'Tư vấn viên';
+
+    const list: AssignedStaff[] = Object.values(staffPresences).map((s) => {
+      const member = staffMembers?.find((m) => m.id === s.staffId);
+      const isMemberOwner = member?.role === 'OWNER';
+      return {
         id: s.staffId,
         name: s.name,
         avatar: s.avatar,
-        role: s.role,
-      })),
-    [staffPresences]
-  );
+        role: isMemberOwner ? 'Chủ doanh nghiệp' : member?.role === 'STAFF' ? 'Tư vấn viên' : s.role || 'Tư vấn viên',
+      };
+    });
+
+    if (staffId && !list.some((s) => s.id === staffId)) {
+      list.unshift({
+        id: staffId,
+        name: staffName ? `${staffName} (Bạn)` : 'Bạn',
+        avatar: '',
+        role: currentUserRole,
+      });
+    } else {
+      const selfIndex = list.findIndex((s) => s.id === staffId);
+      if (selfIndex !== -1) {
+        list[selfIndex] = {
+          ...list[selfIndex],
+          name: list[selfIndex].name.includes('(Bạn)')
+            ? list[selfIndex].name
+            : `${list[selfIndex].name} (Bạn)`,
+          role: currentUserRole,
+        };
+      }
+    }
+
+    if (Array.isArray(staffMembers)) {
+      staffMembers.forEach((member) => {
+        if (!list.some((s) => s.id === member.id)) {
+          list.push({
+            id: member.id,
+            name: member.fullName || member.email,
+            avatar: '',
+            role: member.role === 'OWNER' ? 'Chủ doanh nghiệp' : 'Tư vấn viên',
+          });
+        }
+      });
+    }
+
+    return list;
+  }, [
+    staffPresences,
+    staffId,
+    staffName,
+    staffEmail,
+    isOwner,
+    isCurrentWorkspaceOwner,
+    staffMembers,
+  ]);
 
   // 2. Quản lý tin nhắn nhanh (Quick Replies)
   const {
@@ -125,60 +180,63 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
       {/* Banner cảnh báo thời hạn Zalo cá nhân (< 2h hoặc đã ngắt kết nối) */}
       <InboxZaloAlertBanner />
 
-      <div className={`pancake-inbox-container flex-1 min-h-0 ${selectedId ? 'has-active-chat' : ''}`}>
+      <div className={`pancake-inbox-container flex flex-1 min-h-0 h-full w-full overflow-hidden bg-slate-50/50 ${selectedId ? 'has-active-chat' : ''}`}>
         {/* CỘT 1 (Trái): Danh sách Hội thoại */}
-      <ConversationListColumn
-        conversations={conversations}
-        selectedId={currentConv?.id || null}
-        onSelect={handleSelectConversation}
-        onSyncFacebook={handleSyncFacebook}
-        isSyncingFacebook={isSyncingFb}
-        onSyncZalo={handleSyncZalo}
-        isSyncingZalo={isSyncingZalo}
-      />
+        <ConversationListColumn
+          conversations={conversations}
+          selectedId={currentConv?.id || null}
+          onSelect={handleSelectConversation}
+          onSyncFacebook={handleSyncFacebook}
+          isSyncingFacebook={isSyncingFb}
+          onSyncZalo={handleSyncZalo}
+          isSyncingZalo={isSyncingZalo}
+        />
 
-      {/* CỘT 2 (Giữa): Cửa sổ Chat Trực tuyến hoặc Placeholder trống */}
-      {currentConv ? (
-        <ChatWindowColumn
-          conversation={currentConv}
-          staffList={staffList}
+        {/* CỘT 2 (Giữa): Cửa sổ Chat Trực tuyến hoặc Placeholder trống */}
+        {currentConv ? (
+          <ChatWindowColumn
+            conversation={currentConv}
+            staffList={staffList}
+            quickReplies={quickReplies}
+            onSendMessage={handleSendMessage}
+            onAssignStaff={handleAssignStaff}
+            onToggleStatus={handleToggleStatus}
+            onBackToList={() => setSelectedId(null)}
+            onToggleProfile={() => setIsProfileMobileOpen((prev) => !prev)}
+            onOpenQuickReplySettings={() => setIsQuickReplyModalOpen(true)}
+          />
+        ) : (
+          <EmptyInboxView />
+        )}
+
+        {/* CỘT 3 (Phải): Hồ sơ Khách hàng & CRM Lead Funnel */}
+        {currentConv && (
+          <CustomerProfileColumn
+            customer={currentConv.customer}
+            assignedStaff={currentConv.assignedStaff}
+            staffList={staffList}
+            onAssignStaff={handleAssignStaff}
+            onUpdateLeadStatus={handleUpdateLeadStatus}
+            onUpdateLeadStage={handleUpdateLeadStage}
+            onUpdateContactInfo={handleUpdateContactInfo}
+            onNavigateToKanban={onNavigateToKanban}
+            onAddTag={handleAddTag}
+            onRemoveTag={handleRemoveTag}
+            onAddNote={handleAddNote}
+            onRemoveNote={handleRemoveNote}
+            onUpdateProducts={handleUpdateProducts}
+            isMobileOpen={isProfileMobileOpen}
+            onCloseMobile={() => setIsProfileMobileOpen(false)}
+          />
+        )}
+
+        {/* Modal Tùy Chỉnh & Thêm/Sửa Tin Nhắn Nhanh */}
+        <QuickReplyModal
+          isOpen={isQuickReplyModalOpen}
+          onClose={() => setIsQuickReplyModalOpen(false)}
           quickReplies={quickReplies}
-          onSendMessage={handleSendMessage}
-          onAssignStaff={handleAssignStaff}
-          onToggleStatus={handleToggleStatus}
-          onBackToList={() => setSelectedId(null)}
-          onToggleProfile={() => setIsProfileMobileOpen((prev) => !prev)}
-          onOpenQuickReplySettings={() => setIsQuickReplyModalOpen(true)}
+          onSaveReplies={handleSaveQuickReplies}
         />
-      ) : (
-        <EmptyInboxView />
-      )}
-
-      {/* CỘT 3 (Phải): Hồ sơ Khách hàng & CRM Lead Funnel */}
-      {currentConv && (
-        <CustomerProfileColumn
-          customer={currentConv.customer}
-          onUpdateLeadStatus={handleUpdateLeadStatus}
-          onUpdateLeadStage={handleUpdateLeadStage}
-          onUpdateContactInfo={handleUpdateContactInfo}
-          onNavigateToKanban={onNavigateToKanban}
-          onAddTag={handleAddTag}
-          onRemoveTag={handleRemoveTag}
-          onAddNote={handleAddNote}
-          onRemoveNote={handleRemoveNote}
-          onUpdateProducts={handleUpdateProducts}
-          isMobileOpen={isProfileMobileOpen}
-          onCloseMobile={() => setIsProfileMobileOpen(false)}
-        />
-      )}
-
-      {/* Modal Tùy Chỉnh & Thêm/Sửa Tin Nhắn Nhanh */}
-      <QuickReplyModal
-        isOpen={isQuickReplyModalOpen}
-        onClose={() => setIsQuickReplyModalOpen(false)}
-        quickReplies={quickReplies}
-        onSaveReplies={handleSaveQuickReplies}
-      />
       </div>
     </div>
   );

@@ -145,7 +145,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
         placeholder={placeholder}
         disabled={disabled}
         autoFocus={autoFocus}
-        className={`w-full border border-slate-300 rounded-none bg-white text-slate-900 outline-none focus:border-blue-600 transition-colors shadow-none box-border placeholder:text-slate-400 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${
+        className={`w-full border border-slate-300 rounded-lg bg-white text-slate-800 outline-none border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100/70 transition-all shadow-xs box-border placeholder:text-slate-400 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${
           heightClasses[size] ?? heightClasses.md
         } ${inputClassName}`}
       />
@@ -162,7 +162,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
             onClick={handleClear}
             disabled={disabled}
             aria-label="Xóa nội dung tìm kiếm"
-            className="text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer p-0.5 rounded-none flex items-center justify-center transition-colors"
+            className="text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer p-0.5 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors"
           >
             <X size={13} />
           </button>

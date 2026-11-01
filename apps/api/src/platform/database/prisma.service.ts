@@ -25,6 +25,7 @@ export class PrismaService
     try {
       await this.$connect();
       this.logger.log('Connected to PostgreSQL database successfully via Prisma');
+      try { await this.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS unaccent;'); } catch {}
       this.deduplicateCustomersAndConversations().catch(() => {});
 
       // Tự động đảm bảo các cột và bảng cấu hình workspace & ràng buộc staff-owner tồn tại

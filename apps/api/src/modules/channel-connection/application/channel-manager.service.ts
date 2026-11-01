@@ -751,7 +751,7 @@ export class ChannelManagerService {
           channel: input.channel as any,
           direction: 'OUTBOUND',
           content: input.content,
-          senderName: account.displayName || 'Tư vấn viên',
+          senderName: account.displayName,
           sentAt: sentAt.toISOString(),
         });
       } catch (err) {

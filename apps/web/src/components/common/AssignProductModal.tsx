@@ -1,5 +1,7 @@
+import { SearchInput } from '../ui/SearchInput.js';
+import { matchesUnaccent } from '../../lib/unaccent.js';
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Search, Check, Plus, Package, DollarSign } from 'lucide-react';
+import { X, Check, Plus, Package, DollarSign } from 'lucide-react';
 import type { ProductItemConfig } from '../../modules/workspace/workspaceConfig.types.js';
 
 export interface AssignProductModalProps {
@@ -58,7 +60,7 @@ export const AssignProductModal: React.FC<AssignProductModalProps> = ({
       if (selectedCategory !== 'ALL' && item.category !== selectedCategory) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchName = item.name.toLowerCase().includes(q);
+        const matchName = matchesUnaccent(item.name, searchQuery);
         const matchCategory = item.category?.toLowerCase().includes(q);
         const matchCode = item.code?.toLowerCase().includes(q);
         if (!matchName && !matchCategory && !matchCode) return false;
@@ -216,32 +218,13 @@ export const AssignProductModal: React.FC<AssignProductModalProps> = ({
         <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
           {/* Thanh tìm kiếm & lọc danh mục */}
           <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-            <div
-              style={{
-                position: 'relative',
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <Search
-                size={16}
-                style={{ position: 'absolute', left: '12px', color: '#94a3b8' }}
-              />
-              <input
-                type="text"
-                placeholder={`Tìm kiếm trong danh mục ${productLabel.toLowerCase()}...`}
+            <div style={{ flex: 1 }}>
+              <SearchInput
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px 9px 36px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  outline: 'none',
-                  background: '#f8fafc',
-                }}
+                onChange={setSearchQuery}
+                placeholder={`Tìm kiếm trong danh mục ${productLabel.toLowerCase()} (không dấu)...`}
+                size="md"
+                className="w-full"
               />
             </div>
 

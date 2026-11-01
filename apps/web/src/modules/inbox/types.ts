@@ -123,3 +123,42 @@ export interface QuickReplyItem {
   content: string;
   shortcut?: string;
 }
+
+
+// ==========================================
+// CONVERSATION LIST COLUMN TYPES & FILTERS
+// ==========================================
+
+export type ConversationChannelFilter = 'ALL' | ChannelType;
+
+export type ConversationStatusFilter = 'ALL' | 'UNREAD' | 'ASSIGNED_TO_ME' | 'UNASSIGNED';
+
+export interface ConversationListColumnProps {
+  conversations: ConversationItem[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onSyncFacebook?: () => void;
+  isSyncingFacebook?: boolean;
+  onSyncZalo?: () => void;
+  isSyncingZalo?: boolean;
+  /** Backward compatibility */
+  isSyncing?: boolean;
+}
+
+
+// ==========================================
+// CHAT WINDOW COLUMN TYPES
+// ==========================================
+
+export interface ChatWindowColumnProps {
+  conversation: ConversationItem;
+  staffList: AssignedStaff[];
+  quickReplies: QuickReplyItem[];
+  onSendMessage: (text: string, attachments?: MessageAttachment[]) => void;
+  onAssignStaff: (staffId: string) => void;
+  onToggleStatus?: () => void;
+  onBackToList?: () => void;
+  onToggleProfile?: () => void;
+  onOpenQuickReplySettings?: () => void;
+  onSelectConversation?: (conversationId: string) => void;
+}

@@ -1,4 +1,11 @@
-import type { ChatMessage, ConversationItem, LeadStatus } from '../types.js';
+import {
+  LEAD_STATUS,
+  PIPELINE_STAGE_ID,
+  type ChatMessage,
+  type ConversationItem,
+  type LeadStatus,
+  type LeadStage,
+} from '../types.js';
 import { standardizeVietnamesePhoneNumber } from '../../../lib/phone.js';
 
 /**
@@ -88,9 +95,6 @@ export const mergeDuplicateConversations = (
     const existingIdx = merged.findIndex((m) => {
       if (m.id === conv.id) return true;
 
-      // CUS-04: KHÔNG gộp 2 cuộc hội thoại thuộc 2 kênh khác nhau thành 1 cuộc hội thoại!
-      // Mỗi kênh giữ nguyên cuộc hội thoại riêng rẽ để tư vấn viên chat đúng kênh.
-      // Chỉ gộp khi CÙNG KÊNH:
       const isSameChannel =
         m.channel === conv.channel ||
         ((m.channel === 'ZALO' || m.channel === 'ZALO_PERSONAL') &&
@@ -338,4 +342,116 @@ export const mergeDuplicateConversations = (
     const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
     return timeB - timeA;
   });
+};
+
+
+/**
+ * Định dạng thời gian hiển thị trong danh sách hội thoại
+ * - Cùng ngày: hh:mm
+ * - Hôm qua: 'Hôm qua'
+ * - Cùng năm: dd/MM
+ * - Khác năm: dd/MM/yyyy
+ */
+export const formatConversationTime = (timeStr?: string): string => {
+  if (!timeStr || timeStr === 'Vừa xong') return 'Vừa xong';
+
+  let date: Date | null = null;
+  if (timeStr.includes('T') || timeStr.includes('-') || timeStr.includes('/')) {
+    const d = new Date(timeStr);
+    if (!isNaN(d.getTime())) {
+      date = d;
+    }
+  }
+
+  if (!date) return timeStr;
+
+  const now = new Date();
+  const isSameDay = (d1: Date, d2: Date) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
+
+  if (isSameDay(now, date)) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (isSameDay(yesterday, date)) {
+    return 'Hôm qua';
+  }
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${day}/${month}`;
+  }
+  return `${day}/${month}/${date.getFullYear()}`;
+};
+
+/**
+ * Lấy nhãn ngày hiển thị cho Date Divider giữa các đoạn tin nhắn (Hôm nay, Hôm qua, dd/MM, dd/MM/yyyy)
+ */
+export const getDateDividerLabel = (timeStr?: string): string => {
+  if (!timeStr || timeStr === 'Vừa xong') return 'Hôm nay';
+
+  let date: Date | null = null;
+  if (timeStr.includes('T') || timeStr.includes('-') || timeStr.includes('/')) {
+    const d = new Date(timeStr);
+    if (!isNaN(d.getTime())) {
+      date = d;
+    }
+  }
+
+  if (!date) return 'Hôm nay';
+
+  const now = new Date();
+  const isSameDay = (d1: Date, d2: Date) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
+
+  if (isSameDay(now, date)) {
+    return 'Hôm nay';
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (isSameDay(yesterday, date)) {
+    return 'Hôm qua';
+  }
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${day}/${month}`;
+  }
+  return `${day}/${month}/${date.getFullYear()}`;
+};
+
+/**
+ * Xác định trạng thái Lead (CONVERTED, UNQUALIFIED, POTENTIAL, NEW) từ giai đoạn tuyển sinh
+ */
+export const resolveLeadStatusFromStage = (
+  targetStageConfig?: { isWon?: boolean; isLost?: boolean; order?: number } | null,
+  stageId?: string | LeadStage,
+  isFirstStage: boolean = false,
+  isAlreadyPotential: boolean = false
+): LeadStatus => {
+  if (targetStageConfig?.isWon) return LEAD_STATUS.CONVERTED;
+  if (targetStageConfig?.isLost) return LEAD_STATUS.UNQUALIFIED;
+
+  const upper = String(stageId || '').toUpperCase();
+  if (upper.includes('ENROLLED') || upper.includes('WON') || upper.includes('CONVERTED')) {
+    return LEAD_STATUS.CONVERTED;
+  }
+  if (upper.includes('LOST') || upper.includes('UNQUALIFIED')) {
+    return LEAD_STATUS.UNQUALIFIED;
+  }
+
+  if (isFirstStage || upper === PIPELINE_STAGE_ID.STAGE_NEW || upper === 'NEW') {
+    return isAlreadyPotential ? LEAD_STATUS.POTENTIAL : LEAD_STATUS.NEW;
+  }
+
+  return LEAD_STATUS.POTENTIAL;
 };

@@ -6,24 +6,28 @@ import {
   type CustomerProfile,
   type LeadStatus,
   type LeadStage,
-} from '../types.js';
-import { AssignProductModal } from '../../../components/common/AssignProductModal.js';
-import { notify } from '../../../components/feedback/toastEmitter.js';
-import { LogPersonalZaloModal } from './LogPersonalZaloModal.js';
-import { useWorkspaceConfig } from '../../workspace/WorkspaceConfigContext.js';
+  type AssignedStaff,
+} from '../../types.js';
+import { AssignProductModal } from '../../../../components/common/AssignProductModal.js';
+import { notify } from '../../../../components/feedback/toastEmitter.js';
+import { LogPersonalZaloModal } from '../modals/LogPersonalZaloModal.js';
+import { useWorkspaceConfig } from '../../../workspace/WorkspaceConfigContext.js';
 import {
   ContactHeader,
   ChannelIdentitiesSection,
   ContactInfoSection,
+  AssignedAgentSection,
   ContactActivitySection,
   ContactTagsSection,
   InterestedCoursesSection,
   InternalNotesSection,
-} from './contact-detail/index.js';
-import '../../../styles/contact-sidebar-flat.css';
+} from './index.js';
 
 export interface CustomerProfileColumnProps {
   customer: CustomerProfile;
+  assignedStaff?: AssignedStaff | null;
+  staffList?: AssignedStaff[];
+  onAssignStaff?: (staffId: string) => void;
   onUpdateLeadStatus: (status: LeadStatus) => void;
   onUpdateLeadStage?: (stage: LeadStage) => void;
   onNavigateToKanban?: () => void;
@@ -39,6 +43,9 @@ export interface CustomerProfileColumnProps {
 
 export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   customer,
+  assignedStaff,
+  staffList,
+  onAssignStaff,
   onUpdateLeadStatus,
   onUpdateLeadStage,
   onNavigateToKanban,
@@ -97,49 +104,43 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
       : 0;
 
   return (
-    <aside className={`contact-detail-sidebar pancake-col-right ${isMobileOpen ? 'mobile-visible' : ''}`}>
-      {/* Nút đóng dành cho mobile view */}
-      {onCloseMobile && isMobileOpen && (
-        <div className="flat-mobile-close-bar">
+    <aside
+      className={`w-[340px] min-w-[320px] max-w-[360px] border-l border-slate-200 bg-white flex flex-col h-full shrink-0 select-none overflow-hidden transition-all ${
+        isMobileOpen
+          ? 'fixed inset-y-0 right-0 z-50 shadow-2xl w-full max-w-sm'
+          : 'hidden lg:flex'
+      }`}
+    >
+      {/* 1. Header Cột: Customer Details */}
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+        <h3 className="m-0 text-sm font-bold text-slate-800">
+          Chi Tiết Khách Hàng
+        </h3>
+        {onCloseMobile && (
           <button
             type="button"
-            className="flat-btn flat-btn-secondary"
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
             onClick={onCloseMobile}
             title="Đóng hồ sơ"
-            style={{ padding: '4px 8px', fontSize: '12px' }}
           >
-            <X size={14} />
-            <span>Đóng Hồ Sơ</span>
+            <X size={16} />
           </button>
-        </div>
-      )}
-
-      {/* A. CONTACT HEADER */}
-      <ContactHeader
-        customer={customer}
-        copiedField={copiedField}
-        onCopy={handleCopy}
-        onStartEditPhone={() => setTriggerEditPhone(true)}
-        onStartEditEmail={() => setTriggerEditEmail(true)}
-        onOpenMenu={() => setIsLogZaloModalOpen(true)}
-      />
-
-      <div className="flat-sidebar-body">
-
-        {/* B. ĐỊNH DANH KÊNH HỘI THOẠI (Chỉ hiển thị khi có từ 2 kênh trở lên để không lặp lại Header) */}
-        {effectiveIdentities.length > 1 && (
-          <ChannelIdentitiesSection
-            identities={effectiveIdentities}
-            copiedField={copiedField}
-            onCopy={handleCopy}
-            contactId={customer.contactId}
-            onUnmergeSuccess={() => {
-              window.location.reload();
-            }}
-          />
         )}
+      </div>
 
-        {/* D. THÔNG TIN LIÊN HỆ */}
+      {/* 2. Nội dung cuộn với visual hierarchy phân tầng rõ ràng */}
+      <div className="flex-1 overflow-y-auto divide-y divide-slate-100 custom-scrollbar">
+        {/* A. THÔNG TIN HỒ SƠ CHÍNH & TÁC VỤ (Contact Header) */}
+        <ContactHeader
+          customer={customer}
+          copiedField={copiedField}
+          onCopy={handleCopy}
+          onStartEditPhone={() => setTriggerEditPhone(true)}
+          onStartEditEmail={() => setTriggerEditEmail(true)}
+          onOpenMenu={() => setIsLogZaloModalOpen(true)}
+        />
+
+        {/* B. THÔNG TIN LIÊN HỆ (Phone, Email, Contact ID) */}
         <ContactInfoSection
           phone={customer.phone}
           email={customer.email}
@@ -154,7 +155,14 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           onResetEditingEmailExternal={() => setTriggerEditEmail(false)}
         />
 
-        {/* E. HOẠT ĐỘNG (Giai đoạn khách hàng tiềm năng & Đánh dấu Lead chuẩn Meta Business Suite) */}
+        {/* C. NHÂN SỰ PHỤ TRÁCH (Assigned Agent) */}
+        <AssignedAgentSection
+          assignedStaff={assignedStaff}
+          staffList={staffList}
+          onAssignStaff={onAssignStaff}
+        />
+
+        {/* D. TRẠNG THÁI / GIAI ĐOẠN PHỄU TUYỂN SINH (Status List) */}
         <ContactActivitySection
           customer={customer}
           currentStageKey={currentStageKey}
@@ -166,14 +174,14 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           onNavigateToKanban={onNavigateToKanban}
         />
 
-        {/* F. NHÃN PHÂN LOẠI */}
+        {/* E. NHÃN PHÂN LOẠI (Tags - pastel rounded pills) */}
         <ContactTagsSection
           tags={customer.tags}
           onAddTag={onAddTag}
           onRemoveTag={onRemoveTag}
         />
 
-        {/* F. KHÓA HỌC / CHƯƠNG TRÌNH ĐÀO TẠO */}
+        {/* F. KHÓA HỌC QUAN TÂM & HỌC PHÍ DỰ KIẾN */}
         <InterestedCoursesSection
           productLabel={config.terminology.productLabel}
           courses={customer.interestCourses}
@@ -190,23 +198,39 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           }}
         />
 
-        {/* G. GHI CHÚ NỘI BỘ */}
+        {/* G. GHI CHÚ NỘI BỘ (Internal Notes) */}
         <InternalNotesSection
           notes={customer.notes}
           onAddNote={onAddNote}
           onRemoveNote={onRemoveNote}
         />
+
+        {/* H. ĐỊNH DANH ĐA KÊNH (Chỉ hiển thị khi đã liên kết từ 2 kênh) */}
+        {effectiveIdentities.length > 1 && (
+          <ChannelIdentitiesSection
+            identities={effectiveIdentities}
+            copiedField={copiedField}
+            onCopy={handleCopy}
+            contactId={customer.contactId}
+            onUnmergeSuccess={() => {
+              window.location.reload();
+            }}
+          />
+        )}
       </div>
 
-      {/* Modal Zalo Log cá nhân */}
+      {/* MODAL GHI NHẬN TƯ VẤN ZALO CÁ NHÂN */}
       <LogPersonalZaloModal
         isOpen={isLogZaloModalOpen}
         customer={customer}
         onClose={() => setIsLogZaloModalOpen(false)}
-        onSaveNote={(note) => onAddNote(note)}
+        onSaveNote={(note) => {
+          onAddNote(note);
+          setIsLogZaloModalOpen(false);
+        }}
       />
 
-      {/* Modal Gán Khóa học */}
+      {/* MODAL GÁN KHÓA HỌC & TÍNH HỌC PHÍ */}
       <AssignProductModal
         isOpen={isAssignProductModalOpen}
         onClose={() => setIsAssignProductModalOpen(false)}

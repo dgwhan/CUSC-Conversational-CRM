@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AlertCircle, AlertTriangle, RotateCcw, X, QrCode } from 'lucide-react';
-import { apiClient } from '../../../lib/api-client.js';
-import { useRealtime } from '../../realtime/RealtimeContext.js';
+import { apiClient } from '../../../../lib/api-client.js';
+import { useRealtime } from '../../../realtime/RealtimeContext.js';
 
-interface InboxZaloAlertBannerProps {
+export interface InboxZaloAlertBannerProps {
   onOpenRenewModal?: () => void;
 }
 
@@ -175,3 +175,4 @@ export const InboxZaloAlertBanner: React.FC<InboxZaloAlertBannerProps> = ({ onOp
     </div>
   );
 };
+

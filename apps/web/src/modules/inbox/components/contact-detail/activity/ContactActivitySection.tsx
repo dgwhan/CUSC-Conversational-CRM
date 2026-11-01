@@ -1,8 +1,7 @@
 import React from 'react';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Star } from 'lucide-react';
 import { type CustomerProfile, type LeadStatus, type LeadStage, LEAD_STATUS } from '../../../types.js';
 import { type StageDefinition, STANDARD_7_STAGES } from '../types/index.js';
-import { LeadStatusToggle } from './LeadStatusToggle.js';
 import { LeadStageSelector } from './LeadStageSelector.js';
 import { notify } from '../../../../../components/feedback/toastEmitter.js';
 
@@ -17,10 +16,6 @@ export interface ContactActivitySectionProps {
   onNavigateToKanban?: () => void;
 }
 
-/**
- * Section: Hoạt động (Activity)
- * Quản lý trạng thái tiềm năng & giai đoạn phễu chăm sóc khách hàng
- */
 export const ContactActivitySection: React.FC<ContactActivitySectionProps> = ({
   customer,
   currentStageKey,
@@ -30,7 +25,6 @@ export const ContactActivitySection: React.FC<ContactActivitySectionProps> = ({
   onAddTag,
   onNavigateToKanban,
 }) => {
-  // Kiểm tra khách hàng hiện tại đã được đánh dấu là tiềm năng chưa
   const hasLeadTag = Array.isArray(customer.tags) && customer.tags.some(
     (t) => t.trim().toLowerCase() === 'lead' || t.trim().toLowerCase() === 'facebook lead'
   );
@@ -40,7 +34,6 @@ export const ContactActivitySection: React.FC<ContactActivitySectionProps> = ({
     customer.leadStatus === LEAD_STATUS.UNQUALIFIED;
   const isLead = hasLeadTag || isPotentialStatus;
 
-  // Danh sách các giai đoạn phễu chuẩn
   const availableStages: Array<StageDefinition & { color?: string }> =
     stages && stages.length > 0
       ? stages.map((s, idx) => {
@@ -60,7 +53,6 @@ export const ContactActivitySection: React.FC<ContactActivitySectionProps> = ({
       })
       : STANDARD_7_STAGES;
 
-  // Giai đoạn hiện tại
   const currentStage =
     availableStages.find(
       (s) =>
@@ -70,48 +62,43 @@ export const ContactActivitySection: React.FC<ContactActivitySectionProps> = ({
         `STAGE_${currentStageKey}` === s.id
     ) || availableStages[0];
 
-  // Hành động: Đánh dấu là khách hàng tiềm năng
   const handleMarkAsLead = () => {
     onUpdateLeadStatus(LEAD_STATUS.POTENTIAL);
+    if (!hasLeadTag) onAddTag('Lead');
     notify.success(`Đã đánh dấu "${customer.fullName}" là khách hàng tiềm năng.`);
   };
 
-  // Hành động: Hủy đánh dấu tiềm năng
   const handleUnmarkLead = () => {
     onUpdateLeadStatus(LEAD_STATUS.NEW);
-    notify.info('Đã bỏ đánh dấu khách hàng tiềm năng. Giai đoạn đã bị khóa.');
+    notify.info('Đã bỏ đánh dấu khách hàng tiềm năng.');
   };
 
-  // Hành động: Chọn giai đoạn
   const handleSelectStage = (stageItem: StageDefinition) => {
     if (!isLead) {
-      notify.warning('Vui lòng bấm "Đánh dấu là khách hàng tiềm năng" trước để chọn giai đoạn.');
-      return;
+      onUpdateLeadStatus(LEAD_STATUS.POTENTIAL);
+      if (!hasLeadTag) onAddTag('Lead');
     }
     if (onUpdateLeadStage) {
       onUpdateLeadStage(stageItem.id);
     } else {
       onUpdateLeadStatus(stageItem.status);
     }
-    if (stageItem.status === LEAD_STATUS.POTENTIAL || stageItem.status === LEAD_STATUS.CONVERTED) {
-      if (!hasLeadTag) onAddTag('Lead');
-    }
     notify.success(`Đã chuyển giai đoạn: "${stageItem.name}".`);
   };
 
   return (
-    <section className="p-4 border-b border-slate-200">
+    <div className="p-4 bg-white space-y-3 border-b border-slate-100">
       {/* 1. Header Section */}
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-[13px] font-semibold text-slate-800 m-0">
-          Hoạt động
-        </h3>
+      <div className="flex items-center justify-between">
+        <h4 className="m-0 text-xs font-bold text-slate-800 uppercase tracking-wider">
+          Hoạt Động Tuyển Sinh
+        </h4>
         {onNavigateToKanban && (
           <button
             type="button"
             onClick={onNavigateToKanban}
-            className="inline-flex items-center gap-1 text-[11.5px] font-medium text-blue-600 hover:text-blue-800 bg-transparent border-0 cursor-pointer p-0 transition-colors"
-            title="Xem trên bảng Kanban"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-transparent border-0 cursor-pointer p-0 transition-colors"
+            title="Xem trên Bảng Kanban"
           >
             <span>Bảng Kanban</span>
             <ExternalLink size={11} />
@@ -119,22 +106,55 @@ export const ContactActivitySection: React.FC<ContactActivitySectionProps> = ({
         )}
       </div>
 
-      
+      {/* 2. Banner Trạng thái Khách hàng tiềm năng (Lead) */}
+      <div
+        className={`flex items-center justify-between p-2.5 rounded-xl border transition-all text-xs ${
+          isLead
+            ? 'bg-amber-50/80 border-amber-200/90 text-amber-900'
+            : 'bg-slate-50/80 border-slate-200 text-slate-600'
+        }`}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <Star
+            size={14}
+            className={`shrink-0 ${
+              isLead ? 'fill-amber-500 text-amber-500' : 'text-slate-400'
+            }`}
+          />
+          <span className="font-semibold truncate">
+            {isLead ? 'Đã đánh dấu là khách hàng tiềm năng' : 'Chưa đánh dấu tiềm năng'}
+          </span>
+        </div>
 
-      {/* 2. Sub-component: Đánh dấu khách hàng tiềm năng */}
-      <LeadStatusToggle
-        isLead={isLead}
-        onMarkAsLead={handleMarkAsLead}
-        onUnmarkLead={handleUnmarkLead}
-      />
+        {isLead ? (
+          <button
+            type="button"
+            onClick={handleUnmarkLead}
+            className="text-[11px] font-semibold text-slate-500 hover:text-red-600 cursor-pointer bg-transparent border-0 p-0 transition-colors ml-2 shrink-0"
+            title="Bỏ đánh dấu tiềm năng"
+          >
+            Hủy
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleMarkAsLead}
+            className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 cursor-pointer bg-transparent border-0 p-0 transition-colors ml-2 shrink-0"
+          >
+            + Đánh dấu
+          </button>
+        )}
+      </div>
 
-      {/* 3. Sub-component: Chọn giai đoạn phễu chăm sóc */}
-      <LeadStageSelector
-        isLead={isLead}
-        currentStage={currentStage}
-        availableStages={availableStages}
-        onSelectStage={handleSelectStage}
-      />
-    </section>
+      {/* 3. Dropdown Chọn Giai đoạn (Chỉ hiển thị khi đã đánh dấu tiềm năng) */}
+      {isLead && (
+        <LeadStageSelector
+          isLead={isLead}
+          currentStage={currentStage}
+          availableStages={availableStages}
+          onSelectStage={handleSelectStage}
+        />
+      )}
+    </div>
   );
 };

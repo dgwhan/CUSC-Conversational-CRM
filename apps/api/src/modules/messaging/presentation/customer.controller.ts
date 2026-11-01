@@ -1,5 +1,6 @@
 import {
     Controller,
+    NotFoundException,
     Get,
     Patch,
     Delete,
@@ -11,9 +12,11 @@ import {
     Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
+import { Prisma } from '@prisma/client';
 import { RealtimeService } from '../../realtime/realtime.service.js';
 import { ContactMergeService } from '../application/contact-merge.service.js';
 import { standardizeVietnamesePhoneNumber } from '../../customers/domain/phone-standardizer.js';
+import { removeVietnameseTones, matchesUnaccent } from '../../customers/domain/unaccent.js';
 import {
     deduplicateTags,
     tagSyncLogger,
@@ -36,34 +39,89 @@ export class CustomerController {
     ) { }
 
     /**
-     * Retrieve list of customers within a workspace, supporting search and conversation snippet retrieval.
+     * Retrieve list of customers within a workspace, supporting pagination, unaccent search, and phone lookup 
      */
     @Get()
     async getCustomers(
         @Headers('x-workspace-id') headerWsId?: string,
         @Query('workspaceId') queryWsId?: string,
         @Query('search') search?: string,
+        @Query('page') pageStr?: string,
+        @Query('limit') limitStr?: string,
+        @Query('leadStatus') leadStatus?: string,
+        @Query('leadStage') leadStage?: string,
     ) {
         const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const rawWsId = (queryWsId || headerWsId || '').trim();
+        const page = Math.max(1, parseInt(pageStr || '1', 10) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(limitStr || '20', 10) || 20));
+        const skip = (page - 1) * limit;
+
         const where: any = {};
 
         if (rawWsId) {
             if (UUID_REGEX.test(rawWsId)) {
                 where.workspaceId = rawWsId;
             } else {
-                // If workspaceId is not a valid UUID (e.g. initial placeholder), return empty list instead of Postgres 500 error
-                return { items: [], total: 0 };
+                return { items: [], total: 0, page, limit, totalPages: 0 };
             }
         }
 
+        if (leadStatus && leadStatus.trim()) {
+            where.leadStatus = leadStatus.trim();
+        }
+
+        if (leadStage && leadStage.trim()) {
+            where.leadStage = leadStage.trim();
+        }
+
+        let fallbackFilterNeeded = false;
+        let cleanSearchTerm = '';
+
         if (search && search.trim()) {
-            const cleanSearch = search.trim();
-            where.OR = [
-                { fullName: { contains: cleanSearch, mode: 'insensitive' } },
-                { phone: { contains: cleanSearch, mode: 'insensitive' } },
-                { email: { contains: cleanSearch, mode: 'insensitive' } },
-            ];
+            cleanSearchTerm = search.trim();
+            const rawDigits = cleanSearchTerm.replace(/\D/g, '');
+            const stdPhone = rawDigits.length >= 7 ? standardizeVietnamesePhoneNumber(rawDigits) : null;
+            const searchPattern = `%${cleanSearchTerm}%`;
+            const phonePattern = rawDigits.length >= 4 ? `%${rawDigits}%` : null;
+
+            let matchedIds: string[] | null = null;
+
+            try {
+                if (typeof this.prisma.$queryRaw === 'function') {
+                    const wsClause = rawWsId && UUID_REGEX.test(rawWsId) ? Prisma.sql`AND c.workspace_id = ${rawWsId}::uuid` : Prisma.empty;
+                    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+                        SELECT c.id FROM customers c
+                        WHERE (
+                            lower(unaccent(c.full_name)) LIKE lower(unaccent(${searchPattern}))
+                            OR lower(COALESCE(c.email, '')) LIKE lower(${searchPattern})
+                            OR (c.notes IS NOT NULL AND lower(unaccent(c.notes)) LIKE lower(unaccent(${searchPattern})))
+                            ${phonePattern ? Prisma.sql`OR c.phone LIKE ${phonePattern} OR replace(replace(replace(COALESCE(c.phone, ''), ' ', ''), '.', ''), '-', '') LIKE ${phonePattern}` : Prisma.empty}
+                            ${stdPhone ? Prisma.sql`OR c.phone = ${stdPhone}` : Prisma.empty}
+                        )
+                        ${wsClause}
+                    `;
+                    matchedIds = rows.map((r) => r.id);
+                }
+            } catch {
+                matchedIds = null;
+                fallbackFilterNeeded = true;
+            }
+
+            if (matchedIds !== null) {
+                if (matchedIds.length === 0) {
+                    return { items: [], total: 0, page, limit, totalPages: 0 };
+                }
+                where.id = { in: matchedIds };
+            } else {
+                where.OR = [
+                    { fullName: { contains: cleanSearchTerm, mode: 'insensitive' } },
+                    { phone: { contains: cleanSearchTerm, mode: 'insensitive' } },
+                    { email: { contains: cleanSearchTerm, mode: 'insensitive' } },
+                    ...(stdPhone ? [{ phone: stdPhone }] : []),
+                    ...(phonePattern ? [{ phone: { contains: rawDigits } }] : []),
+                ];
+            }
         }
 
         try {
@@ -82,16 +140,17 @@ export class CustomerController {
                                 },
                             },
                             orderBy: { lastMessageAt: 'desc' },
-                            take: 100,
+                            take: 20,
                         },
                     },
                     orderBy: { updatedAt: 'desc' },
-                    take: 100,
+                    skip,
+                    take: limit,
                 }),
                 this.prisma.customer.count({ where }),
             ]);
 
-            const mappedItems = items.map((c: any) => {
+            let mappedItems = items.map((c: any) => {
                 const identities = (c.channelIdentities as any) || {};
                 const convTags = Array.isArray(c.conversations?.[0]?.tags) ? c.conversations[0].tags : [];
                 const identityTags = Array.isArray(identities.tags) ? identities.tags : [];
@@ -102,17 +161,110 @@ export class CustomerController {
                     ...c,
                     leadStatus: c.leadStatus || identities.leadStatus || 'NEW',
                     leadStage: c.leadStage || identities.leadStage || null,
+                    notes: c.notes || identities.notes || null,
                     interestCourses: identities.interestCourses || [],
                     estimatedValue: identities.estimatedValue || 0,
                     tags: hasExplicitTags ? tags : (c.leadStatus === 'POTENTIAL' ? ['Lead'] : ['Khách hàng mới']),
                 };
             });
 
-            return { items: mappedItems, total };
+            // Fallback in-memory unaccent filter nếu Prisma mock hoặc DB không hỗ trợ queryRaw
+            if (fallbackFilterNeeded && cleanSearchTerm) {
+                mappedItems = mappedItems.filter((item) => {
+                    if (matchesUnaccent(item.fullName, cleanSearchTerm)) return true;
+                    if (matchesUnaccent(item.notes, cleanSearchTerm)) return true;
+                    if (item.phone && item.phone.includes(cleanSearchTerm.replace(/\D/g, ''))) return true;
+                    if (item.email && item.email.toLowerCase().includes(cleanSearchTerm.toLowerCase())) return true;
+                    return false;
+                });
+            }
+
+            return {
+                items: mappedItems,
+                total: fallbackFilterNeeded ? mappedItems.length : total,
+                page,
+                limit,
+                totalPages: Math.ceil((fallbackFilterNeeded ? mappedItems.length : total) / limit) || 1,
+            };
         } catch (error) {
             this.logger.error(`Error in getCustomers: ${(error as Error).message}`, (error as Error).stack);
-            return { items: [], total: 0 };
+            return { items: [], total: 0, page, limit, totalPages: 0 };
         }
+    }
+
+    /**
+     * Retrieve single customer details by ID (including conversations, notes, identities)
+     */
+    @Get(':id')
+    async getCustomerById(
+        @Param('id') id: string,
+        @Headers('x-workspace-id') headerWsId?: string,
+        @Query('workspaceId') queryWsId?: string,
+    ) {
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        let customer: any = null;
+
+        if (UUID_REGEX.test(id)) {
+            customer = await this.prisma.customer.findUnique({
+                where: { id },
+                include: {
+                    conversations: {
+                        include: {
+                            channelAccount: {
+                                select: {
+                                    displayName: true,
+                                    channel: true,
+                                    avatarUrl: true,
+                                },
+                            },
+                        },
+                        orderBy: { lastMessageAt: 'desc' },
+                        take: 20,
+                    },
+                },
+            });
+        } else {
+            const stripped = id.replace(/^(cust|cand)-/, '');
+            if (UUID_REGEX.test(stripped)) {
+                customer = await this.prisma.customer.findUnique({
+                    where: { id: stripped },
+                    include: {
+                        conversations: {
+                            include: {
+                                channelAccount: {
+                                    select: {
+                                        displayName: true,
+                                        channel: true,
+                                        avatarUrl: true,
+                                    },
+                                },
+                            },
+                            orderBy: { lastMessageAt: 'desc' },
+                            take: 20,
+                        },
+                    },
+                });
+            }
+        }
+
+        if (!customer) {
+            throw new NotFoundException('Khách hàng không tồn tại hoặc đã bị xóa');
+        }
+
+        const identities = (customer.channelIdentities as any) || {};
+        const convTags = Array.isArray(customer.conversations?.[0]?.tags) ? customer.conversations[0].tags : [];
+        const identityTags = Array.isArray(identities.tags) ? identities.tags : [];
+        const tags = Array.from(new Set([...convTags, ...identityTags]));
+
+        return {
+            ...customer,
+            leadStatus: customer.leadStatus || identities.leadStatus || 'NEW',
+            leadStage: customer.leadStage || identities.leadStage || null,
+            notes: customer.notes || identities.notes || null,
+            interestCourses: identities.interestCourses || [],
+            estimatedValue: identities.estimatedValue || 0,
+            tags: tags.length ? tags : (customer.leadStatus === 'POTENTIAL' ? ['Lead'] : ['Khách hàng mới']),
+        };
     }
 
     /**
@@ -124,6 +276,7 @@ export class CustomerController {
         @Param('id') id: string,
         @Body() body: {
             fullName?: string;
+            notes?: string;
             phone?: string;
             email?: string;
             interestCourses?: string[];
@@ -223,8 +376,8 @@ export class CustomerController {
                         ],
                     },
                     orderBy: { updatedAt: 'desc' },
-                            include: { conversations: { include: { channelAccount: true }, take: 1, orderBy: { lastMessageAt: 'desc' } } },
-                        });
+                    include: { conversations: { include: { channelAccount: true }, take: 1, orderBy: { lastMessageAt: 'desc' } } },
+                });
             } catch {
                 existing = null;
             }
@@ -348,6 +501,7 @@ export class CustomerController {
                 data: {
                     ...(headerWsId && UUID_REGEX.test(headerWsId) && !existing.workspaceId ? { workspaceId: headerWsId } : {}),
                     ...(body.fullName ? { fullName: body.fullName } : {}),
+                    ...(body.notes !== undefined ? { notes: body.notes } : {}),
                     ...(body.phone !== undefined ? { phone: body.phone } : {}),
                     ...(body.email !== undefined ? { email: body.email } : {}),
                     ...(body.leadStatus !== undefined ? { leadStatus: body.leadStatus } : {}),
@@ -361,6 +515,7 @@ export class CustomerController {
                 data: {
                     ...(headerWsId && UUID_REGEX.test(headerWsId) && !existing.workspaceId ? { workspaceId: headerWsId } : {}),
                     ...(body.fullName ? { fullName: body.fullName } : {}),
+                    ...(body.notes !== undefined ? { notes: body.notes } : {}),
                     ...(body.phone !== undefined ? { phone: body.phone } : {}),
                     ...(body.email !== undefined ? { email: body.email } : {}),
                     channelIdentities: updatedIdentities,
@@ -410,7 +565,7 @@ export class CustomerController {
                         await this.prisma.contact.update({
                             where: { id: currentContact.id },
                             data: { phoneNormalized: normalizedPhone },
-                        }).catch(() => {});
+                        }).catch(() => { });
                     }
                 } catch (mergeErr) {
                     this.logger.warn(`Lưu ý khi xử lý gộp SĐT CUS-04: ${(mergeErr as Error).message}`);

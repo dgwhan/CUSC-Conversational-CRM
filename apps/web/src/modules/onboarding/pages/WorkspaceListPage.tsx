@@ -1,6 +1,7 @@
+import { SearchInput } from '../../../components/ui/SearchInput.js';
+import { matchesUnaccent } from '../../../lib/unaccent.js';
 import React, { useState } from 'react';
 import {
-  Search,
   Plus,
   ArrowUpRight,
   CheckCircle2,
@@ -37,7 +38,7 @@ export const WorkspaceListPage: React.FC<WorkspaceListPageProps> = ({
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
     return (
-      ws.name.toLowerCase().includes(query) ||
+      matchesUnaccent(ws.name, searchQuery) ||
       (ws.domain && ws.domain.toLowerCase().includes(query))
     );
   });
@@ -66,18 +67,14 @@ export const WorkspaceListPage: React.FC<WorkspaceListPageProps> = ({
         </button>
       </div>
 
-      {/* Ô tìm kiếm  */}
-      <div className="relative mb-4">
-        <Search
-          size={15}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-        />
-        <input
-          type="text"
+      {/* Ô tìm kiếm đồng bộ chuẩ */}
+      <div className="mb-4">
+        <SearchInput
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Tìm kiếm không gian làm việc..."
-          className="w-full py-2.5 pl-10 pr-4 text-[13.5px] rounded-lg border border-slate-300 bg-white text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all shadow-xs box-border"
+          onChange={setSearchQuery}
+          placeholder="Tìm kiếm không gian làm việc (hỗ trợ không dấu)..."
+          size="md"
+          className="w-full"
         />
       </div>
 
@@ -134,9 +131,8 @@ export const WorkspaceListPage: React.FC<WorkspaceListPageProps> = ({
             return (
               <div
                 key={ws.id}
-                className={`flex items-center justify-between p-4 sm:p-5 px-5 sm:px-6 gap-4 flex-wrap transition-colors hover:bg-slate-50/80 ${
-                  isActive ? 'border-l-[4px] border-l-blue-600 bg-blue-50/20' : 'border-l-[4px] border-l-transparent'
-                }`}
+                className={`flex items-center justify-between p-4 sm:p-5 px-5 sm:px-6 gap-4 flex-wrap transition-colors hover:bg-slate-50/80 ${isActive ? 'border-l-[4px] border-l-blue-600 bg-blue-50/20' : 'border-l-[4px] border-l-transparent'
+                  }`}
               >
                 {/* Tên & Lĩnh vực & Badges  */}
                 <div className="flex flex-col gap-1 min-w-[220px]">

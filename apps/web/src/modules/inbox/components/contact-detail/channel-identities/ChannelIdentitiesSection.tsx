@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, Split, AlertCircle, RefreshCw, MessageSquare } from 'lucide-react';
+import { Copy, Check, AlertCircle, RefreshCw, MessageSquare } from 'lucide-react';
 import type { ChannelIdentityItem } from '../../../types.js';
 import { notify } from '../../../../../components/feedback/toastEmitter.js';
 import { resolveChannelInfo } from '../../../../../lib/channel-meta.js';

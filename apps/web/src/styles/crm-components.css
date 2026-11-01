@@ -1,0 +1,334 @@
+/* ==========================================================================
+   DROPZONE & SECTIONS
+   ========================================================================== */
+
+.crm-section-card {
+  margin-bottom: 28px;
+}
+
+.crm-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.crm-dropzone {
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  background-color: var(--color-surface-subtle);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.crm-dropzone:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}
+
+.dropzone-icon {
+  color: var(--color-primary);
+}
+
+.dropzone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dropzone-main {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-main);
+}
+
+.dropzone-sub {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.dropzone-file-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-primary);
+  margin-top: 4px;
+}
+
+.btn-icon-danger {
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+}
+
+.btn-icon-danger:hover {
+  background-color: var(--color-danger-bg);
+}
+
+.btn-icon-danger:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   STAT CARDS & RESULTS SUMMARY
+   ========================================================================== */
+
+.crm-section-divider {
+  display: flex;
+  align-items: center;
+  margin: 32px 0 20px 0;
+  text-align: center;
+}
+
+.crm-section-divider::before,
+.crm-section-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.crm-section-divider span {
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.crm-results-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  box-shadow: var(--shadow-xs);
+}
+
+.stat-card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-card-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-card-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.stat-card-value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.stat-card-desc {
+  font-size: 11.5px;
+  color: var(--color-text-subtle);
+  margin-top: 4px;
+}
+
+/* Stat card variants */
+.stat-card-neutral .stat-card-icon {
+  background-color: #f1f5f9;
+  color: #334155;
+}
+.stat-card-neutral .stat-card-value {
+  color: #0f172a;
+}
+
+.stat-card-success .stat-card-icon {
+  background-color: var(--color-success-bg);
+  color: var(--color-success);
+}
+.stat-card-success .stat-card-value {
+  color: var(--color-success);
+}
+
+.stat-card-danger .stat-card-icon {
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.stat-card-danger .stat-card-value {
+  color: var(--color-danger);
+}
+
+/* ==========================================================================
+   ERROR TABLE
+   ========================================================================== */
+
+.crm-error-card {
+  border-color: #fca5a5;
+  box-shadow: 0 4px 6px -1px rgba(185, 28, 28, 0.05);
+}
+
+.crm-error-row:hover td {
+  background-color: #fffaf0;
+}
+
+.csv-line-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background-color: var(--color-surface-subtle);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.crm-error-reason-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--color-danger);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.error-reason-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.error-reason-text {
+  line-height: 1.4;
+}
+
+.crm-raw-payload-box {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background-color: #f8fafc;
+  border: 1px solid var(--color-border);
+  padding: 6px 10px;
+  border-radius: 4px;
+  max-height: 80px;
+  overflow-y: auto;
+  color: #334155;
+}
+
+/* ==========================================================================
+   ALERT COMPONENT
+   ========================================================================== */
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: 13.5px;
+}
+
+.alert-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.alert-message {
+  line-height: 1.4;
+}
+
+.alert-close-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+}
+
+.alert-close-btn:hover {
+  opacity: 1;
+}
+
+.alert-danger {
+  background-color: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+.alert-success {
+  background-color: var(--color-success-bg);
+  border-color: var(--color-success-border);
+  color: var(--color-success);
+}
+
+.alert-warning {
+  background-color: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning);
+}
+
+.alert-info {
+  background-color: var(--color-info-bg);
+  border-color: var(--color-info-border);
+  color: var(--color-info);
+}
+
+/* Spinner Animation */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

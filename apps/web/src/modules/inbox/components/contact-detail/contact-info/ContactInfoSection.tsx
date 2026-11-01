@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Check, PenLine } from 'lucide-react';
+import { Copy, Check, PenLine, Phone, Mail, Hash } from 'lucide-react';
 import { notify } from '../../../../../components/feedback/toastEmitter.js';
+import { Button } from '../../../../../components/ui/Button.js';
 import {
   standardizeVietnamesePhoneNumber,
   formatVietnamesePhoneNumber,
@@ -20,10 +21,6 @@ interface ContactInfoSectionProps {
   onResetEditingEmailExternal?: () => void;
 }
 
-/**
- * Section: Thông Tin Liên Hệ
- * Giao diện phẳng chuẩn Tailwind CSS, hỗ trợ inline edit SĐT & Email
- */
 export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
   phone,
   email,
@@ -97,25 +94,25 @@ export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
     setIsEditingEmail(false);
   };
 
-  const hasPhone = phone && phone !== 'Chưa có SĐT';
-  const hasEmail = email && email !== 'Chưa có Email';
+  const hasPhone = Boolean(phone && phone !== 'Chưa có SĐT');
+  const hasEmail = Boolean(email && email !== 'Chưa có Email');
 
   return (
-    <section className="p-4 border-b border-slate-200">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-[13px] font-semibold text-slate-800 m-0">
-          Thông Tin Liên Hệ
-        </h3>
-      </div>
+    <div className="p-4 bg-white space-y-3">
+      <h4 className="m-0 text-xs font-bold text-slate-800 uppercase tracking-wider">
+        Thông Tin Liên Hệ
+      </h4>
 
-      <div className="flex flex-col gap-2 text-[12.5px]">
+      <div className="space-y-2.5">
         {/* SỐ ĐIỆN THOẠI */}
-        <div className="flex items-center justify-between py-1 min-h-[30px]">
-          <span className="text-slate-500 text-[12px] w-24 shrink-0">
-            Số điện thoại:
-          </span>
+        <div className="flex items-center justify-between text-xs py-1">
+          <div className="flex items-center gap-2 text-slate-500 shrink-0">
+            <Phone size={14} className="text-slate-400" />
+            <span>SĐT:</span>
+          </div>
+
           {isEditingPhone ? (
-            <div className="flex items-center gap-1.5 flex-1 justify-end">
+            <div className="flex items-center gap-1.5 flex-1 justify-end ml-2">
               <input
                 type="tel"
                 value={phoneInput}
@@ -124,69 +121,79 @@ export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
                   if (e.key === 'Enter') handleSavePhone();
                   if (e.key === 'Escape') setIsEditingPhone(false);
                 }}
-                placeholder="Nhập SĐT..."
+                placeholder="0939..."
                 autoFocus
-                className="px-2 py-0.5 text-[12px] border border-blue-500 rounded bg-white text-slate-800 outline-none w-32"
+                className="h-7 px-2 text-xs border border-blue-500 rounded-md bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 w-28"
               />
-              <button
+              <Button
                 type="button"
+                variant="primary"
+                size="sm"
                 onClick={handleSavePhone}
-                className="px-2 py-0.5 text-[11px] font-medium bg-blue-600 text-white rounded hover:bg-blue-700 border-0 cursor-pointer transition-colors"
+                className="h-7 px-2 text-[11px]"
               >
                 Lưu
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => setIsEditingPhone(false)}
-                className="px-1.5 py-0.5 text-[11px] text-slate-500 hover:text-slate-800 bg-transparent border-0 cursor-pointer"
+                className="h-7 px-1.5 text-[11px]"
               >
                 Hủy
-              </button>
+              </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 justify-end flex-1 min-w-0">
-              <span className={`font-medium truncate ${!hasPhone ? 'text-slate-400 italic' : 'text-slate-800'}`}>
-                {hasPhone ? (formatVietnamesePhoneNumber(phone, 'space') || phone) : 'Chưa có SĐT'}
+            <div className="flex items-center gap-1.5 justify-end flex-1 min-w-0 ml-2">
+              <span
+                className={`truncate font-medium ${
+                  hasPhone ? 'text-slate-800' : 'text-slate-400 italic'
+                }`}
+              >
+                {hasPhone ? formatVietnamesePhoneNumber(phone, 'space') || phone : 'Chưa có SĐT'}
               </span>
-              <div className="flex items-center gap-1 shrink-0">
-                {hasPhone && (
-                  <button
-                    type="button"
-                    onClick={() => onCopy(phone!, 'Số điện thoại')}
-                    className="p-1 text-slate-400 hover:text-blue-600 bg-transparent border-0 cursor-pointer transition-colors"
-                    title="Sao chép SĐT"
-                  >
-                    {copiedField === 'Số điện thoại' ? (
-                      <Check size={12} className="text-emerald-600" />
-                    ) : (
-                      <Copy size={12} />
-                    )}
-                  </button>
-                )}
+
+              {hasPhone && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setPhoneInput(hasPhone ? phone! : '');
-                    setIsEditingPhone(true);
-                  }}
-                  className="inline-flex items-center gap-0.5 text-[11px] text-blue-600 hover:text-blue-800 bg-transparent border-0 cursor-pointer font-medium"
-                  title="Chỉnh sửa số điện thoại"
+                  onClick={() => onCopy(phone!, 'Số điện thoại')}
+                  className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer"
+                  title="Sao chép SĐT"
                 >
-                  <PenLine size={11} />
-                  <span>{hasPhone ? 'Sửa' : '+ Thêm'}</span>
+                  {copiedField === 'Số điện thoại' ? (
+                    <Check size={12} className="text-emerald-600" />
+                  ) : (
+                    <Copy size={12} />
+                  )}
                 </button>
-              </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPhoneInput(hasPhone ? phone! : '');
+                  setIsEditingPhone(true);
+                }}
+                className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-blue-600 hover:text-blue-700 cursor-pointer ml-0.5"
+                title="Chỉnh sửa số điện thoại"
+              >
+                <PenLine size={11} />
+                <span>{hasPhone ? 'Sửa' : '+ Thêm'}</span>
+              </button>
             </div>
           )}
         </div>
 
         {/* EMAIL */}
-        <div className="flex items-center justify-between py-1 min-h-[30px]">
-          <span className="text-slate-500 text-[12px] w-24 shrink-0">
-            Email:
-          </span>
+        <div className="flex items-center justify-between text-xs py-1">
+          <div className="flex items-center gap-2 text-slate-500 shrink-0">
+            <Mail size={14} className="text-slate-400" />
+            <span>Email:</span>
+          </div>
+
           {isEditingEmail ? (
-            <div className="flex items-center gap-1.5 flex-1 justify-end">
+            <div className="flex items-center gap-1.5 flex-1 justify-end ml-2">
               <input
                 type="email"
                 value={emailInput}
@@ -195,76 +202,86 @@ export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
                   if (e.key === 'Enter') handleSaveEmail();
                   if (e.key === 'Escape') setIsEditingEmail(false);
                 }}
-                placeholder="Nhập Email..."
+                placeholder="example@..."
                 autoFocus
-                className="px-2 py-0.5 text-[12px] border border-blue-500 rounded bg-white text-slate-800 outline-none w-36"
+                className="h-7 px-2 text-xs border border-blue-500 rounded-md bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 w-32"
               />
-              <button
+              <Button
                 type="button"
+                variant="primary"
+                size="sm"
                 onClick={handleSaveEmail}
-                className="px-2 py-0.5 text-[11px] font-medium bg-blue-600 text-white rounded hover:bg-blue-700 border-0 cursor-pointer transition-colors"
+                className="h-7 px-2 text-[11px]"
               >
                 Lưu
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => setIsEditingEmail(false)}
-                className="px-1.5 py-0.5 text-[11px] text-slate-500 hover:text-slate-800 bg-transparent border-0 cursor-pointer"
+                className="h-7 px-1.5 text-[11px]"
               >
                 Hủy
-              </button>
+              </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 justify-end flex-1 min-w-0">
-              <span className={`font-medium truncate ${!hasEmail ? 'text-slate-400 italic' : 'text-slate-800'}`}>
+            <div className="flex items-center gap-1.5 justify-end flex-1 min-w-0 ml-2">
+              <span
+                className={`truncate font-medium ${
+                  hasEmail ? 'text-slate-800' : 'text-slate-400 italic'
+                }`}
+                title={email}
+              >
                 {hasEmail ? email : 'Chưa có Email'}
               </span>
-              <div className="flex items-center gap-1 shrink-0">
-                {hasEmail && (
-                  <button
-                    type="button"
-                    onClick={() => onCopy(email!, 'Email')}
-                    className="p-1 text-slate-400 hover:text-blue-600 bg-transparent border-0 cursor-pointer transition-colors"
-                    title="Sao chép Email"
-                  >
-                    {copiedField === 'Email' ? (
-                      <Check size={12} className="text-emerald-600" />
-                    ) : (
-                      <Copy size={12} />
-                    )}
-                  </button>
-                )}
+
+              {hasEmail && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setEmailInput(hasEmail ? email! : '');
-                    setIsEditingEmail(true);
-                  }}
-                  className="inline-flex items-center gap-0.5 text-[11px] text-blue-600 hover:text-blue-800 bg-transparent border-0 cursor-pointer font-medium"
-                  title="Chỉnh sửa email"
+                  onClick={() => onCopy(email!, 'Email')}
+                  className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer"
+                  title="Sao chép Email"
                 >
-                  <PenLine size={11} />
-                  <span>{hasEmail ? 'Sửa' : '+ Thêm'}</span>
+                  {copiedField === 'Email' ? (
+                    <Check size={12} className="text-emerald-600" />
+                  ) : (
+                    <Copy size={12} />
+                  )}
                 </button>
-              </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmailInput(hasEmail ? email! : '');
+                  setIsEditingEmail(true);
+                }}
+                className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-blue-600 hover:text-blue-700 cursor-pointer ml-0.5"
+                title="Chỉnh sửa Email"
+              >
+                <PenLine size={11} />
+                <span>{hasEmail ? 'Sửa' : '+ Thêm'}</span>
+              </button>
             </div>
           )}
         </div>
 
-        {/* MÃ CONTACT NẾU CÓ */}
+        {/* MÃ CONTACT CRM NẾU CÓ */}
         {contactId && (
-          <div className="flex items-center justify-between py-1 min-h-[30px]">
-            <span className="text-slate-500 text-[12px] w-24 shrink-0">
-              Mã Contact:
-            </span>
-            <div className="flex items-center gap-2 justify-end flex-1 min-w-0">
-              <span className="font-mono text-[12px] text-slate-700 truncate">
+          <div className="flex items-center justify-between text-xs py-1">
+            <div className="flex items-center gap-2 text-slate-500 shrink-0">
+              <Hash size={14} className="text-slate-400" />
+              <span>Contact ID:</span>
+            </div>
+            <div className="flex items-center gap-1.5 justify-end flex-1 min-w-0 ml-2">
+              <span className="font-mono text-slate-700 truncate" title={contactId}>
                 {contactId.slice(0, 10)}...
               </span>
               <button
                 type="button"
                 onClick={() => onCopy(contactId, 'Mã Contact')}
-                className="p-1 text-slate-400 hover:text-blue-600 bg-transparent border-0 cursor-pointer transition-colors"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer"
                 title="Sao chép Mã Contact"
               >
                 {copiedField === 'Mã Contact' ? (
@@ -277,6 +294,6 @@ export const ContactInfoSection: React.FC<ContactInfoSectionProps> = ({
           </div>
         )}
       </div>
-    </section>
+    </div>
   );
 };

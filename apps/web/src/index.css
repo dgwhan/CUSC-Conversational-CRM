@@ -1,15 +1,24 @@
 @import './App.css';
 @import './styles/theme.css';
 @import './styles/onboarding.css';
-@import './styles/pancake-inbox.css';
 @import './styles/kanban-realtime.css';
 @import './styles/responsive.css';
 @import './styles/header-layout.css';
-@import './styles/contact-sidebar-flat.css';
 
 /* App Global Layout Wrapper */
 #root {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Override full-height viewport cho Unified Inbox (loại bỏ padding 28px 32px của app content) */
+.crm-content-area.pancake-fullscreen {
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  height: 100% !important;
+  min-height: 0 !important;
 }

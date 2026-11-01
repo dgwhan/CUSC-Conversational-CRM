@@ -56,7 +56,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           extraActions={headerExtraActions}
         />
 
-        <main className={`crm-content-area ${currentTab === 'inbox' ? 'pancake-fullscreen' : ''}`}>
+        <main
+          className={`crm-content-area ${
+            currentTab === 'inbox'
+              ? 'pancake-fullscreen !p-0 !overflow-hidden flex flex-col flex-1 h-full min-h-0'
+              : ''
+          }`}
+        >
           {children}
         </main>
       </div>

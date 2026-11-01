@@ -6,12 +6,13 @@ import { NewCandidateModal } from './NewCandidateModal.js';
 import { useRealtime } from '../realtime/RealtimeContext.js';
 import { useUserRole } from '../auth/UserRoleContext.js';
 import { useWorkspaceConfig } from '../workspace/WorkspaceConfigContext.js';
+import { SearchInput } from '../../components/ui/SearchInput.js';
+import { matchesSmartSearch } from '../../lib/unaccent.js';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import { apiClient } from '../../lib/api-client.js';
 import { Avatar } from '../../components/common/Avatar.js';
 import { AssignProductModal } from '../../components/common/AssignProductModal.js';
 import {
-  Search,
   UserPlus,
   MessageSquare,
   DollarSign,
@@ -37,7 +38,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
   onNavigateToSettings,
 }) => {
   const { staffPresences, onPipelineChange, onNewMessage } = useRealtime();
-const { isOwner, isAgent, staffId } = useUserRole();
+  const { isOwner, isAgent, staffId } = useUserRole();
   const { config, activeWorkspaceId } = useWorkspaceConfig();
 
   const [candidates, setCandidates] = useState<KanbanCandidate[]>(() => {
@@ -62,7 +63,7 @@ const { isOwner, isAgent, staffId } = useUserRole();
         }
         return cleanList;
       }
-    } catch {}
+    } catch { }
     return INITIAL_KANBAN_CANDIDATES;
   });
 
@@ -80,7 +81,7 @@ const { isOwner, isAgent, staffId } = useUserRole();
   useEffect(() => {
     try {
       localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(candidates));
-    } catch {}
+    } catch { }
   }, [candidates]);
 
   // Lắng nghe sự kiện cập nhật Kanban từ Realtime WebSocket
@@ -359,14 +360,14 @@ const { isOwner, isAgent, staffId } = useUserRole();
               };
             });
           });
-        }).catch(() => {});
+        }).catch(() => { });
       }
     });
 
     return unsubscribe;
   }, [onNewMessage, config.pipelineStages, activeWorkspaceId]);
 
-  
+
 
 
   // Gán / Cập nhật Khóa học / Dự án BĐS / Gói dịch vụ từ catalog cho Ứng viên trên Kanban
@@ -377,10 +378,10 @@ const { isOwner, isAgent, staffId } = useUserRole();
       prev.map((c) =>
         c.id === candId
           ? {
-              ...c,
-              interestCourses: courses,
-              estimatedTuition: tuition,
-            }
+            ...c,
+            interestCourses: courses,
+            estimatedTuition: tuition,
+          }
           : c
       )
     );
@@ -411,14 +412,14 @@ const { isOwner, isAgent, staffId } = useUserRole();
           localStorage.setItem('crm_inbox_conversations_v1', JSON.stringify(updatedInbox));
         }
       }
-    } catch {}
+    } catch { }
 
     // Lưu vào Backend Database Customer
     if (editingProductCandidate.id) {
       apiClient.updateCustomer(editingProductCandidate.id, {
         interestCourses: courses,
         estimatedValue: tuition,
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     notify.success(
@@ -503,10 +504,10 @@ const { isOwner, isAgent, staffId } = useUserRole();
       prev.map((c) =>
         c.id === candId
           ? {
-              ...c,
-              stage: nextStage,
-              lastActivityAt: 'Vừa xong',
-            }
+            ...c,
+            stage: nextStage,
+            lastActivityAt: 'Vừa xong',
+          }
           : c
       )
     );
@@ -537,7 +538,7 @@ const { isOwner, isAgent, staffId } = useUserRole();
           localStorage.setItem('crm_inbox_conversations_v1', JSON.stringify(updatedInbox));
         }
       }
-    } catch {}
+    } catch { }
 
     // Gọi API cập nhật vào Database Customer
     if (candidate.id) {
@@ -581,12 +582,16 @@ const { isOwner, isAgent, staffId } = useUserRole();
     if (courseFilter !== 'ALL' && !item.interestCourses.some((c) => c.includes(courseFilter))) return false;
 
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchName = item.fullName.toLowerCase().includes(q);
-      const matchPhone = item.phone.toLowerCase().includes(q);
-      const matchEmail = item.email.toLowerCase().includes(q);
-      const matchCourse = item.interestCourses.some((c) => c.toLowerCase().includes(q));
-      if (!matchName && !matchPhone && !matchEmail && !matchCourse) return false;
+      const isMatched = matchesSmartSearch(
+        {
+          fullName: item.fullName,
+          phone: item.phone,
+          email: item.email,
+          interestCourses: item.interestCourses,
+        },
+        searchQuery
+      );
+      if (!isMatched) return false;
     }
     return true;
   });
@@ -700,15 +705,14 @@ const { isOwner, isAgent, staffId } = useUserRole();
       {/* 2. THANH CÔNG CỤ TÌM KIẾM & BỘ LỌC */}
       <div className="kanban-toolbar">
         <div className="toolbar-left-group">
-          {/* Ô tìm kiếm */}
-          <div className="kanban-search-box">
-            <Search size={15} className="search-icon" />
-            <input
-              type="text"
-              placeholder={`Tìm theo tên ${config.terminology.entityName.toLowerCase()}, SĐT, email...`}
+          {/* Ô tìm kiếm đồng bộ chuẩ */}
+          <div className="kanban-search-box" style={{ padding: '0', background: 'transparent', border: 'none' }}>
+            <SearchInput
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="kanban-search-input"
+              onChange={setSearchQuery}
+              placeholder="Tìm theo tên (không dấu), SĐT, email..."
+              size="md"
+              className="w-full min-w-[260px]"
             />
           </div>
 
@@ -732,7 +736,7 @@ const { isOwner, isAgent, staffId } = useUserRole();
             value={staffFilter}
             onChange={(e) => setStaffFilter(e.target.value)}
           >
-<option value="ALL">Tất cả nhân viên tư vấn</option>
+            <option value="ALL">Tất cả nhân viên tư vấn</option>
             {Object.values(staffPresences).map((staff) => (
               <option key={staff.staffId} value={staff.staffId}>
                 {staff.name}
