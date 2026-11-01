@@ -773,6 +773,59 @@ class ApiClient {
       },
     });
   }
+  // --- WORKSPACE NOTIFICATIONS ---
+  getNotifications(
+    workspaceId: string,
+    params?: { isRead?: boolean; page?: number; limit?: number; type?: string; severity?: string },
+  ) {
+    return this.get<NotificationListResponse>(`/v1/workspaces/${workspaceId}/notifications`, {
+      params: params as Record<string, string | number | boolean | undefined>,
+    });
+  }
+
+  markNotificationRead(workspaceId: string, id: string) {
+    return this.patch<NotificationItem>(`/v1/workspaces/${workspaceId}/notifications/${id}/read`);
+  }
+
+  markAllNotificationsRead(workspaceId: string) {
+    return this.post<{ count: number }>(`/v1/workspaces/${workspaceId}/notifications/read-all`);
+  }
+
+  deleteNotification(workspaceId: string, id: string) {
+    return this.delete<{ success: boolean }>(`/v1/workspaces/${workspaceId}/notifications/${id}`);
+  }
+}
+
+export type NotificationType =
+  | 'CHANNEL_EXPIRING'
+  | 'CHANNEL_EXPIRED'
+  | 'NEW_LEAD'
+  | 'SYSTEM_WARNING'
+  | 'CONVERSATION_ALERT';
+
+export type NotificationSeverity = 'INFO' | 'WARNING' | 'URGENT' | 'CRITICAL';
+
+export interface NotificationItem {
+  id: string;
+  workspaceId: string;
+  type: NotificationType;
+  severity: NotificationSeverity;
+  title: string;
+  content: string;
+  actionUrl?: string | null;
+  isRead: boolean;
+  metadata?: Record<string, any> | null;
+  createdAt: string;
+}
+
+export interface NotificationListResponse {
+  items: NotificationItem[];
+  total: number;
+  unreadCount: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export const apiClient = new ApiClient();
+

@@ -112,10 +112,14 @@ export function AuthPage({
           ) : (
             <div key="auth-panel-signup" id="auth-panel-signup" role="tabpanel" aria-labelledby="auth-tab-signup" className={hasInteracted ? 'animate-auth-slide-right' : ''}>
               <SignUpForm
-                onSuccess={(res) =>
+                onSuccess={(res: any) =>
                   onLoginSuccess?.({
                     ...res,
                     staff: {
+                      id: res.staff?.id || res.id || 'staff-new',
+                      email: res.staff?.email || res.email || '',
+                      fullName: res.staff?.fullName || res.fullName || '',
+                      phoneNumber: res.staff?.phoneNumber || res.phoneNumber || null,
                       ...res.staff,
                       mustChangePassword: false,
                     },

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import type { StaffPresenceStatus, ChannelType } from '../inbox/types.js';
-import { playTingTingSound, isSoundEnabled, setSoundEnabled } from './audioNotification.js';
+import { playTingTingSound, playUrgentAlertSound, isSoundEnabled, setSoundEnabled } from './audioNotification.js';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import { apiClient } from '../../lib/api-client.js';
 import { useUserRole } from '../auth/index.js';
@@ -56,6 +56,7 @@ export interface RealtimeContextValue {
   simulateIncomingMessage: (channel?: 'FACEBOOK' | 'ZALO', content?: string) => Promise<void>;
   onNewMessage: (listener: (msg: InboundMessageEventData) => void) => () => void;
   onPipelineChange: (listener: (evt: PipelineChangeEventData) => void) => () => void;
+  onNotification: (listener: (notification: any) => void) => () => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
@@ -85,6 +86,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const messageListenersRef = useRef<Set<(msg: InboundMessageEventData) => void>>(new Set());
   const pipelineListenersRef = useRef<Set<(evt: PipelineChangeEventData) => void>>(new Set());
+  const notificationListenersRef = useRef<Set<(notification: any) => void>>(new Set());
   const eventSourceRef = useRef<EventSource | null>(null);
   const webSocketRef = useRef<WebSocket | null>(null);
 
@@ -110,6 +112,14 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     pipelineListenersRef.current.add(listener);
     return () => {
       pipelineListenersRef.current.delete(listener);
+    };
+  }, []);
+
+  // Đăng ký listener thông báo hệ thống / kênh
+  const onNotification = useCallback((listener: (notification: any) => void) => {
+    notificationListenersRef.current.add(listener);
+    return () => {
+      notificationListenersRef.current.delete(listener);
     };
   }, []);
 
@@ -227,6 +237,21 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       } else if (type === 'pipeline:updated') {
         pipelineListenersRef.current.forEach((l) => l(data));
+      } else if (type === 'notification:new') {
+        const notif = data?.notification || data;
+        if (notif?.severity === 'URGENT' || notif?.severity === 'CRITICAL') {
+          playUrgentAlertSound();
+          notify.error(`[${notif.severity}] ${notif.title}: ${notif.content}`, 'Cảnh báo hệ thống');
+        } else if (notif?.severity === 'WARNING') {
+          notify.warning(`${notif.title}: ${notif.content}`, 'Thông báo');
+        }
+        notificationListenersRef.current.forEach((l) => {
+          try {
+            l(notif);
+          } catch (e) {
+            console.error('Error in notification listener', e);
+          }
+        });
       }
     };
 
@@ -274,6 +299,15 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             handlePayload('pipeline:updated', parsed.data || parsed);
           } catch (e) {
             console.error('Failed to parse pipeline update:', e);
+          }
+        });
+
+        es.addEventListener('notification:new', (event: MessageEvent) => {
+          try {
+            const parsed = JSON.parse(event.data);
+            handlePayload('notification:new', parsed.data || parsed);
+          } catch (e) {
+            console.error('Failed to parse notification update:', e);
           }
         });
 
@@ -415,6 +449,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         simulateIncomingMessage,
         onNewMessage,
         onPipelineChange,
+        onNotification,
       }}
     >
       {children}

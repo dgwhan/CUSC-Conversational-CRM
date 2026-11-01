@@ -158,6 +158,7 @@ export class ChannelManagerService {
           }
 
           if (this.prisma.channelAccount?.update) {
+            const previousDisconnectedAt = primaryZalo.disconnectedAt;
             const updated = await this.prisma.channelAccount.update({
               where: { id: primaryZalo.id },
               data: {
@@ -166,19 +167,50 @@ export class ChannelManagerService {
                 avatarUrl: page.avatarUrl || primaryZalo.avatarUrl,
                 encryptedAccessToken,
                 refreshToken: encryptedRefreshToken,
-                tokenExpiresAt: page.tokenExpiresAt ? new Date(page.tokenExpiresAt) : null,
+                tokenExpiresAt: page.tokenExpiresAt
+                  ? new Date(page.tokenExpiresAt)
+                  : new Date(Date.now() + 72 * 60 * 60 * 1000),
+                disconnectedAt: null,
                 isActive: true,
                 metadata: {
                   ...((primaryZalo.metadata as any) || {}),
                   ...(page.metadata || {}),
+                  lastReconnectedAt: new Date().toISOString(),
+                  ...(previousDisconnectedAt
+                    ? { previousDisconnectedAt: previousDisconnectedAt.toISOString() }
+                    : {}),
                 } as any,
               },
             });
             activatedAccounts.push(this.mapToDto(updated));
+
+            // Tự động kích hoạt cơ chế Auto Backfill Sync chống mất tin nhắn
+            if (this.zcaService) {
+              this.zcaService
+                .syncCloudMessages(page.externalAccountId, previousDisconnectedAt)
+                .catch((err) =>
+                  this.logger.warn(`Auto backfill sync error: ${err?.message}`),
+                );
+            }
             continue;
           }
         }
       }
+
+      const existingAccount = await this.prisma.channelAccount.findUnique({
+        where: {
+          channel_externalAccountId: {
+            channel: channelEnum,
+            externalAccountId: page.externalAccountId,
+          },
+        },
+      });
+      const prevDisconnected = existingAccount?.disconnectedAt;
+
+      const zaloExpiry =
+        channelEnum === Channel.ZALO || page.channel === 'ZALO'
+          ? new Date(Date.now() + 72 * 60 * 60 * 1000)
+          : null;
 
       const account = await this.prisma.channelAccount.upsert({
         where: {
@@ -193,12 +225,16 @@ export class ChannelManagerService {
           avatarUrl: page.avatarUrl || null,
           encryptedAccessToken,
           refreshToken: encryptedRefreshToken,
-          tokenExpiresAt: page.tokenExpiresAt ? new Date(page.tokenExpiresAt) : null,
+          tokenExpiresAt: page.tokenExpiresAt
+            ? new Date(page.tokenExpiresAt)
+            : zaloExpiry,
+          disconnectedAt: null,
           isWebhookSubscribed,
           isActive: true,
           metadata: {
             ...(page.metadata || {}),
             ...(webhookError ? { webhookError } : {}),
+            lastReconnectedAt: new Date().toISOString(),
           } as any,
         },
         create: {
@@ -209,15 +245,30 @@ export class ChannelManagerService {
           avatarUrl: page.avatarUrl || null,
           encryptedAccessToken,
           refreshToken: encryptedRefreshToken,
-          tokenExpiresAt: page.tokenExpiresAt ? new Date(page.tokenExpiresAt) : null,
+          tokenExpiresAt: page.tokenExpiresAt
+            ? new Date(page.tokenExpiresAt)
+            : zaloExpiry,
+          disconnectedAt: null,
           isWebhookSubscribed,
           isActive: true,
           metadata: {
             ...(page.metadata || {}),
             ...(webhookError ? { webhookError } : {}),
+            lastReconnectedAt: new Date().toISOString(),
           } as any,
         },
       });
+
+      if (
+        (channelEnum === Channel.ZALO || page.channel === 'ZALO') &&
+        this.zcaService
+      ) {
+        this.zcaService
+          .syncCloudMessages(page.externalAccountId, prevDisconnected)
+          .catch((err) =>
+            this.logger.warn(`Auto backfill sync error: ${err?.message}`),
+          );
+      }
 
       activatedAccounts.push(this.mapToDto(account));
     }

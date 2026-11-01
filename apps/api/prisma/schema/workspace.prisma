@@ -20,6 +20,7 @@ model Workspace {
     customers       Customer[]
     conversations   Conversation[]
     configuration   WorkspaceConfiguration?
+    notifications   Notification[]
 
     @@index([ownerId])
     @@map("workspaces")

@@ -25,6 +25,7 @@ import {
   getChannelStatus,
 } from '../workspace.config.js';
 import { PlatformPickerModal, ChannelDetailModal } from './modals/index.js';
+import { ZaloTokenCountdown } from './ZaloTokenCountdown.js';
 
 export interface ConnectedChannelItem {
   id: string;
@@ -36,6 +37,8 @@ export interface ConnectedChannelItem {
   isActive: boolean;
   isWebhookSubscribed?: boolean;
   hasToken?: boolean;
+  tokenExpiresAt?: string | null;
+  disconnectedAt?: string | null;
   status?: ConnectionStatus;
   lastSyncAt?: string;
   webhookStatus?: 'Healthy' | 'Degraded' | 'Down';
@@ -45,6 +48,8 @@ export interface ConnectedChannelItem {
     isPersonal?: boolean;
     phone?: string;
     autoAssign?: boolean;
+    engine?: string;
+    [key: string]: any;
   };
   createdAt?: string;
 }
@@ -239,11 +244,33 @@ export const WorkspaceChannelsTab: React.FC<WorkspaceChannelsTabProps> = ({
                             </>
                           )}
                         </div>
+
+                        {/* Bộ đếm ngược thời hạn Token Countdown trực quan & Nút Gia Hạn Nhanh cho Zalo Cá Nhân */}
+                        {ch.channel === 'ZALO' && (ch.metadata?.isPersonal || ch.metadata?.engine === 'zca-js' || ch.tokenExpiresAt) && (
+                          <ZaloTokenCountdown
+                            tokenExpiresAt={ch.tokenExpiresAt}
+                            disconnectedAt={ch.disconnectedAt}
+                            isActive={ch.isActive}
+                            onRenew={() => onOpenConnectModal('ZALO')}
+                          />
+                        )}
                       </div>
                     </div>
 
-                    {/* Right: Nút thao tác Đồng bộ, Kết nối lại, Quản lý, Tắt, Xóa */}
+                    {/* Right: Nút thao tác Đồng bộ, Gia hạn, Kết nối lại, Quản lý, Tắt, Xóa */}
                     <div className="flex items-center gap-2">
+                      {ch.channel === 'ZALO' && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={<RotateCcw size={13} />}
+                          onClick={() => onOpenConnectModal('ZALO')}
+                          title="Gia hạn ngay phiên Zalo (Làm mới phiên 72h bằng cách quét lại mã QR)"
+                        >
+                          Gia hạn
+                        </Button>
+                      )}
+
                       <Button
                         variant="secondary"
                         size="sm"

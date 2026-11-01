@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { HealthModule } from './platform/health/health.module.js';
@@ -11,9 +12,11 @@ import { ChannelConnectionModule } from './modules/channel-connection/channel-co
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { WorkspaceConfigModule } from './modules/workspace-config/workspace-config.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
+import { NotificationModule } from './modules/notification/notification.module.js';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     AppConfigModule,
     HealthModule,
     AuditModule,
@@ -24,6 +27,7 @@ import { ReportsModule } from './modules/reports/reports.module.js';
     RealtimeModule,
     WorkspaceConfigModule,
     ReportsModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

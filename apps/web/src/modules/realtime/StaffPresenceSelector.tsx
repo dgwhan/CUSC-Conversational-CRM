@@ -158,7 +158,7 @@ export const StaffPresenceSelector: React.FC<{ compact?: boolean }> = ({ compact
                     setIsOpen(false);
                   }}
                 >
-                  📩 Giả lập Messenger
+                  Giả lập Messenger
                 </button>
                 <button
                   type="button"
@@ -168,7 +168,7 @@ export const StaffPresenceSelector: React.FC<{ compact?: boolean }> = ({ compact
                     setIsOpen(false);
                   }}
                 >
-                  💬 Giả lập Zalo OA
+                  Giả lập Zalo OA
                 </button>
               </div>
             )}

@@ -5,6 +5,8 @@ import { Zalo, LoginQRCallbackEventType, ThreadType } from 'zca-js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { RealtimeService } from '../../realtime/realtime.service.js';
 import { TokenEncryptionService } from '../infrastructure/token-encryption.service.js';
+import { NotificationService } from '../../notification/notification.service.js';
+import { NotificationType, NotificationSeverity } from '@prisma/client';
 
 export interface ZcaSafetyConfig {
   enabled: boolean;
@@ -46,6 +48,7 @@ export class ZcaPersonalService implements OnModuleInit {
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly realtime?: RealtimeService,
     @Optional() private readonly encryption?: TokenEncryptionService,
+    @Optional() private readonly notificationService?: NotificationService,
   ) {}
 
   /**
@@ -904,19 +907,38 @@ export class ZcaPersonalService implements OnModuleInit {
         });
 
         if (channelAccount) {
+          const now = new Date();
           await this.prisma.channelAccount.update({
             where: { id: channelAccount.id },
             data: {
               isActive: false,
+              disconnectedAt: now,
               metadata: {
                 ...((channelAccount.metadata as any) || {}),
                 deactivatedReason: 'SESSION_EXPIRED',
                 deactivatedDetails: reason,
-                lastExpiredAt: new Date().toISOString(),
+                lastExpiredAt: now.toISOString(),
               } as any,
             },
           });
           this.logger.log(`[zca-js] Đã tự động deactive kênh Zalo "${channelAccount.displayName}" (${channelAccount.id})`);
+
+          // Tạo thông báo CRITICAL trong Hộp thông báo Workspace
+          if (this.notificationService && channelAccount.workspaceId) {
+            await this.notificationService.create({
+              workspaceId: channelAccount.workspaceId,
+              type: NotificationType.CHANNEL_EXPIRED,
+              severity: NotificationSeverity.CRITICAL,
+              title: `Kết nối Zalo cá nhân "${channelAccount.displayName}" bị ngắt kết nối`,
+              content: `Phiên kết nối Zalo đã bị ngắt (${reason}). Vui lòng quét mã QR để kết nối lại và đồng bộ bù tin nhắn.`,
+              actionUrl: '/settings/channels?reconnect=zalo',
+              metadata: {
+                channelAccountId: channelAccount.id,
+                reason,
+                disconnectedAt: now.toISOString(),
+              },
+            }).catch(err => this.logger.warn(`Không thể tạo thông báo CRITICAL: ${err.message}`));
+          }
 
           // Gửi cảnh báo qua WebSocket Realtime
           if (this.realtime) {
@@ -936,9 +958,12 @@ export class ZcaPersonalService implements OnModuleInit {
   }
 
   /**
-   * Đồng bộ tin nhắn và danh bạ cuộc trò chuyện từ Zalo Cloud
+   * Đồng bộ tin nhắn và danh bạ cuộc trò chuyện từ Zalo Cloud (Auto Backfill Sync)
    */
-  async syncCloudMessages(targetId: string): Promise<{ syncedCount: number; conversationsCount: number }> {
+  async syncCloudMessages(
+    targetId: string,
+    disconnectedAt?: Date | null,
+  ): Promise<{ syncedCount: number; conversationsCount: number }> {
     const api = this.getActiveApi(targetId);
     if (!api) {
       this.logger.warn(`[zca-js] Không tìm thấy phiên hoạt động của Zalo ${targetId} để đồng bộ cloud`);
@@ -948,10 +973,12 @@ export class ZcaPersonalService implements OnModuleInit {
     let syncedCount = 0;
     const conversationsSet = new Set<string>();
 
-    // 1. Gửi lệnh requestOldMessages qua WebSocket để Zalo Cloud đẩy về các gói tin nhắn cũ
+    // 1. Gửi lệnh requestOldMessages qua WebSocket để Zalo Cloud đẩy về các gói tin nhắn cũ bù đắp khoảng thời gian ngắt kết nối
     if (api.listener && typeof api.listener.requestOldMessages === 'function') {
       try {
-        this.logger.log(`[zca-js] Gửi yêu cầu kéo tin nhắn cũ từ Zalo Cloud qua WebSocket...`);
+        this.logger.log(
+          `[zca-js] Kích hoạt cơ chế Auto Backfill Sync: gửi yêu cầu kéo tin nhắn cũ từ Zalo Cloud qua WebSocket (sau ngắt kết nối từ ${disconnectedAt ? disconnectedAt.toISOString() : 'trước đó'})...`,
+        );
         api.listener.requestOldMessages(ThreadType.User);
       } catch (err) {
         this.logger.warn(`[zca-js] requestOldMessages error: ${(err as Error).message}`);

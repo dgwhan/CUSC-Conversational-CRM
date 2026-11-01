@@ -3,16 +3,36 @@ import { AppConfigModule } from '../../platform/config/config.module.js';
 import { PrismaModule } from '../../platform/database/prisma.module.js';
 import { MessagingModule } from '../messaging/messaging.module.js';
 import { RealtimeModule } from '../realtime/realtime.module.js';
+import { NotificationModule } from '../notification/notification.module.js';
 import { TokenEncryptionService } from './infrastructure/token-encryption.service.js';
 import { OAuthService } from './application/oauth.service.js';
 import { ChannelManagerService } from './application/channel-manager.service.js';
 import { ZcaPersonalService } from './application/zca-personal.service.js';
+import { ZaloTokenMonitorService } from './application/zalo-token-monitor.service.js';
 import { ChannelConnectorController } from './presentation/channel-connector.controller.js';
 
 @Module({
-  imports: [AppConfigModule, PrismaModule, forwardRef(() => MessagingModule), RealtimeModule],
+  imports: [
+    AppConfigModule,
+    PrismaModule,
+    forwardRef(() => MessagingModule),
+    RealtimeModule,
+    NotificationModule,
+  ],
   controllers: [ChannelConnectorController],
-  providers: [TokenEncryptionService, OAuthService, ChannelManagerService, ZcaPersonalService],
-  exports: [TokenEncryptionService, OAuthService, ChannelManagerService, ZcaPersonalService],
+  providers: [
+    TokenEncryptionService,
+    OAuthService,
+    ChannelManagerService,
+    ZcaPersonalService,
+    ZaloTokenMonitorService,
+  ],
+  exports: [
+    TokenEncryptionService,
+    OAuthService,
+    ChannelManagerService,
+    ZcaPersonalService,
+    ZaloTokenMonitorService,
+  ],
 })
 export class ChannelConnectionModule {}

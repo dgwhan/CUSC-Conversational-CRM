@@ -5,6 +5,7 @@ import type { ActiveNavTab } from '../app/Sidebar.js';
 import { useTranslation } from '../i18n/index.js';
 import { LanguageSwitcher } from '../i18n/LanguageSwitcher.js';
 import { StaffPresenceSelector } from '../modules/realtime/StaffPresenceSelector.js';
+import { NotificationCenter } from '../modules/notification/NotificationCenter.js';
 import { useUserRole } from '../modules/auth/index.js';
 import { WorkspaceSwitcher } from '../modules/workspace/WorkspaceSwitcher.js';
 import '../styles/header-layout.css';
@@ -26,6 +27,7 @@ export interface HeaderLayoutProps {
  */
 export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
   currentTab,
+  onTabChange,
   onApiUrlChange,
   onToggleMobileMenu,
   title,
@@ -94,6 +96,8 @@ export const HeaderLayout: React.FC<HeaderLayoutProps> = ({
         <div className="crm-navbar-right crm-navbar-actions">
           {/* Tab chuyển đổi nhanh giữa các Workspace (Workspace Switcher) */}
           <WorkspaceSwitcher />
+          {/* Hộp lưu thông báo trung tâm (Workspace Notification Center) */}
+          <NotificationCenter onNavigateTab={onTabChange} />
           {/* Trạng thái nhân viên trực tuyến & Chuông thông báo Ting ting */}
           <StaffPresenceSelector />
 

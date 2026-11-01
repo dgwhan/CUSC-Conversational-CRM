@@ -30,8 +30,16 @@ export class PrismaService
       // Tự động đảm bảo các cột và bảng cấu hình workspace & ràng buộc staff-owner tồn tại
       try {
         await this.$executeRawUnsafe(`
-          ALTER TABLE "staff" ADD COLUMN IF NOT EXISTS "owner_id" UUID;
-          CREATE INDEX IF NOT EXISTS "staff_owner_id_idx" ON "staff"("owner_id");
+          DO $$
+          BEGIN
+              IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN
+                  ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "owner_id" UUID;
+                  CREATE INDEX IF NOT EXISTS "users_owner_id_idx" ON "users"("owner_id");
+              ELSIF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'staff') THEN
+                  ALTER TABLE "staff" ADD COLUMN IF NOT EXISTS "owner_id" UUID;
+                  CREATE INDEX IF NOT EXISTS "staff_owner_id_idx" ON "staff"("owner_id");
+              END IF;
+          END $$;
 
           CREATE TABLE IF NOT EXISTS "workspace_configurations" (
               "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -85,15 +93,33 @@ export class PrismaService
           ON CONFLICT DO NOTHING;
 
           -- 3. Cập nhật và kết nối workspace_id của workspace_configurations với id của workspaces
-          UPDATE "workspace_configurations" wc
-          SET "workspace_id" = w.id
-          FROM (
-              SELECT DISTINCT ON (owner_id) id, owner_id
-              FROM "workspaces"
-              ORDER BY owner_id, created_at ASC
-          ) w
-          WHERE wc.owner_id = w.owner_id
-            AND (wc.workspace_id IS NULL OR wc.workspace_id != w.id);
+          -- 4. Tự động đảm bảo cột disconnected_at và bảng notifications
+          ALTER TABLE "channel_accounts" ADD COLUMN IF NOT EXISTS "disconnected_at" TIMESTAMPTZ(3);
+
+          DO $$
+          BEGIN
+              IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'notification_type') THEN
+                  CREATE TYPE "notification_type" AS ENUM ('CHANNEL_EXPIRING', 'CHANNEL_EXPIRED', 'NEW_LEAD', 'SYSTEM_WARNING', 'CONVERSATION_ALERT');
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'notification_severity') THEN
+                  CREATE TYPE "notification_severity" AS ENUM ('INFO', 'WARNING', 'URGENT', 'CRITICAL');
+              END IF;
+          END $$;
+
+          CREATE TABLE IF NOT EXISTS "notifications" (
+              "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              "workspace_id" UUID NOT NULL REFERENCES "workspaces"("id") ON DELETE CASCADE,
+              "type" "notification_type" NOT NULL,
+              "severity" "notification_severity" NOT NULL,
+              "title" VARCHAR(255) NOT NULL,
+              "content" TEXT NOT NULL,
+              "action_url" VARCHAR(500),
+              "is_read" BOOLEAN NOT NULL DEFAULT false,
+              "metadata" JSONB,
+              "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+
+          CREATE INDEX IF NOT EXISTS "notifications_workspace_id_is_read_created_at_idx" ON "notifications"("workspace_id", "is_read", "created_at");
         `);
         this.logger.log('Auto-repaired workspace_configurations: linked workspace_id to workspaces.id');
       } catch (ddlError) {

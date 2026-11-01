@@ -358,3 +358,9 @@ curl -X POST http://localhost:3000/api/messages/import/csv \
   }'
 ```
 *Kết quả kỳ vọng:* Trả về thống kê import và danh sách dòng lỗi ghi rõ số dòng (row, csvLine) và lý do kiểm thực từ Zod.
+
+---
+
+## 7. Tài liệu Kỹ thuật Liên quan
+- [Tài liệu Module Realtime & WebSocket Engine](./realtime-socket.md)
+- [Hộp Lưu Thông Báo (Notification Center) & Giám Sát Thời Hạn Zalo Cá Nhân (zca-js)](./notification-and-zalo-monitor.md)

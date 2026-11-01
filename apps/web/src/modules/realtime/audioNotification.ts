@@ -92,6 +92,43 @@ export function playTingTingSound(): void {
 }
 
 /**
+ * Phát chuông cảnh báo khẩn cấp (URGENT / CRITICAL alert)
+ * 3 nhịp âm cảnh báo sắc nét, dồn dập
+ */
+export function playUrgentAlertSound(): void {
+  if (!soundEnabled) return;
+
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const beeps = [0, 0.15, 0.3];
+
+    beeps.forEach((startOffset) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(880, now + startOffset); // A5
+      osc.frequency.setValueAtTime(1046.5, now + startOffset + 0.05); // C6
+
+      gain.gain.setValueAtTime(0.001, now + startOffset);
+      gain.gain.linearRampToValueAtTime(0.4, now + startOffset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + startOffset + 0.12);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + startOffset);
+      osc.stop(now + startOffset + 0.13);
+    });
+  } catch (err) {
+    console.debug('[Audio] Could not play urgent alert sound:', err);
+  }
+}
+
+/**
  * Kiểm tra trạng thái bật/tắt âm thanh
  */
 export function isSoundEnabled(): boolean {

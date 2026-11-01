@@ -32,6 +32,7 @@ model ChannelAccount {
     encryptedAccessToken String?  @map("encrypted_access_token") @db.Text
     refreshToken        String?   @map("refresh_token") @db.Text
     tokenExpiresAt      DateTime? @map("token_expires_at") @db.Timestamptz(3)
+    disconnectedAt      DateTime? @map("disconnected_at") @db.Timestamptz(3)
     isWebhookSubscribed Boolean   @default(false) @map("is_webhook_subscribed")
     metadata            Json?     @map("metadata") @db.JsonB
     isActive            Boolean   @default(true) @map("is_active")

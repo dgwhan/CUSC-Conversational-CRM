@@ -13,6 +13,7 @@ import { ConversationListColumn } from '../components/ConversationListColumn.js'
 import { ChatWindowColumn } from '../components/ChatWindowColumn.js';
 import { CustomerProfileColumn } from '../components/CustomerProfileColumn.js';
 import { QuickReplyModal } from '../components/QuickReplyModal.js';
+import { InboxZaloAlertBanner } from '../components/InboxZaloAlertBanner.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useRealtime } from '../../realtime/RealtimeContext.js';
 import { useUserRole } from '../../auth/index.js';
@@ -1613,8 +1614,12 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
   };
 
   return (
-    <div className={`pancake-inbox-container ${selectedId ? 'has-active-chat' : ''}`}>
-      {/* CỘT 1 (Trái): Danh sách Hội thoại */}
+    <div className="flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden">
+      {/* Banner cảnh báo thời hạn Zalo cá nhân (< 2h hoặc đã ngắt kết nối) */}
+      <InboxZaloAlertBanner />
+
+      <div className={`pancake-inbox-container flex-1 min-h-0 ${selectedId ? 'has-active-chat' : ''}`}>
+        {/* CỘT 1 (Trái): Danh sách Hội thoại */}
       <ConversationListColumn
         conversations={conversations}
         selectedId={currentConv?.id || null}
@@ -1714,6 +1719,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         quickReplies={quickReplies}
         onSaveReplies={handleSaveQuickReplies}
       />
+      </div>
     </div>
   );
 };

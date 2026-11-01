@@ -14,7 +14,16 @@ export interface StaffPresenceItem {
 }
 
 export interface RealtimeEventPayload<T = unknown> {
-  type: 'message:received' | 'presence:updated' | 'pipeline:updated' | 'heartbeat' | 'socket:test_ping' | 'connection:established';
+  type:
+    | 'message:received'
+    | 'presence:updated'
+    | 'pipeline:updated'
+    | 'heartbeat'
+    | 'socket:test_ping'
+    | 'connection:established'
+    | 'notification:new'
+    | 'channel:session_expired'
+    | string;
   data: T;
   timestamp: string;
 }
@@ -206,6 +215,10 @@ export class RealtimeService implements OnModuleDestroy {
     sentAt: string;
   }): void {
     this.emit('message:received', messageData);
+  }
+
+  broadcastNotification(notificationData: any): void {
+    this.emit('notification:new', notificationData);
   }
 
   /**
