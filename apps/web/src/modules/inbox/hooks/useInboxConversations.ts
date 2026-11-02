@@ -449,6 +449,20 @@ export const useInboxConversations = ({
         }
         if (!targetId) targetId = `conv-${Date.now()}`;
 
+        const isMsgPersonalZalo = Boolean(
+          msg.channel === 'ZALO_PERSONAL' || (
+            msg.channel === 'ZALO' && (
+              (msg as any).isPersonal ||
+              (msg as any).channelAccount?.isPersonal ||
+              (msg as any).channelAccount?.metadata?.isPersonal ||
+              (msg as any).channelAccount?.metadata?.engine === 'zca-js' ||
+              (msg as any).rawPayload?.isPersonal ||
+              (msg as any).rawPayload?.engine === 'zca-js'
+            )
+          )
+        );
+        const effectiveMsgChannel: ChannelType = isMsgPersonalZalo ? 'ZALO_PERSONAL' : (msg.channel as any);
+
         const isSameChannelFamily = (ch1: string, ch2: string) => {
           if (ch1 === ch2) return true;
           if (ch1.startsWith('ZALO') && ch2.startsWith('ZALO')) return true;
@@ -533,19 +547,6 @@ export const useInboxConversations = ({
             ? (msg as any).recipientName || (msg as any).customerName || `Khách hàng (${msg.channel})`
             : (!isCounselorName(msg.senderName) ? msg.senderName : `Khách hàng (${msg.channel})`);
 
-        const isMsgPersonalZalo = Boolean(
-          msg.channel === 'ZALO_PERSONAL' || (
-            msg.channel === 'ZALO' && (
-              (msg as any).isPersonal ||
-              (msg as any).channelAccount?.isPersonal ||
-              (msg as any).channelAccount?.metadata?.isPersonal ||
-              (msg as any).channelAccount?.metadata?.engine === 'zca-js' ||
-              (msg as any).rawPayload?.isPersonal ||
-              (msg as any).rawPayload?.engine === 'zca-js'
-            )
-          )
-        );
-        const effectiveMsgChannel: ChannelType = isMsgPersonalZalo ? 'ZALO_PERSONAL' : (msg.channel as any);
         const resolvedAccountName =
           (msg as any).channelAccount?.displayName && !(msg as any).channelAccount.displayName.startsWith('Kênh ')
             ? (msg as any).channelAccount.displayName

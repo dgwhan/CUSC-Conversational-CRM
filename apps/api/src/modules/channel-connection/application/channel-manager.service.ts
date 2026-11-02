@@ -432,25 +432,79 @@ export class ChannelManagerService {
     recipientId: string;
     channel: ChannelType;
   }> {
-    const channelEnum = input.channel as Channel;
+    const rawChannel = String(input.channel || '').toUpperCase();
+    const isPersonalZaloRequested = rawChannel === 'ZALO_PERSONAL' || rawChannel.includes('PERSONAL');
+
+    let channelEnum: Channel = Channel.ZALO;
+    if (rawChannel.includes('ZALO')) {
+      channelEnum = Channel.ZALO;
+    } else if (rawChannel.includes('FACEBOOK') || rawChannel.includes('FB')) {
+      channelEnum = Channel.FACEBOOK;
+    } else if (rawChannel.includes('TIKTOK')) {
+      channelEnum = Channel.TIKTOK;
+    } else if (rawChannel.includes('MANUAL')) {
+      channelEnum = Channel.MANUAL_IMPORT;
+    }
+
+    const isUuid = (val?: string): val is string =>
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
 
     // 1. Tìm tài khoản kênh tương ứng
     let account = null;
-    if (input.channelAccountId) {
+    if (isUuid(input.channelAccountId)) {
       account = await this.prisma.channelAccount.findUnique({
         where: { id: input.channelAccountId },
       });
     }
 
+    // 1b. Thử tìm từ conversationId nếu có
+    if (!account && isUuid(input.conversationId) && this.prisma?.conversation) {
+      try {
+        const conv = await this.prisma.conversation.findUnique({
+          where: { id: input.conversationId },
+          include: { channelAccount: true },
+        });
+        if (conv?.channelAccount) {
+          account = conv.channelAccount;
+        }
+      } catch {
+        // Fallback sang tìm kiếm theo kênh
+      }
+    }
+
     if (!account) {
-      account = await this.prisma.channelAccount.findFirst({
-        where: {
-          channel: channelEnum,
-          isActive: true,
-          ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
-        },
-        orderBy: { updatedAt: 'desc' },
-      });
+      const wsFilter = isUuid(input.workspaceId) ? { workspaceId: input.workspaceId } : {};
+
+      if (isPersonalZaloRequested) {
+        const accounts = await this.prisma.channelAccount.findMany({
+          where: {
+            channel: channelEnum,
+            isActive: true,
+            ...wsFilter,
+          },
+          orderBy: { updatedAt: 'desc' },
+        });
+        account =
+          accounts.find((acc) => {
+            const meta = acc.metadata as any;
+            return (
+              meta?.isPersonal ||
+              meta?.engine === 'zca-js' ||
+              acc.externalAccountId?.startsWith('zca_')
+            );
+          }) ||
+          accounts[0] ||
+          null;
+      } else {
+        account = await this.prisma.channelAccount.findFirst({
+          where: {
+            channel: channelEnum,
+            isActive: true,
+            ...wsFilter,
+          },
+          orderBy: { updatedAt: 'desc' },
+        });
+      }
     }
 
     if (!account) {
@@ -482,6 +536,7 @@ export class ChannelManagerService {
 
     // Áp dụng cơ chế Giới hạn tần suất & Anti-Ban Rate Limiter cho kênh Zalo
     const isPersonalZalo = Boolean(
+      isPersonalZaloRequested ||
       (account.metadata as any)?.isPersonal ||
       (account.metadata as any)?.engine === 'zca-js' ||
       token.trim().startsWith('{') ||
@@ -725,7 +780,7 @@ export class ChannelManagerService {
       const conv = await this.prisma.conversation.findFirst({
         where: {
           channelAccountId: account.id,
-          ...(input.conversationId ? { id: input.conversationId } : {}),
+          ...(isUuid(input.conversationId) ? { id: input.conversationId } : {}),
         },
       });
       if (conv) {

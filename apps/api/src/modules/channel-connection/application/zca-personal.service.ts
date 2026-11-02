@@ -392,8 +392,15 @@ export class ZcaPersonalService implements OnModuleInit {
         );
       }
 
+      const myOwnUid = String(api.ctx?.uid || '');
+      if (myOwnUid && cleanRecipientId === myOwnUid) {
+        throw new BadRequestException(
+          `Không thể gửi tin nhắn cho chính mình (UID người nhận trùng với UID tài khoản Zalo đang đăng nhập: ${cleanRecipientId}). Vui lòng chọn khách hàng khác.`,
+        );
+      }
+
       try {
-        this.logger.log(`[zca-js] Gửi tin nhắn tới ${cleanRecipientId} qua API cá nhân ${extId}...`);
+        this.logger.log(`[zca-js] Gửi tin nhắn tới UID ${cleanRecipientId} qua API cá nhân ${extId}...`);
         const res = await api.sendMessage(content, cleanRecipientId, ThreadType.User);
         const messageId = String(res?.message?.msgId || `zca_msg_${Date.now()}`);
         return { messageId, rawPayload: res };
@@ -406,8 +413,24 @@ export class ZcaPersonalService implements OnModuleInit {
           throw new BadRequestException('Phiên đăng nhập Zalo cá nhân đã hết hạn hoặc bị đăng xuất. Vui lòng quét lại mã QR.');
         }
         if (errMsg.includes('Tham số không hợp lệ') || errMsg.includes('1001')) {
+          // Kiểm tra xem phiên đăng nhập Zalo Web của tài khoản gửi có còn hoạt động bình thường không
+          let isSessionAlive = false;
+          try {
+            if (typeof api.fetchAccountInfo === 'function') {
+              const checkInfo = await api.fetchAccountInfo().catch(() => null);
+              isSessionAlive = Boolean(checkInfo?.profile);
+            }
+          } catch {}
+
+          if (!isSessionAlive) {
+            await this.handleSessionExpired(extId, 'Session cookies expired on error 1001');
+            throw new BadRequestException(
+              `Phiên đăng nhập Zalo cá nhân ("${account?.displayName || extId}") đã bị Zalo làm mới cookie hoặc hết hạn session (Lỗi 1001). Vui lòng vào Cài đặt kênh -> Quét lại mã QR Zalo để đồng bộ phiên mới nhất.`,
+            );
+          }
+
           throw new BadRequestException(
-            `Gửi tin Zalo thất bại: Zalo báo "Tham số không hợp lệ". Người nhận (${cleanRecipientId}) có thể chưa kết bạn với tài khoản Zalo của bạn, đang chặn tin nhắn từ người lạ, hoặc UID không tồn tại trên hệ thống Zalo.`,
+            `Gửi tin nhắn qua Zalo cá nhân tới UID ${cleanRecipientId} không thành công [Mã 1001: Tham số không hợp lệ]. Nguyên nhân thường gặp: (1) Phiên đăng nhập Zalo Web bị mất đồng bộ session token (hãy thử quét lại mã QR Zalo); (2) Luồng trò chuyện giữa 2 bạn bè chưa từng được mở trên Zalo Web của tài khoản này (hãy gửi 1 tin nhắn từ app Zalo điện thoại để kích hoạt hội thoại); hoặc (3) Zalo tạm hạn chế gửi tin nhắn từ API bên ngoài.`,
           );
         }
         throw new BadRequestException(`Gửi tin nhắn qua Zalo cá nhân thất bại: ${errMsg}`);

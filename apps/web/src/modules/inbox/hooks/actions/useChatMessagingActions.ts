@@ -59,7 +59,7 @@ export const useChatMessagingActions = ({
           : undefined);
 
       const recipientId =
-        (currentConv.channel === 'ZALO' && customerZaloId) ||
+        ((currentConv.channel === 'ZALO' || currentConv.channel === 'ZALO_PERSONAL') && customerZaloId) ||
         (currentConv.customer.socialId &&
           currentConv.customer.socialId !== 'khách' &&
           !currentConv.customer.socialId.startsWith('cust-')
