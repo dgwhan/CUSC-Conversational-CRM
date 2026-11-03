@@ -1,15 +1,16 @@
-import { Controller, Get, Query, Headers } from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import type { AuthUser } from '../auth/domain/types/auth-user.js';
+import { JwtAuthGuard } from '../auth/presentation/guards/jwt-auth.guard.js';
 import { ReportsService, OverviewFilterDto } from './reports.service.js';
 
 @Controller('reports')
+@UseGuards(JwtAuthGuard)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get('overview')
   async getOverview(
-    @Headers('x-workspace-id') headerWsId?: string,
-    @Headers('x-owner-id') headerOwnerId?: string,
-    @Headers('x-staff-id') headerStaffId?: string,
+    @Req() request: { user: AuthUser },
     @Query('workspaceId') queryWsId?: string,
     @Query('timeRange') timeRange?: OverviewFilterDto['timeRange'],
     @Query('channel') channel?: string,
@@ -17,11 +18,9 @@ export class ReportsController {
     @Query('courseId') courseId?: string,
     @Query('productId') productId?: string,
   ) {
-    const workspaceId = queryWsId || headerWsId;
     return this.reportsService.getOverview({
-      workspaceId,
-      ownerId: headerOwnerId,
-      currentStaffId: headerStaffId,
+      workspaceId: queryWsId,
+      currentStaffId: request.user.id,
       timeRange,
       channel,
       staffId,

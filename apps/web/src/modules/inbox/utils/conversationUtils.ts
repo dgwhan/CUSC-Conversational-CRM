@@ -199,6 +199,15 @@ export const mergeDuplicateConversations = (
           : target.customer.fullName;
 
       const latestMsg = combinedMessages[combinedMessages.length - 1];
+      const lastCustomerMessageAt = [target.lastCustomerMessageAt, conv.lastCustomerMessageAt]
+        .reduce<string | null>((latest, value) => {
+          if (!value) return latest;
+          const timestamp = Date.parse(value);
+          if (!Number.isFinite(timestamp)) return latest;
+          return latest === null || timestamp > Date.parse(latest)
+            ? new Date(timestamp).toISOString()
+            : latest;
+        }, null);
       const finalChannel =
         target.channel === 'ZALO_PERSONAL' || conv.channel === 'ZALO_PERSONAL'
           ? 'ZALO_PERSONAL'
@@ -215,6 +224,7 @@ export const mergeDuplicateConversations = (
         channelAccountName: finalChannelAccountName,
         snippet: latestMsg?.content || target.snippet || conv.snippet,
         lastMessageAt: latestMsg?.sentAt || target.lastMessageAt || conv.lastMessageAt,
+        lastCustomerMessageAt,
         unreadCount: (target.unreadCount || 0) + (conv.unreadCount || 0),
         tags: filteredTags,
         customer: {

@@ -17,11 +17,16 @@ describe('ReportsService', () => {
       workspaceMember: {
         findMany: vi.fn().mockResolvedValue([]),
       },
+      workspace: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: '11111111-1111-4111-8111-111111111111',
+        }),
+      },
     };
 
     mockConfigService = {
       getConfig: vi.fn().mockResolvedValue({
-        workspaceId: '11111111-1111-1111-1111-111111111111',
+        workspaceId: '11111111-1111-4111-8111-111111111111',
         workspaceName: 'Bất Động Sản Cao Cấp',
         domain: 'REAL_ESTATE',
         terminology: {
@@ -63,7 +68,7 @@ describe('ReportsService', () => {
         conversations: [
           {
             channelAccount: { channel: 'FACEBOOK' },
-            assignedMember: { staff: { id: 's1', fullName: 'Lê Văn Sales', avatarUrl: null } },
+            assignedMember: { user: { id: 's1', fullName: 'Lê Văn Sales', email: 'sales@example.com' } },
           },
         ],
       },
@@ -80,7 +85,7 @@ describe('ReportsService', () => {
         conversations: [
           {
             channelAccount: { channel: 'ZALO' },
-            assignedMember: { staff: { id: 's1', fullName: 'Lê Văn Sales', avatarUrl: null } },
+            assignedMember: { user: { id: 's1', fullName: 'Lê Văn Sales', email: 'sales@example.com' } },
           },
         ],
       },
@@ -90,10 +95,18 @@ describe('ReportsService', () => {
     mockPrisma.customer.count.mockResolvedValue(1);
 
     const result = await service.getOverview({
-      workspaceId: '11111111-1111-1111-1111-111111111111',
+      workspaceId: '11111111-1111-4111-8111-111111111111',
+      currentStaffId: '22222222-2222-4222-8222-222222222222',
       timeRange: '30days',
     });
 
+    expect(mockPrisma.customer.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workspaceId: '11111111-1111-4111-8111-111111111111',
+        }),
+      }),
+    );
     expect(result.domain).toBe('REAL_ESTATE');
     expect(result.terminology.productLabel).toBe('Dự án / Căn hộ');
     expect(result.overview.totalLeads).toBe(2);
@@ -127,7 +140,8 @@ describe('ReportsService', () => {
     mockPrisma.customer.count.mockResolvedValue(0);
 
     const result = await service.getOverview({
-      workspaceId: '11111111-1111-1111-1111-111111111111',
+      workspaceId: '11111111-1111-4111-8111-111111111111',
+      currentStaffId: '22222222-2222-4222-8222-222222222222',
       timeRange: '30days',
     });
 
@@ -159,7 +173,7 @@ describe('ReportsService', () => {
             lastCustomerMessageAt: custTime,
             lastMessageAt: staffReplyTime,
             channelAccount: { channel: 'FACEBOOK' },
-            assignedMember: { staff: { id: 's1', fullName: 'Lê Văn Sales', avatarUrl: null } },
+            assignedMember: { user: { id: 's1', fullName: 'Lê Văn Sales', email: 'sales@example.com' } },
           },
         ],
       },
@@ -169,11 +183,41 @@ describe('ReportsService', () => {
     mockPrisma.customer.count.mockResolvedValue(0);
 
     const result = await service.getOverview({
-      workspaceId: '11111111-1111-1111-1111-111111111111',
+      workspaceId: '11111111-1111-4111-8111-111111111111',
+      currentStaffId: '22222222-2222-4222-8222-222222222222',
       timeRange: '30days',
     });
 
     expect(result.overview.avgResponseTimeMinutes).toBe(5);
     expect(result.staffList[0].avgResponseTime).toBe('5.0 phút');
+  });
+
+  it('does not read seeded workspace reports when the requested workspace belongs to another user', async () => {
+    mockPrisma.workspace.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: '33333333-3333-4333-8333-333333333333' });
+    mockPrisma.customer.findMany.mockResolvedValue([]);
+
+    await service.getOverview({
+      workspaceId: '11111111-1111-4111-8111-111111111111',
+      currentStaffId: '22222222-2222-4222-8222-222222222222',
+      timeRange: '30days',
+    });
+
+    expect(mockPrisma.workspace.findFirst).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: '11111111-1111-4111-8111-111111111111',
+        }),
+      }),
+    );
+    expect(mockPrisma.customer.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workspaceId: '33333333-3333-4333-8333-333333333333',
+        }),
+      }),
+    );
   });
 });

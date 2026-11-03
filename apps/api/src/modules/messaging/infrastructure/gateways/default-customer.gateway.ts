@@ -49,6 +49,7 @@ export class DefaultCustomerGateway implements CustomerGateway {
             if (
                 profileDisplayName &&
                 existingIdentity.contact &&
+                existingIdentity.contactId &&
                 (existingIdentity.contact.displayName.startsWith('Khách hàng') ||
                     existingIdentity.contact.displayName.startsWith('Unknown'))
             ) {
@@ -61,8 +62,8 @@ export class DefaultCustomerGateway implements CustomerGateway {
             }
 
             return {
-                id: existingIdentity.contactId,
-                contactId: existingIdentity.contactId,
+                id: existingIdentity.contactId || existingIdentity.customerId || existingIdentity.id,
+                contactId: existingIdentity.contactId || undefined,
                 isNew: false,
                 contact: existingIdentity.contact,
                 identity: existingIdentity,
@@ -107,8 +108,8 @@ export class DefaultCustomerGateway implements CustomerGateway {
             if (identity.contactId !== contact.id) {
                 await this.prisma.contact.delete({ where: { id: contact.id } }).catch(() => { });
                 return {
-                    id: identity.contactId,
-                    contactId: identity.contactId,
+                    id: identity.contactId || identity.customerId || identity.id,
+                    contactId: identity.contactId || undefined,
                     isNew: false,
                     contact: identity.contact,
                     identity,
@@ -140,8 +141,8 @@ export class DefaultCustomerGateway implements CustomerGateway {
                 });
                 if (found) {
                     return {
-                        id: found.contactId,
-                        contactId: found.contactId,
+                        id: found.contactId || found.customerId || found.id,
+                        contactId: found.contactId || undefined,
                         isNew: false,
                         contact: found.contact,
                         identity: found,

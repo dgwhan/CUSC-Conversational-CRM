@@ -148,7 +148,7 @@ export class ContactController {
                     },
                 },
             });
-            if (identity) {
+            if (identity && identity.contact) {
                 return { contact: identity.contact, channelIdentities: identity.contact.channelIdentities };
             }
         }

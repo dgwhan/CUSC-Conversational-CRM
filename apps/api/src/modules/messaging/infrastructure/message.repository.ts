@@ -9,6 +9,10 @@ import {
     META_SOURCE_TAGS,
 } from "../domain/tag-mapping/index.js";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const normalizeWorkspaceId = (workspaceId?: string): string | undefined =>
+    workspaceId && UUID_REGEX.test(workspaceId) ? workspaceId : undefined;
+
 @Injectable()
 export class MessageRepository implements OnModuleInit {
     constructor(private readonly prisma: PrismaService) {}
@@ -38,9 +42,10 @@ export class MessageRepository implements OnModuleInit {
         channel?: Channel;
         search?: string;
     }): Promise<{ items: any[]; total: number }> {
+        const safeWorkspaceId = normalizeWorkspaceId(options?.workspaceId);
         const where: Prisma.MessageWhereInput = {};
-        if (options?.workspaceId) {
-            where.channelAccount = { workspaceId: options.workspaceId };
+        if (safeWorkspaceId) {
+            where.channelAccount = { workspaceId: safeWorkspaceId };
         }
         if (options?.channel) {
             where.channel = options.channel;
@@ -130,7 +135,9 @@ export class MessageRepository implements OnModuleInit {
         return { items: mappedItems, total };
     }
 
-    async insertManyIgnoreDuplicate(events: InboundEvent[]): Promise<Array<{ id: string }>> {
+    async insertManyIgnoreDuplicate(
+        events: InboundEvent[],
+    ): Promise<Array<{ id: string; conversationId: string | null }>> {
         if (events.length === 0) {
             return [];
         }
@@ -223,11 +230,16 @@ export class MessageRepository implements OnModuleInit {
                             channelAccountId: accountId,
                             ...(customerId ? { customerId } : {}),
                         },
-                        select: { id: true, tags: true, lastMessageAt: true },
+                        select: { id: true, tags: true, lastMessageAt: true, lastCustomerMessageAt: true },
                     });
 
                     const isOutOfOrder = Boolean(
                         conv?.lastMessageAt && messageSentAt.getTime() < new Date(conv.lastMessageAt).getTime()
+                    );
+                    const isLatestCustomerMessage = Boolean(
+                        !isOutbound &&
+                        (!conv?.lastCustomerMessageAt ||
+                            messageSentAt.getTime() > new Date(conv.lastCustomerMessageAt).getTime())
                     );
 
                     // Phân giải tag ánh xạ (Facebook Lead -> Lead, idempotent & out-of-order safe)
@@ -257,17 +269,17 @@ export class MessageRepository implements OnModuleInit {
                                 lastCustomerMessageAt: !isOutbound ? messageSentAt : undefined,
                                 tags: finalTags,
                             },
-                            select: { id: true, tags: true, lastMessageAt: true },
+                            select: { id: true, tags: true, lastMessageAt: true, lastCustomerMessageAt: true },
                         });
                     } else {
                         // Cập nhật lại snippet, lastMessageAt và tags của Conversation (bảo vệ chống ghi đè lùi nếu tin nhắn out-of-order)
                         await this.prisma.conversation.update({
                             where: { id: conv.id },
                             data: {
+                                ...(isLatestCustomerMessage ? { lastCustomerMessageAt: messageSentAt } : {}),
                                 ...(isOutOfOrder ? {} : {
                                     snippet: e.content || undefined,
                                     lastMessageAt: messageSentAt,
-                                    ...(!isOutbound ? { lastCustomerMessageAt: messageSentAt } : {}),
                                 }),
                                 tags: finalTags,
                             },
@@ -323,12 +335,11 @@ export class MessageRepository implements OnModuleInit {
             });
         }
 
-        // 4. Chèn với skipDuplicates: true (sinh ra SQL: ON CONFLICT DO NOTHING RETURNING id)
-        // Chỉ các dòng mới được chèn thực sự mới có id trong kết quả trả về
+        // 4. Chỉ các dòng mới được chèn thực sự mới được trả về cho worker.
         return this.prisma.message.createManyAndReturn({
             data: messagesData,
             skipDuplicates: true,
-            select: { id: true },
+            select: { id: true, conversationId: true },
         });
     }
 

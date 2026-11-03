@@ -38,22 +38,18 @@ export class OAuthService {
       case 'FACEBOOK': {
         const appId = this.config.get<string>('META_APP_ID');
         if (!appId) {
-          if (isProduction) {
-            throw new ServiceUnavailableException(
-              'Facebook OAuth is not configured on this server. Missing META_APP_ID environment variable.',
-            );
-          }
-          this.logger.warn('META_APP_ID is not configured. Generating dev simulation authorize URL.');
+          throw new ServiceUnavailableException(
+            'Facebook OAuth is not configured on this server. Missing META_APP_ID environment variable.',
+          );
         }
 
-        const effectiveAppId = appId || 'dev_simulated_meta_app_id';
         const scopes = [
           'pages_messaging',
           'pages_manage_metadata',
           'pages_read_engagement',
           'pages_show_list',
         ].join(',');
-        authorizeUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${effectiveAppId}&redirect_uri=${encodeURIComponent(
+        authorizeUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(
           defaultRedirect,
         )}&state=${state}&scope=${scopes}`;
         break;
@@ -62,16 +58,12 @@ export class OAuthService {
       case 'ZALO': {
         const appId = this.config.get<string>('ZALO_APP_ID');
         if (!appId) {
-          if (isProduction) {
-            throw new ServiceUnavailableException(
-              'Zalo OAuth is not configured on this server. Missing ZALO_APP_ID environment variable.',
-            );
-          }
-          this.logger.warn('ZALO_APP_ID is not configured. Generating dev simulation authorize URL.');
+          throw new ServiceUnavailableException(
+            'Zalo OAuth is not configured on this server. Missing ZALO_APP_ID environment variable.',
+          );
         }
 
-        const effectiveAppId = appId || 'dev_simulated_zalo_app_id';
-        authorizeUrl = `https://oauth.zaloapp.com/v4/oa/permission?app_id=${effectiveAppId}&redirect_uri=${encodeURIComponent(
+        authorizeUrl = `https://oauth.zaloapp.com/v4/oa/permission?app_id=${appId}&redirect_uri=${encodeURIComponent(
           defaultRedirect,
         )}&state=${state}`;
         break;
@@ -79,13 +71,12 @@ export class OAuthService {
 
       case 'TIKTOK': {
         const clientKey = this.config.get<string>('TIKTOK_CLIENT_KEY');
-        if (!clientKey && isProduction) {
+        if (!clientKey) {
           throw new ServiceUnavailableException(
             'TikTok OAuth is not configured on this server. Missing TIKTOK_CLIENT_KEY environment variable.',
           );
         }
-        const effectiveKey = clientKey || 'dev_simulated_tiktok_key';
-        authorizeUrl = `https://open.tiktokapis.com/v2/oauth/authorize/?client_key=${effectiveKey}&scope=user.info.basic,video.list&response_type=code&redirect_uri=${encodeURIComponent(
+        authorizeUrl = `https://open.tiktokapis.com/v2/oauth/authorize/?client_key=${clientKey}&scope=user.info.basic,video.list&response_type=code&redirect_uri=${encodeURIComponent(
           defaultRedirect,
         )}&state=${state}`;
         break;
@@ -93,13 +84,12 @@ export class OAuthService {
 
       case 'INSTAGRAM': {
         const appId = this.config.get<string>('META_APP_ID');
-        if (!appId && isProduction) {
+        if (!appId) {
           throw new ServiceUnavailableException(
             'Instagram OAuth is not configured on this server. Missing META_APP_ID environment variable.',
           );
         }
-        const effectiveAppId = appId || 'dev_simulated_ig_app_id';
-        authorizeUrl = `https://api.instagram.com/oauth/authorize?client_id=${effectiveAppId}&redirect_uri=${encodeURIComponent(
+        authorizeUrl = `https://api.instagram.com/oauth/authorize?client_id=${appId}&redirect_uri=${encodeURIComponent(
           defaultRedirect,
         )}&scope=user_profile,user_media&response_type=code&state=${state}`;
         break;
@@ -139,9 +129,7 @@ export class OAuthService {
       channel === 'FACEBOOK' &&
       metaAppId &&
       metaAppSecret &&
-      effectiveCode &&
-      !effectiveCode.startsWith('mock_') &&
-      !effectiveCode.startsWith('test_')
+      effectiveCode
     ) {
       try {
         return await this.fetchMetaRealPages(effectiveCode, redirectUri);
@@ -149,11 +137,6 @@ export class OAuthService {
         this.logger.warn(`Meta Graph API call failed: ${(err as Error).message}`);
         throw err;
       }
-    }
-
-    // Trường hợp chạy test suite (unit test) truyền mock code
-    if (effectiveCode === 'mock_auth_code_123' || effectiveCode === 'mock_code') {
-      return this.getSimulatedDiscoveredPages(channel);
     }
 
     // Nếu chưa cấu hình App OAuth trên server, trả về danh sách rỗng để người dùng nhập trực tiếp thông tin thật
@@ -178,62 +161,10 @@ export class OAuthService {
     const rawPageName = input.pageName?.trim() || '';
 
     if (channel === 'FACEBOOK') {
-      const isMock =
-        rawToken.startsWith('mock_') ||
-        rawToken.startsWith('test_') ||
-        rawToken.startsWith('dev_') ||
-        rawToken.startsWith('raw_secret_') ||
-        rawPageId.startsWith('mock_');
-
-      if (!rawToken && !isMock) {
+      if (!rawToken) {
         throw new BadRequestException(
           'Kết nối Facebook Fanpage bắt buộc phải có Page Access Token (bắt đầu bằng EAA...) để xác thực với Meta và kích hoạt nhận tin nhắn.',
         );
-      }
-
-      // Mock Mode dành cho automated test
-      if (isMock) {
-        const targetId = rawPageId || 'mock_fb_page_123';
-        const targetName = rawPageName || 'Fanpage Mô Phỏng Tuyển Sinh PolarisX';
-        return {
-          channel: 'FACEBOOK',
-          userName: targetName,
-          userId: targetId,
-          pages: [
-            {
-              id: `fb-${targetId}`,
-              externalAccountId: targetId,
-              name: targetName,
-              category: 'Giáo dục & Đào tạo',
-              avatarUrl: '',
-              followerCount: 2400,
-              channel: 'FACEBOOK',
-              accessToken: rawToken || 'mock_token_123',
-              isVerified: true,
-              webhookStatus: 'SUBSCRIBED',
-              verificationDetails: {
-                tokenValid: true,
-                pageMatched: true,
-                pageName: targetName,
-                pageId: targetId,
-                hasMessagingPermission: true,
-                webhookSubscribed: true,
-              },
-            },
-          ],
-          testResult: {
-            success: true,
-            message: 'Xác thực kiểm thử thành công (Chế độ mô phỏng Test Suite).',
-            details: {
-              tokenValid: true,
-              pageFound: true,
-              pageName: targetName,
-              pageId: targetId,
-              permissionsOk: true,
-              webhookSubscribed: true,
-            },
-          },
-        };
       }
 
       // --- KIỂM THỬ THỰC TẾ VỚI META GRAPH API ---
@@ -410,63 +341,10 @@ export class OAuthService {
     }
 
     if (channel === 'ZALO') {
-      const isMock =
-        rawToken.startsWith('mock_') ||
-        rawToken.startsWith('test_') ||
-        rawToken.startsWith('dev_') ||
-        rawToken.startsWith('raw_secret_') ||
-        rawPageId.startsWith('mock_');
-
-      if (!rawToken && !isMock) {
+      if (!rawToken) {
         throw new BadRequestException(
           'Kết nối Zalo Official Account bắt buộc phải có Access Token từ Zalo for Developers (Công cụ & Kiểm thử -> API Explorer).',
         );
-      }
-
-      // Mock Mode dành cho automated test & kiểm thử nhanh
-      if (isMock) {
-        const targetId = rawPageId || '3141592653589793';
-        const targetName = rawPageName || 'Tuyển Sinh Đào Tạo PolarisX (Zalo OA)';
-        const mockAvatar = 'https://s120.avatar.talk.zdn.vn/default_oa.png';
-        return {
-          channel: 'ZALO',
-          userName: targetName,
-          userId: targetId,
-          pages: [
-            {
-              id: `zalo-${targetId}`,
-              externalAccountId: targetId,
-              name: targetName,
-              category: 'Zalo Official Account',
-              avatarUrl: mockAvatar,
-              followerCount: 1580,
-              channel: 'ZALO',
-              accessToken: rawToken || 'mock_zalo_token_123',
-              isVerified: true,
-              webhookStatus: 'SUBSCRIBED',
-              verificationDetails: {
-                tokenValid: true,
-                pageMatched: true,
-                pageName: targetName,
-                pageId: targetId,
-                hasMessagingPermission: true,
-                webhookSubscribed: true,
-              },
-            },
-          ],
-          testResult: {
-            success: true,
-            message: `Xác thực kiểm thử thành công Zalo Official Account "${targetName}" (Chế độ mô phỏng Test).`,
-            details: {
-              tokenValid: true,
-              pageFound: true,
-              pageName: targetName,
-              pageId: targetId,
-              permissionsOk: true,
-              webhookSubscribed: true,
-            },
-          },
-        };
       }
 
       // --- KIỂM THỬ THỰC TẾ VỚI ZALO OPEN API (GET OA INFO & AVATAR) ---
@@ -671,108 +549,5 @@ export class OAuthService {
       userId: userMe.id,
       pages,
     };
-  }
-
-  /**
-   * Danh sách Fanpage/OA mô phỏng thực tế phục vụ môi trường phát triển & kiểm thử
-   */
-  private getSimulatedDiscoveredPages(channel: ChannelType): ExchangeTokenResult {
-    const mockTokens = {
-      fb1: `EAA${randomBytes(40).toString('hex')}`,
-      fb2: `EAA${randomBytes(40).toString('hex')}`,
-      zalo1: `zalo_token_${randomBytes(32).toString('hex')}`,
-      tiktok1: `tiktok_token_${randomBytes(32).toString('hex')}`,
-      ig1: `ig_token_${randomBytes(32).toString('hex')}`,
-    };
-
-    switch (channel) {
-      case 'FACEBOOK':
-        return {
-          channel: 'FACEBOOK',
-          userName: 'Quản trị viên Fanpage',
-          userId: 'fb_usr_99182749',
-          pages: [
-            {
-              id: 'fb-page-01',
-              externalAccountId: 'page_polarisx_official',
-              name: 'PolarisX - Học Viện Công Nghệ & Tuyển Sinh',
-              category: 'Học viện Đào tạo CNTT',
-              avatarUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=100&auto=format&fit=crop&q=60',
-              followerCount: 48500,
-              channel: 'FACEBOOK',
-              accessToken: mockTokens.fb1,
-            },
-            {
-              id: 'fb-page-02',
-              externalAccountId: 'page_polarisx_academy',
-              name: 'Tuyển sinh PolarisX Academy',
-              category: 'Chương trình Đào tạo Chuyên nghiệp',
-              avatarUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=100&auto=format&fit=crop&q=60',
-              followerCount: 21300,
-              channel: 'FACEBOOK',
-              accessToken: mockTokens.fb2,
-            },
-          ],
-        };
-
-      case 'ZALO':
-        return {
-          channel: 'ZALO',
-          userName: 'Ban Tuyển Sinh Zalo OA',
-          userId: 'zalo_usr_1849204',
-          pages: [
-            {
-              id: 'zalo-oa-01',
-              externalAccountId: 'oa_polarisx_official_tick_vang',
-              name: 'PolarisX Official Account (Tick Vàng)',
-              category: 'Zalo Doanh Nghiệp Xác Thực',
-              avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60',
-              followerCount: 15200,
-              channel: 'ZALO',
-              accessToken: mockTokens.zalo1,
-              refreshToken: `zalo_refresh_${randomBytes(24).toString('hex')}`,
-              tokenExpiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-            },
-          ],
-        };
-
-      case 'TIKTOK':
-        return {
-          channel: 'TIKTOK',
-          userName: 'PolarisX Tech Creator',
-          userId: 'tiktok_usr_77182',
-          pages: [
-            {
-              id: 'tt-shop-01',
-              externalAccountId: 'tiktok_polarisx_tech_life',
-              name: 'PolarisX Tech Life (@polarisx.tech)',
-              category: 'Kênh TikTok Học Lập Trình',
-              avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=60',
-              followerCount: 84000,
-              channel: 'TIKTOK',
-              accessToken: mockTokens.tiktok1,
-            },
-          ],
-        };
-
-      case 'INSTAGRAM':
-        return {
-          channel: 'INSTAGRAM',
-          userName: 'polarisx.education',
-          userId: 'ig_usr_551829',
-          pages: [
-            {
-              id: 'ig-pro-01',
-              externalAccountId: 'ig_polarisx_education_direct',
-              name: 'Instagram Direct (@polarisx.education)',
-              category: 'Tài khoản Chuyên nghiệp',
-              avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=60',
-              followerCount: 12800,
-              channel: 'INSTAGRAM',
-              accessToken: mockTokens.ig1,
-            },
-          ],
-        };
-    }
   }
 }

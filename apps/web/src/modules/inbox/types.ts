@@ -1,4 +1,4 @@
-export type ChannelType = 'FACEBOOK' | 'ZALO' | 'ZALO_PERSONAL' | 'TIKTOK' | 'INSTAGRAM' | 'MANUAL';
+export type ChannelType = 'FACEBOOK' | 'ZALO' | 'ZALO_PERSONAL' | 'TIKTOK' | 'INSTAGRAM' | 'MANUAL' | 'MANUAL_IMPORT';
 
 // Constants cho LeadStatus - Khớp chính xác với cột lead_status (VARCHAR 50) trong DB
 export const LEAD_STATUS = {
@@ -109,7 +109,7 @@ export interface ConversationItem {
   channelAccountName: string;
   snippet: string;
   lastMessageAt: string;
-  lastCustomerMessageAt: string; // Used to check the 24-hour Meta rule
+  lastCustomerMessageAt?: string | null; // Used to check the 24-hour Meta rule
   unreadCount: number;
   assignedStaff?: AssignedStaff;
   tags: string[];

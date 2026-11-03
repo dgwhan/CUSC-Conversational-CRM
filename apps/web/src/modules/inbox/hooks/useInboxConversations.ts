@@ -8,6 +8,7 @@ import type {
 } from '../types.js';
 import { mergeDuplicateConversations, deduplicateMessages } from '../utils/conversationUtils.js';
 import { apiClient } from '../../../lib/api-client.js';
+import { notify } from '../../../components/feedback/toastEmitter.js';
 
 interface UseInboxConversationsProps {
   activeWorkspaceId?: string | null;
@@ -20,6 +21,12 @@ interface UseInboxConversationsProps {
   onPipelineChange: (callback: (event: any) => void) => () => void;
   setUnreadCount: (count: number) => void;
 }
+
+const toIsoTimestamp = (value?: string | Date | null): string | null => {
+  if (!value) return null;
+  const timestamp = new Date(value);
+  return Number.isNaN(timestamp.getTime()) ? null : timestamp.toISOString();
+};
 
 export const useInboxConversations = ({
   activeWorkspaceId,
@@ -192,7 +199,17 @@ export const useInboxConversations = ({
             (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
           );
           const latest = sorted[sorted.length - 1];
-          const firstInbound = sorted.find((m) => m.direction === 'INBOUND') || latest;
+          const latestInbound = [...sorted].reverse().find((m) => m.direction === 'INBOUND');
+          const firstInbound = sorted.find((m) => m.direction === 'INBOUND');
+          const lastCustomerMessageAt = [
+            toIsoTimestamp((latest as any).conversation?.lastCustomerMessageAt),
+            toIsoTimestamp(latestInbound?.sentAt),
+          ].reduce<string | null>((latestTimestamp, value) => {
+            if (!value) return latestTimestamp;
+            return latestTimestamp === null || Date.parse(value) > Date.parse(latestTimestamp)
+              ? value
+              : latestTimestamp;
+          }, null);
 
           const isPersonalZalo = Boolean(
             latest.channel === 'ZALO' && (
@@ -341,6 +358,7 @@ export const useInboxConversations = ({
               channelAccountName: channelName,
               snippet: latest.content || existing.snippet,
               lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toISOString() : new Date().toISOString(),
+              lastCustomerMessageAt,
               tags: existingTags,
               customer: shouldUpdateCustomer
                 ? {
@@ -399,7 +417,7 @@ export const useInboxConversations = ({
               channelAccountName: channelName,
               snippet: latest.content || 'Tin nhắn mới',
               lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toISOString() : new Date().toISOString(),
-              lastCustomerMessageAt: firstInbound.sentAt,
+              lastCustomerMessageAt,
               unreadCount: 0,
               tags: initialCustomerTags,
               status: 'OPEN',
@@ -440,9 +458,27 @@ export const useInboxConversations = ({
   // Lắng nghe sự kiện Realtime tin nhắn mới từ WebSocket
   useEffect(() => {
     const unsubscribe = onNewMessage((msg: any) => {
+      const isMsgPersonalZalo = Boolean(
+        msg.channel === 'ZALO_PERSONAL' || (
+          msg.channel === 'ZALO' && (
+            msg.isPersonal ||
+            msg.channelAccount?.isPersonal ||
+            msg.channelAccount?.metadata?.isPersonal ||
+            msg.channelAccount?.metadata?.engine === 'zca-js' ||
+            msg.rawPayload?.isPersonal ||
+            msg.rawPayload?.engine === 'zca-js'
+          )
+        )
+      );
+      const effectiveMsgChannel: ChannelType = isMsgPersonalZalo ? 'ZALO_PERSONAL' : msg.channel;
+      const msgSenderId =
+        msg.senderExternalId ||
+        msg.senderId ||
+        msg.rawPayload?.uidFrom ||
+        msg.rawPayload?.sender?.id;
+
       setConversations((prev) => {
         let targetId = msg.conversationId;
-        const msgSenderId = msg.senderExternalId || (msg as any).senderId || (msg as any).rawPayload?.uidFrom || (msg as any).rawPayload?.sender?.id;
 
         if (!targetId && msgSenderId) {
           targetId = `${msg.channel}_${msgSenderId}`;
@@ -490,8 +526,12 @@ export const useInboxConversations = ({
             ...existing,
             snippet: latestMsg?.content || msg.content,
             lastMessageAt: latestMsg?.sentAt || sentAtIso,
-            lastCustomerMessageAt: msg.direction === 'INBOUND' ? new Date().toISOString() : existing.lastCustomerMessageAt,
-            unreadCount: isCurrentlyOpen || msg.direction === 'OUTBOUND' ? 0 : (existing.unreadCount || 0) + 1,
+            lastCustomerMessageAt: msg.direction === 'INBOUND' ? sentAtIso : existing.lastCustomerMessageAt,
+            unreadCount:
+              msg.direction === 'OUTBOUND' ||
+              (isCurrentlyOpen && effectiveMsgChannel !== 'FACEBOOK')
+                ? 0
+                : (existing.unreadCount || 0) + 1,
             customer: {
               ...existing.customer,
               avatarUrl:
@@ -533,19 +573,6 @@ export const useInboxConversations = ({
             ? (msg as any).recipientName || (msg as any).customerName || `Khách hàng (${msg.channel})`
             : (!isCounselorName(msg.senderName) ? msg.senderName : `Khách hàng (${msg.channel})`);
 
-        const isMsgPersonalZalo = Boolean(
-          msg.channel === 'ZALO_PERSONAL' || (
-            msg.channel === 'ZALO' && (
-              (msg as any).isPersonal ||
-              (msg as any).channelAccount?.isPersonal ||
-              (msg as any).channelAccount?.metadata?.isPersonal ||
-              (msg as any).channelAccount?.metadata?.engine === 'zca-js' ||
-              (msg as any).rawPayload?.isPersonal ||
-              (msg as any).rawPayload?.engine === 'zca-js'
-            )
-          )
-        );
-        const effectiveMsgChannel: ChannelType = isMsgPersonalZalo ? 'ZALO_PERSONAL' : (msg.channel as any);
         const resolvedAccountName =
           (msg as any).channelAccount?.displayName && !(msg as any).channelAccount.displayName.startsWith('Kênh ')
             ? (msg as any).channelAccount.displayName
@@ -557,7 +584,7 @@ export const useInboxConversations = ({
           channelAccountName: resolvedAccountName,
           snippet: msg.content,
           lastMessageAt: 'Vừa xong',
-          lastCustomerMessageAt: new Date().toISOString(),
+          lastCustomerMessageAt: msg.direction === 'INBOUND' ? sentAtIso : null,
           unreadCount: 1,
           tags: defaultTags,
           status: 'OPEN',
@@ -692,11 +719,36 @@ export const useInboxConversations = ({
     [conversations, selectedId]
   );
 
+  useEffect(() => {
+    if (currentConv?.channel !== 'FACEBOOK' || currentConv.unreadCount <= 0) return;
+
+    let active = true;
+    void apiClient.markFacebookConversationSeen(currentConv.id)
+      .then(() => {
+        if (!active) return;
+        setConversations((prev) =>
+          prev.map((conversation) =>
+            conversation.id === currentConv.id
+              ? { ...conversation, unreadCount: 0 }
+              : conversation,
+          ),
+        );
+      })
+      .catch((error: unknown) => {
+        notify.error(
+          `Không thể đồng bộ trạng thái đã xem lên Facebook: ${
+            error instanceof Error ? error.message : 'Lỗi không xác định'
+          }`,
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentConv?.id, currentConv?.channel, currentConv?.unreadCount]);
+
   const handleSelectConversation = (id: string) => {
     setSelectedId(id);
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c))
-    );
   };
 
   return {
@@ -710,4 +762,3 @@ export const useInboxConversations = ({
     handleSelectConversation,
   };
 };
-

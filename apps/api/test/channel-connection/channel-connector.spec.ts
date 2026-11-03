@@ -17,6 +17,7 @@ describe('OAuthService & ChannelConnectorController', () => {
       TOKEN_ENCRYPTION_KEY: 'test_token_encryption_key_32_characters_long_12345',
       META_APP_ID: '1234567890',
       META_APP_SECRET: 'meta_secret_test',
+      ZALO_APP_ID: '987654321',
       FRONTEND_URL: 'http://localhost:5173',
     });
 
@@ -97,12 +98,43 @@ describe('OAuthService & ChannelConnectorController', () => {
       expect(res.authorizeUrl).toContain('oauth.zaloapp.com');
     });
 
-    it('should return discovered pages when exchanging mock token', async () => {
-      const result = await oauthService.exchangeToken('FACEBOOK', 'mock_auth_code_123', 'state_test');
+    it('should return discovered pages when exchanging oauth code', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation((url: any) => {
+        const u = String(url);
+        if (u.includes('/oauth/access_token')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ access_token: 'eaab_user_token_123' }),
+          } as any);
+        }
+        if (u.includes('/me/accounts')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({
+              data: [
+                {
+                  id: 'page_123',
+                  name: 'Fanpage Tuyển Sinh',
+                  category: 'Education',
+                  access_token: 'eaab_page_token_123',
+                  picture: { data: { url: 'https://example.com/avatar.jpg' } },
+                  followers_count: 5000,
+                },
+              ],
+            }),
+          } as any);
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ id: 'user_123', name: 'Admin Test' }),
+        } as any);
+      });
+
+      const result = await oauthService.exchangeToken('FACEBOOK', 'valid_auth_code_123', 'state_test');
       expect(result.channel).toBe('FACEBOOK');
       expect(result.pages.length).toBeGreaterThan(0);
-      expect(result.pages[0].name).toContain('PolarisX');
-      expect(result.pages[0].accessToken).toBeDefined();
+      expect(result.pages[0].name).toBe('Fanpage Tuyển Sinh');
+      expect(result.pages[0].accessToken).toBe('eaab_page_token_123');
     });
   });
 
@@ -120,12 +152,44 @@ describe('OAuthService & ChannelConnectorController', () => {
     });
 
     it('should exchange code and return discovered pages', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation((url: any) => {
+        const u = String(url);
+        if (u.includes('/oauth/access_token')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ access_token: 'eaab_user_token_123' }),
+          } as any);
+        }
+        if (u.includes('/me/accounts')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({
+              data: [
+                {
+                  id: 'page_123',
+                  name: 'Fanpage Tuyển Sinh',
+                  category: 'Education',
+                  access_token: 'eaab_page_token_123',
+                  picture: { data: { url: 'https://example.com/avatar.jpg' } },
+                  followers_count: 5000,
+                },
+              ],
+            }),
+          } as any);
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ id: 'user_123', name: 'Admin Test' }),
+        } as any);
+      });
+
       const res = await controller.exchangeToken('facebook', {
-        code: 'mock_code',
+        code: 'valid_auth_code_123',
         state: 'valid_state',
       });
       expect(res.pages).toBeDefined();
       expect(res.pages.length).toBeGreaterThan(0);
+      expect(res.pages[0].name).toBe('Fanpage Tuyển Sinh');
     });
 
     it('should activate selected pages, encrypting their tokens', async () => {
@@ -149,6 +213,29 @@ describe('OAuthService & ChannelConnectorController', () => {
       expect(upsertArg.create.encryptedAccessToken).not.toBe('raw_secret_access_token_123');
       expect(upsertArg.create.encryptedAccessToken).toContain(':');
       expect(upsertArg.create.workspaceId).toBe('ws-uuid-001');
+    });
+
+    it('should resolve legacy default workspace IDs instead of querying Prisma with them', async () => {
+      const res = await controller.activateChannels(
+        {
+          workspaceId: 'ws-default-001',
+          pages: [
+            {
+              channel: 'FACEBOOK',
+              externalAccountId: 'page_789',
+              displayName: 'Fanpage PolarisX',
+            },
+          ],
+        },
+        undefined,
+        'owner-uuid-001',
+      );
+
+      expect(mockPrisma.workspace.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.workspace.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { ownerId: 'owner-uuid-001' } }),
+      );
+      expect(res.workspaceId).toBe('ws-uuid-001');
     });
 
     it('should list channels strictly scoped to workspaceId with masked token status', async () => {

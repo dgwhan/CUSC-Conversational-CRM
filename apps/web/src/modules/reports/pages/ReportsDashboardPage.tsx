@@ -89,14 +89,6 @@ export const ReportsDashboardPage: React.FC = () => {
   // Tính toán dữ liệu thống kê fallback theo cấu hình Domain của Workspace
   const computeLocalFallbackData = useCallback((): ReportsData => {
     let localCandidates: any[] = [];
-    try {
-      const raw =
-        localStorage.getItem('polarisx_crm_kanban_candidates') ||
-        localStorage.getItem('cusc_crm_kanban_candidates');
-      if (raw) {
-        localCandidates = JSON.parse(raw);
-      }
-    } catch {}
 
     const stages = config.pipelineStages && config.pipelineStages.length > 0
       ? config.pipelineStages

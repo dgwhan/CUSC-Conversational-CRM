@@ -121,8 +121,23 @@ describe('Zalo Channel Connection & Messaging', () => {
 
   describe('1. Kiểm tra kết nối Zalo OA & Lấy Tên, Ảnh đại diện', () => {
     it('Xác thực với Mock Token: trả về thông tin OA đầy đủ (Tên, Avatar, OA ID)', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: {
+              oa_id: '3141592653589793',
+              name: 'Zalo OA Tuyển Sinh CUSC',
+              avatar: 'https://s120.avatar.talk.zdn.vn/default_oa.png',
+              is_verified: true,
+            },
+            error: 0,
+            message: 'Success',
+          }),
+      });
+
       const res = await oauthService.exchangeToken('ZALO', undefined, undefined, undefined, {
-        accessToken: 'mock_zalo_token_123',
+        accessToken: 'zalo_access_token_123',
         pageId: '3141592653589793',
       });
 
