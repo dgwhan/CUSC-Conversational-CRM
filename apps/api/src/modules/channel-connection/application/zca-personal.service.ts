@@ -162,6 +162,7 @@ export class ZcaPersonalService implements OnModuleInit {
 
     // Khởi chạy zca-js loginQR thực tế gọi đến Zalo Web
     const zalo = new Zalo({ selfListen: true, logging: false });
+    let savedCreds: { cookies: any; imei: any; userAgent: any } | null = null;
 
     const qrReceivedPromise = new Promise<string>((resolve, reject) => {
       // Hẹn giờ tối đa 8 giây chờ Zalo Web phản hồi mã QR
@@ -207,8 +208,17 @@ export class ZcaPersonalService implements OnModuleInit {
             const cookies = (event.data as any)?.cookie;
             const imei = (event.data as any)?.imei;
             const userAgent = (event.data as any)?.userAgent;
-            if (session.account) {
-              session.account.accessToken = JSON.stringify({ cookies, imei, userAgent });
+            savedCreds = { cookies, imei, userAgent };
+            if (!session.account) {
+              session.account = {
+                id: `zca-${sessionId}`,
+                externalAccountId: sessionId,
+                displayName: 'Tư vấn viên Zalo',
+                avatarUrl: 'https://ui-avatars.com/api/?name=Zalo&background=0068FF&color=fff',
+                accessToken: JSON.stringify(savedCreds),
+              };
+            } else {
+              session.account.accessToken = JSON.stringify(savedCreds);
             }
             this.logger.log(`[zca-js] Đăng nhập Zalo cá nhân thành công cho phiên: ${sessionId}`);
           }
@@ -253,7 +263,7 @@ export class ZcaPersonalService implements OnModuleInit {
               externalAccountId: targetId,
               displayName,
               avatarUrl,
-              accessToken: session.account?.accessToken || JSON.stringify(apiResult.cookies || {}),
+              accessToken: savedCreds ? JSON.stringify(savedCreds) : session.account?.accessToken || `zca_token_${sessionId}`,
             };
 
             this.logger.log(`[zca-js] Thiết lập listener cho tài khoản Zalo cá nhân UID: ${targetId} (${displayName})`);
@@ -385,16 +395,113 @@ export class ZcaPersonalService implements OnModuleInit {
     }
 
     if (api && typeof api.sendMessage === 'function') {
-      const cleanRecipientId = String(recipientId).trim();
+      let cleanRecipientId = String(recipientId).trim();
+
+      // Kiểm tra xem cleanRecipientId có phải là số điện thoại hoặc mã danh bạ (độ dài 9–13 số, bắt đầu bằng 0, 84 hoặc +84)
+      const isPhoneCandidate =
+        Boolean(cleanRecipientId) &&
+        ((cleanRecipientId.startsWith('+84') && cleanRecipientId.length >= 10 && cleanRecipientId.length <= 14) ||
+         (cleanRecipientId.startsWith('84') && cleanRecipientId.length >= 9 && cleanRecipientId.length <= 13) ||
+         (cleanRecipientId.startsWith('0') && cleanRecipientId.length >= 9 && cleanRecipientId.length <= 12));
+
+      let foundUserResult: any = null;
+
+      if (isPhoneCandidate && typeof api.findUser === 'function') {
+        let phoneToLookup = cleanRecipientId.replace(/^\+/, '');
+        if (phoneToLookup.startsWith('0')) {
+          phoneToLookup = '84' + phoneToLookup.slice(1);
+        }
+        try {
+          this.logger.log(`[zca-js] Phát hiện recipientId là số điện thoại / danh bạ (${cleanRecipientId}). Đang gọi api.findUser("${phoneToLookup}") để tra cứu Zalo UID nội bộ...`);
+          const foundUser = await api.findUser(phoneToLookup);
+          const targetUid = String(foundUser?.uid || foundUser?.userId || foundUser?.id || '');
+          if (targetUid && /^\d+$/.test(targetUid)) {
+            this.logger.log(`[zca-js] Tra cứu thành công! SĐT ${cleanRecipientId} -> Zalo UID nội bộ: ${targetUid} (${foundUser?.display_name || foundUser?.zalo_name || ''})`);
+            cleanRecipientId = targetUid;
+            foundUserResult = foundUser;
+          } else {
+            this.logger.warn(`[zca-js] api.findUser("${phoneToLookup}") không trả về UID nội bộ: ${JSON.stringify(foundUser || {})}`);
+          }
+        } catch (findErr) {
+          this.logger.warn(`[zca-js] Không thể tra cứu Zalo UID từ SĐT "${phoneToLookup}": ${(findErr as Error).message}`);
+        }
+      }
+
+      // Nếu vẫn là số điện thoại và findUser không ra, thử kiểm tra Customer trong DB xem đã có Zalo UID chưa
+      if (isPhoneCandidate && !foundUserResult && this.prisma?.customer) {
+        try {
+          const rawDigits = cleanRecipientId.replace(/\D/g, '');
+          const phoneNoLeadingZero = rawDigits.startsWith('84') ? '0' + rawDigits.slice(2) : rawDigits;
+          const cust = await this.prisma.customer.findFirst({
+            where: {
+              OR: [
+                { phone: { in: [cleanRecipientId, phoneNoLeadingZero, rawDigits] } },
+                { channelIdentities: { path: ['phone'], equals: cleanRecipientId } },
+                { channelIdentities: { path: ['phone'], equals: phoneNoLeadingZero } },
+              ],
+            },
+          });
+          const identities = cust?.channelIdentities as any;
+          const zaloId =
+            identities?.zalo?.id ||
+            (typeof identities?.zalo === 'string' ? identities.zalo : null) ||
+            (Array.isArray(identities) ? identities.find((x: any) => x.channel === 'ZALO')?.externalUserId : null);
+          if (zaloId && /^\d+$/.test(String(zaloId).trim())) {
+            this.logger.log(`[zca-js] Tìm thấy Zalo UID nội bộ từ hồ sơ Customer trong DB: ${zaloId}`);
+            cleanRecipientId = String(zaloId).trim();
+          }
+        } catch {}
+      }
+
+      // Cập nhật Zalo UID vào Customer trong DB để các lần gửi sau không cần tra cứu lại
+      if (foundUserResult?.uid && this.prisma?.customer) {
+        const rawDigits = String(recipientId).replace(/\D/g, '');
+        const phoneNoLeadingZero = rawDigits.startsWith('84') ? '0' + rawDigits.slice(2) : rawDigits;
+        this.prisma.customer.findFirst({
+          where: {
+            OR: [
+              { phone: { in: [String(recipientId), phoneNoLeadingZero, rawDigits] } },
+              { channelIdentities: { path: ['phone'], equals: String(recipientId) } },
+              { channelIdentities: { path: ['phone'], equals: phoneNoLeadingZero } },
+            ],
+          },
+        }).then(cust => {
+          if (cust && this.prisma?.customer) {
+            const currentIdentities = (cust.channelIdentities as any) || {};
+            this.prisma.customer.update({
+              where: { id: cust.id },
+              data: {
+                channelIdentities: {
+                  ...currentIdentities,
+                  zalo: {
+                    ...(typeof currentIdentities.zalo === 'object' ? currentIdentities.zalo : {}),
+                    id: cleanRecipientId,
+                    name: foundUserResult.display_name || foundUserResult.zalo_name || currentIdentities.zalo?.name,
+                  },
+                  socialId: cleanRecipientId,
+                },
+              },
+            }).catch(() => null);
+          }
+        }).catch(() => null);
+      }
+
       if (!/^\d+$/.test(cleanRecipientId)) {
         throw new BadRequestException(
           `ID người nhận "${recipientId}" không phải là dãy số định danh Zalo (UID) hợp lệ. Vui lòng đảm bảo khách hàng có UID Zalo số trước khi gửi tin.`,
         );
       }
 
+      const myOwnUid = String(api.ctx?.uid || '');
+      if (myOwnUid && cleanRecipientId === myOwnUid) {
+        throw new BadRequestException(
+          `Không thể gửi tin nhắn cho chính mình (UID người nhận trùng với UID tài khoản Zalo đang đăng nhập: ${cleanRecipientId}). Vui lòng chọn khách hàng khác.`,
+        );
+      }
+
       try {
-        this.logger.log(`[zca-js] Gửi tin nhắn tới ${cleanRecipientId} qua API cá nhân ${extId}...`);
-        const res = await api.sendMessage(content, cleanRecipientId, ThreadType.User);
+        this.logger.log(`[zca-js] Gửi tin nhắn tới UID ${cleanRecipientId} qua API cá nhân ${extId}...`);
+        const res = await api.sendMessage({ msg: content }, cleanRecipientId, ThreadType.User);
         const messageId = String(res?.message?.msgId || `zca_msg_${Date.now()}`);
         return { messageId, rawPayload: res };
       } catch (err) {
@@ -405,9 +512,47 @@ export class ZcaPersonalService implements OnModuleInit {
           await this.handleSessionExpired(extId, errMsg);
           throw new BadRequestException('Phiên đăng nhập Zalo cá nhân đã hết hạn hoặc bị đăng xuất. Vui lòng quét lại mã QR.');
         }
+
         if (errMsg.includes('Tham số không hợp lệ') || errMsg.includes('1001')) {
+          // Nếu ban đầu là số điện thoại mà tra cứu UID thất bại
+          if (isPhoneCandidate && !foundUserResult && !/^\d{14,}$/.test(cleanRecipientId)) {
+            throw new BadRequestException(
+              `Gửi tin Zalo thất bại: Zalo báo "Tham số không hợp lệ" (Mã 1001). Số điện thoại/danh bạ (${recipientId}) chưa được chuyển đổi thành Zalo UID nội bộ hoặc tài khoản Zalo này chặn tìm kiếm qua số điện thoại. Vui lòng gửi một tin nhắn từ Zalo điện thoại trước để hệ thống tự động đồng bộ UID.`,
+            );
+          }
+
+          // Thử tự động phục hồi và làm mới session token từ cookies và imei đã lưu
+          if (account?.encryptedAccessToken && this.encryption) {
+            try {
+              const rawToken = this.encryption.decrypt(account.encryptedAccessToken);
+              if (rawToken && rawToken.startsWith('{')) {
+                const creds = JSON.parse(rawToken);
+                const cookieData = creds.cookie || creds.cookies;
+                if (cookieData && creds.imei) {
+                  this.logger.log(`[zca-js] Đang tự động làm mới session zpw_enk từ cookies cho "${account.displayName}"...`);
+                  const zalo = new Zalo({ selfListen: true, logging: false });
+                  const refreshedApi = await zalo.login({
+                    cookie: cookieData,
+                    imei: creds.imei,
+                    userAgent: creds.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
+                  });
+                  if (refreshedApi) {
+                    this.activeApis.set(extId, refreshedApi);
+                    this.logger.log(`[zca-js] Thử gửi lại tin nhắn tới bạn bè Zalo UID ${cleanRecipientId} sau khi làm mới session...`);
+                    const retryRes = await refreshedApi.sendMessage({ msg: content }, cleanRecipientId, ThreadType.User);
+                    const retryMessageId = String(retryRes?.message?.msgId || `zca_msg_${Date.now()}`);
+                    return { messageId: retryMessageId, rawPayload: retryRes };
+                  }
+                }
+              }
+            } catch (retryErr) {
+              this.logger.warn(`[zca-js] Tự động làm mới session Zalo thất bại: ${(retryErr as Error).message}`);
+            }
+          }
+
+          await this.handleSessionExpired(extId, 'Session expired on error 1001');
           throw new BadRequestException(
-            `Gửi tin Zalo thất bại: Zalo báo "Tham số không hợp lệ". Người nhận (${cleanRecipientId}) có thể chưa kết bạn với tài khoản Zalo của bạn, đang chặn tin nhắn từ người lạ, hoặc UID không tồn tại trên hệ thống Zalo.`,
+            `Gửi tin Zalo thất bại: Zalo báo "Tham số không hợp lệ" (Mã 1001). Phiên kết nối Zalo Web của tài khoản ("${account?.displayName || extId}") đã bị hết hạn token phiên hoặc mất đồng bộ khóa mã hóa trên máy chủ Zalo. Người nhận (${cleanRecipientId}) là UID bạn bè Zalo hợp lệ. Vui lòng vào Cài đặt kênh -> Quét lại mã QR Zalo để đồng bộ phiên kết nối mới nhất và tiếp tục gửi tin.`,
           );
         }
         throw new BadRequestException(`Gửi tin nhắn qua Zalo cá nhân thất bại: ${errMsg}`);

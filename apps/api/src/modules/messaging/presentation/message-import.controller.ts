@@ -6,6 +6,7 @@ import {
     Headers,
     HttpCode,
     HttpStatus,
+    Logger,
     Post,
     Query,
     Req,
@@ -19,6 +20,8 @@ import { Channel } from '../domain/channel.js';
 
 @Controller('messages')
 export class MessageImportController {
+    private readonly logger = new Logger(MessageImportController.name);
+
     constructor(
         private readonly importUseCase: ImportMessagesUseCase,
         private readonly messageRepo: MessageRepository,
@@ -31,7 +34,7 @@ export class MessageImportController {
     async getSavedMessages(
         @Query('page') pageStr?: string,
         @Query('limit') limitStr?: string,
-        @Query('channel') channel?: Channel,
+        @Query('channel') channel?: string,
         @Query('search') search?: string,
         @Query('workspaceId') queryWorkspaceId?: string,
         @Headers('x-workspace-id') headerWorkspaceId?: string,
@@ -42,21 +45,32 @@ export class MessageImportController {
 
         const effectiveWorkspaceId = queryWorkspaceId || headerWorkspaceId;
 
-        const { items, total } = await this.messageRepo.findMany({
-            workspaceId: effectiveWorkspaceId,
-            limit,
-            offset,
-            channel,
-            search,
-        });
+        try {
+            const { items, total } = await this.messageRepo.findMany({
+                workspaceId: effectiveWorkspaceId,
+                limit,
+                offset,
+                channel,
+                search,
+            });
 
-        return {
-            items,
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-        };
+            return {
+                items,
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            };
+        } catch (err: any) {
+            this.logger.error(`Error in getSavedMessages: ${err?.message || err}`, err?.stack);
+            return {
+                items: [],
+                total: 0,
+                page,
+                limit,
+                totalPages: 0,
+            };
+        }
     }
 
     /**

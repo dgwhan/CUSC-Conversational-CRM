@@ -568,6 +568,46 @@ describe('Zalo Channel Connection & Messaging', () => {
       );
     });
 
+    it('Tự động tra cứu và chuyển đổi số điện thoại sang Zalo UID nội bộ qua api.findUser', async () => {
+      mockPrisma.channelAccount.findUnique.mockResolvedValueOnce({
+        id: 'zca-acc-personal',
+        workspaceId: 'ws-uuid-001',
+        channel: Channel.ZALO,
+        externalAccountId: 'zca_user_123456',
+        displayName: 'Tư vấn viên Zalo Cá nhân',
+        encryptedAccessToken: encryption.encrypt('zca_token_test'),
+        isActive: true,
+        metadata: { isPersonal: true, engine: 'zca-js' },
+      });
+
+      const mockApi = {
+        findUser: vi.fn().mockResolvedValue({
+          uid: '9876543210123456',
+          display_name: 'Khách hàng Thật',
+        }),
+        sendMessage: vi.fn().mockResolvedValue({
+          message: { msgId: 'zca_msg_from_finduser' },
+        }),
+      };
+      (zcaService as any).activeApis.set('zca_user_123456', mockApi);
+
+      const res = await channelManager.sendMessage({
+        channel: 'ZALO',
+        channelAccountId: 'zca-acc-personal',
+        recipientId: '8437942783824',
+        content: 'Chào bạn, mình gửi thông tin học phí nhé!',
+      });
+
+      expect(mockApi.findUser).toHaveBeenCalledWith('8437942783824');
+      expect(mockApi.sendMessage).toHaveBeenCalledWith(
+        { msg: 'Chào bạn, mình gửi thông tin học phí nhé!' },
+        '9876543210123456',
+        0,
+      );
+      expect(res.success).toBe(true);
+      expect(res.messageId).toBe('zca_msg_from_finduser');
+    });
+
     it('Tự động cập nhật kênh Zalo cũ và dọn dẹp bản ghi trùng lặp khi kết nối lại', async () => {
       mockPrisma.channelAccount.findMany.mockResolvedValueOnce([
         {

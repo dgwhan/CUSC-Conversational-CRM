@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { Message, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../platform/database/prisma.service.js";
 import { InboundEvent } from "../domain/inbound-event.js";
@@ -13,8 +13,34 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 const normalizeWorkspaceId = (workspaceId?: string): string | undefined =>
     workspaceId && UUID_REGEX.test(workspaceId) ? workspaceId : undefined;
 
+function normalizeChannel(rawChannel?: unknown): Channel | undefined {
+    if (!rawChannel || typeof rawChannel !== 'string') return undefined;
+    const upper = rawChannel.trim().toUpperCase();
+    if (!upper || upper === 'ALL' || upper === 'UNDEFINED' || upper === 'NULL') {
+        return undefined;
+    }
+    if (upper === 'ZALO' || upper === 'ZALO_PERSONAL' || upper.includes('ZALO')) {
+        return Channel.ZALO;
+    }
+    if (upper === 'FACEBOOK' || upper === 'FB' || upper.includes('FACEBOOK')) {
+        return Channel.FACEBOOK;
+    }
+    if (upper === 'TIKTOK' || upper.includes('TIKTOK')) {
+        return Channel.TIKTOK;
+    }
+    if (upper === 'MANUAL_IMPORT' || upper.includes('MANUAL') || upper.includes('CSV')) {
+        return Channel.MANUAL_IMPORT;
+    }
+    if (Object.values(Channel).includes(upper as Channel)) {
+        return upper as Channel;
+    }
+    return undefined;
+}
+
 @Injectable()
 export class MessageRepository implements OnModuleInit {
+    private readonly logger = new Logger(MessageRepository.name);
+
     constructor(private readonly prisma: PrismaService) {}
 
     async onModuleInit(): Promise<void> {
@@ -39,97 +65,158 @@ export class MessageRepository implements OnModuleInit {
         workspaceId?: string;
         limit?: number;
         offset?: number;
-        channel?: Channel;
+        channel?: Channel | string;
         search?: string;
     }): Promise<{ items: any[]; total: number }> {
         const safeWorkspaceId = normalizeWorkspaceId(options?.workspaceId);
-        const where: Prisma.MessageWhereInput = {};
+        const normalizedChannel = normalizeChannel(options?.channel);
+
+        const andConditions: Prisma.MessageWhereInput[] = [];
+
         if (safeWorkspaceId) {
-            where.channelAccount = { workspaceId: safeWorkspaceId };
-        }
-        if (options?.channel) {
-            where.channel = options.channel;
-        }
-        if (options?.search) {
-            where.OR = [
-                { content: { contains: options.search, mode: 'insensitive' } },
-                { externalMessageId: { contains: options.search, mode: 'insensitive' } },
-            ];
+            andConditions.push({
+                OR: [
+                    { channelAccount: { workspaceId: safeWorkspaceId } },
+                    { conversation: { workspaceId: safeWorkspaceId } },
+                ],
+            });
         }
 
-        const [items, total] = await Promise.all([
-            this.prisma.message.findMany({
-                where,
-                include: {
-                    channelAccount: {
-                        select: {
-                            displayName: true,
-                            externalAccountId: true,
-                            avatarUrl: true,
-                            metadata: true,
+        if (normalizedChannel) {
+            andConditions.push({
+                channel: normalizedChannel,
+            });
+        }
+
+        if (options?.search && typeof options.search === 'string' && options.search.trim()) {
+            const searchTerm = options.search.trim();
+            andConditions.push({
+                OR: [
+                    { content: { contains: searchTerm, mode: 'insensitive' } },
+                    { externalMessageId: { contains: searchTerm, mode: 'insensitive' } },
+                ],
+            });
+        }
+
+        const where: Prisma.MessageWhereInput = andConditions.length > 0
+            ? { AND: andConditions }
+            : {};
+
+        let items: any[] = [];
+        let total = 0;
+
+        try {
+            [items, total] = await Promise.all([
+                this.prisma.message.findMany({
+                    where,
+                    include: {
+                        channelAccount: {
+                            select: {
+                                displayName: true,
+                                externalAccountId: true,
+                                avatarUrl: true,
+                                metadata: true,
+                            },
+                        },
+                        conversation: {
+                            include: {
+                                customer: true,
+                            },
                         },
                     },
-                    conversation: {
-                        include: {
-                            customer: true,
-                        },
-                    },
-                },
-                orderBy: { sentAt: 'desc' },
-                take: options?.limit ?? 50,
-                skip: options?.offset ?? 0,
-            }),
-            this.prisma.message.count({ where }),
-        ]);
+                    orderBy: { sentAt: 'desc' },
+                    take: options?.limit ?? 50,
+                    skip: options?.offset ?? 0,
+                }),
+                this.prisma.message.count({ where }),
+            ]);
+        } catch (dbErr: any) {
+            this.logger.error(`Database error in MessageRepository.findMany: ${dbErr?.message || dbErr}`, dbErr?.stack);
+            return { items: [], total: 0 };
+        }
 
-        const mappedItems = items.map((m: any) => {
-            const raw = (m.rawPayload as any) || {};
-            const customer = m.conversation?.customer;
-            const isOutbound = m.direction === 'OUTBOUND' || m.direction === MessageDirection.OUTBOUND;
-            const recipientExternalId =
-                raw.recipient?.id ||
-                raw.to?.data?.[0]?.id ||
-                raw.to?.id ||
-                customer?.channelIdentities?.facebook ||
-                customer?.id ||
-                null;
+        const mappedItems = (items || []).map((m: any) => {
+            try {
+                let raw = m.rawPayload;
+                if (typeof raw === 'string') {
+                    try {
+                        raw = JSON.parse(raw);
+                    } catch {
+                        raw = {};
+                    }
+                }
+                if (!raw || typeof raw !== 'object') {
+                    raw = {};
+                }
 
-            const senderExternalId =
-                isOutbound && recipientExternalId
-                    ? recipientExternalId
-                    : (raw.senderExternalId ||
-                       raw.sender?.id ||
-                       raw.from?.id ||
-                       customer?.channelIdentities?.facebook ||
-                       customer?.id ||
-                       'unknown');
+                const customer = m.conversation?.customer;
+                const isOutbound = m.direction === 'OUTBOUND' || m.direction === MessageDirection.OUTBOUND;
 
-            const customerName =
-                customer?.fullName ||
-                raw.customerName ||
-                raw.from?.name ||
-                raw.sender?.name ||
-                null;
+                let customerFbId: string | null = null;
+                let customerZaloId: string | null = null;
+                if (customer?.channelIdentities) {
+                    if (Array.isArray(customer.channelIdentities)) {
+                        const fb = customer.channelIdentities.find((i: any) => i?.channel === 'FACEBOOK' || i?.channel === Channel.FACEBOOK);
+                        if (fb?.externalUserId) customerFbId = String(fb.externalUserId);
+                        const za = customer.channelIdentities.find((i: any) => i?.channel === 'ZALO' || i?.channel === Channel.ZALO);
+                        if (za?.externalUserId) customerZaloId = String(za.externalUserId);
+                    } else if (typeof customer.channelIdentities === 'object') {
+                        const idents = customer.channelIdentities as any;
+                        if (idents.facebook) customerFbId = String(idents.facebook);
+                        if (idents.zalo?.id) customerZaloId = String(idents.zalo.id);
+                        else if (idents.zalo) customerZaloId = String(idents.zalo);
+                    }
+                }
 
-            const customerAvatar =
-                customer?.avatarUrl ||
-                raw.customerAvatar ||
-                null;
+                const recipientExternalId =
+                    raw.recipient?.id ||
+                    raw.to?.data?.[0]?.id ||
+                    raw.to?.id ||
+                    customerFbId ||
+                    customerZaloId ||
+                    customer?.id ||
+                    null;
 
-            const tags =
-                (Array.isArray(m.conversation?.tags) && m.conversation.tags.length > 0)
-                    ? m.conversation.tags
-                    : (Array.isArray(raw.tags) && raw.tags.length > 0 ? raw.tags : []);
+                const senderExternalId =
+                    isOutbound && recipientExternalId
+                        ? recipientExternalId
+                        : (raw.senderExternalId ||
+                           raw.sender?.id ||
+                           raw.from?.id ||
+                           customerFbId ||
+                           customerZaloId ||
+                           customer?.id ||
+                           'unknown');
 
-            return {
-                ...m,
-                senderExternalId,
-                customerName,
-                customerAvatar,
-                customerPhone: customer?.phone || null,
-                customerEmail: customer?.email || null,
-                tags,
-            };
+                const customerName =
+                    customer?.fullName ||
+                    raw.customerName ||
+                    raw.from?.name ||
+                    raw.sender?.name ||
+                    null;
+
+                const customerAvatar =
+                    customer?.avatarUrl ||
+                    raw.customerAvatar ||
+                    null;
+
+                const tags =
+                    (Array.isArray(m.conversation?.tags) && m.conversation.tags.length > 0)
+                        ? m.conversation.tags
+                        : (Array.isArray(raw.tags) && raw.tags.length > 0 ? raw.tags : []);
+
+                return {
+                    ...m,
+                    senderExternalId,
+                    customerName,
+                    customerAvatar,
+                    customerPhone: customer?.phone || null,
+                    customerEmail: customer?.email || null,
+                    tags,
+                };
+            } catch {
+                return m;
+            }
         });
 
         return { items: mappedItems, total };

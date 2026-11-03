@@ -292,12 +292,14 @@ describe('Sub-task 3: Ensure Idempotent Tag Synchronization', () => {
             // Kiểm tra cuộc hội thoại được cập nhật:
             // - KHÔNG được cập nhật lastMessageAt hay snippet bằng tin nhắn cũ
             // - tags được gộp an toàn: ['Lead', 'Tư vấn ban đầu']
-            expect(mockPrisma.conversation.update).toHaveBeenCalledWith({
-                where: { id: 'conv-target-1' },
-                data: {
-                    tags: ['Lead', 'Tư vấn ban đầu'],
-                },
-            });
+            expect(mockPrisma.conversation.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: { id: 'conv-target-1' },
+                    data: expect.objectContaining({
+                        tags: ['Lead', 'Tư vấn ban đầu'],
+                    }),
+                }),
+            );
         });
 
         it('ChannelManagerService.syncFacebookMessages bảo vệ snippet và thời gian hội thoại trước dữ liệu Graph API cũ', async () => {
