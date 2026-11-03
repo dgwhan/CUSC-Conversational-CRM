@@ -20,6 +20,9 @@ import {
   Tag,
   Palette,
   X,
+  Clock,
+  AlertTriangle,
+  BellRing,
 } from 'lucide-react';
 import { useWorkspaceConfig } from '../WorkspaceConfigContext.js';
 import { useUserRole } from '../../auth/UserRoleContext.js';
@@ -64,7 +67,11 @@ export const WorkspaceSettingsPage: React.FC = () => {
 
   const { isOwner } = useUserRole();
 
-  const [activeTab, setActiveTab] = useState<'stages' | 'catalog' | 'terminology' | 'criteria'>('stages');
+  const [activeTab, setActiveTab] = useState<'stages' | 'catalog' | 'terminology' | 'criteria' | 'alerts'>('stages');
+
+  // Cấu hình cảnh báo tin nhắn chưa phản hồi trong n phút
+  const [unresponsiveAlertMinutes, setUnresponsiveAlertMinutes] = useState<number>(config.unresponsiveAlertMinutes ?? 15);
+  const [isAlertEnabled, setIsAlertEnabled] = useState<boolean>((config.unresponsiveAlertMinutes ?? 15) > 0);
 
   // Form thêm tiêu chí mới
   const [newCritName, setNewCritName] = useState('');
@@ -239,6 +246,30 @@ export const WorkspaceSettingsPage: React.FC = () => {
     setNewCritRequired(false);
   };
 
+  React.useEffect(() => {
+    const mins = config.unresponsiveAlertMinutes ?? 15;
+    setUnresponsiveAlertMinutes(mins > 0 ? mins : 15);
+    setIsAlertEnabled(mins > 0);
+  }, [config.unresponsiveAlertMinutes]);
+
+  const handleSaveAlertSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const finalMinutes = isAlertEnabled ? Math.max(1, Number(unresponsiveAlertMinutes) || 15) : 0;
+    try {
+      await updateConfig({
+        unresponsiveAlertMinutes: finalMinutes,
+      });
+      notify.success(
+        finalMinutes > 0
+          ? `Đã cập nhật cảnh báo tin nhắn chưa phản hồi sau ${finalMinutes} phút!`
+          : 'Đã tắt cảnh báo tin nhắn chưa phản hồi.',
+        'Cấu Hình Thành Công'
+      );
+    } catch (err) {
+      notify.error(`Lỗi cập nhật cấu hình: ${(err as Error).message}`, 'Thất Bại');
+    }
+  };
+
   const tabItems = [
     {
       id: 'stages',
@@ -262,6 +293,11 @@ export const WorkspaceSettingsPage: React.FC = () => {
       label: 'Tiêu chí phân loại',
       count: config.criteria.length,
       icon: <Sliders size={14} />,
+    },
+    {
+      id: 'alerts',
+      label: 'Cảnh báo phản hồi',
+      icon: <Clock size={14} />,
     },
   ];
 
@@ -1041,6 +1077,128 @@ export const WorkspaceSettingsPage: React.FC = () => {
                 )}
               </form>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Tab Cảnh Báo Phản Hồi Tin Nhắn (SLA) */}
+      {activeTab === 'alerts' && (
+        <div className="max-w-2xl">
+          <div className="p-6 bg-white border border-slate-200 space-y-5 rounded-lg shadow-xs">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+                  <Clock size={18} />
+                </div>
+                <div>
+                  <h4 className="m-0 text-sm font-bold text-slate-900">
+                    Cảnh Báo Tin Nhắn Chưa Được Phản Hồi (SLA)
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5 mb-0">
+                    Tự động nhận diện và gắn cờ cảnh báo trên danh sách tin nhắn Inbox khi khách hàng nhắn tin nhưng tư vấn viên chưa phản hồi sau n phút.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveAlertSettings} className="space-y-4 pt-2 border-t border-slate-100">
+              {/* Bật / Tắt cảnh báo */}
+              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <input
+                  type="checkbox"
+                  id="enableAlertToggle"
+                  checked={isAlertEnabled}
+                  onChange={(e) => setIsAlertEnabled(e.target.checked)}
+                  disabled={!isOwner}
+                  className="mt-0.5 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed"
+                />
+                <label htmlFor="enableAlertToggle" className="cursor-pointer">
+                  <span className="block text-xs font-bold text-slate-800">
+                    Bật tính năng cảnh báo tin nhắn chậm phản hồi
+                  </span>
+                  <span className="block text-[11px] text-slate-500 mt-0.5">
+                    Khi bật, hệ thống sẽ đo lường thời gian từ lúc khách gửi tin nhắn cuối cùng đến thời điểm hiện tại nếu chưa có tin nhắn phản hồi từ nhân viên.
+                  </span>
+                </label>
+              </div>
+
+              {/* Cấu hình thời gian n phút */}
+              {isAlertEnabled && (
+                <div className="space-y-3 p-3.5 bg-rose-50/40 border border-rose-200/80 rounded-lg">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Thời gian chờ tối đa trước khi cảnh báo (phút):
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="1440"
+                        placeholder="15"
+                        value={unresponsiveAlertMinutes}
+                        onChange={(e) => setUnresponsiveAlertMinutes(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        disabled={!isOwner}
+                        className="w-32 px-3 py-1.5 text-xs font-bold text-slate-800 border border-slate-300 rounded outline-none focus:border-rose-500 bg-white"
+                      />
+                      <span className="text-xs text-slate-600 font-medium">phút</span>
+                    </div>
+                  </div>
+
+                  {/* Phím chọn nhanh mốc thời gian */}
+                  <div>
+                    <span className="block text-[11px] font-medium text-slate-500 mb-1.5">
+                      Gợi ý mốc thời gian nhanh:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[5, 10, 15, 30, 60, 120].map((mins) => (
+                        <button
+                          key={mins}
+                          type="button"
+                          onClick={() => setUnresponsiveAlertMinutes(mins)}
+                          disabled={!isOwner}
+                          className={`px-2.5 py-1 text-xs font-semibold rounded-md border transition-colors cursor-pointer ${
+                            unresponsiveAlertMinutes === mins
+                              ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {mins} phút
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Xem trước trực quan trong Inbox */}
+                  <div className="mt-3 pt-3 border-t border-rose-200/60">
+                    <span className="block text-[11px] font-semibold text-slate-600 mb-1.5">
+                      Hiển thị xem trước trên giao diện Inbox:
+                    </span>
+                    <div className="flex items-center gap-3 p-2.5 bg-white rounded border border-rose-200">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded leading-none">
+                        <Clock size={11} className="text-rose-600 animate-pulse" />
+                        Chưa trả lời {unresponsiveAlertMinutes}p
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Gắn cờ đỏ nổi bật và lọc nhanh hội thoại vượt quá {unresponsiveAlertMinutes} phút.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {isOwner && (
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={isLoading}
+                    icon={<Save size={14} />}
+                  >
+                    Lưu Cấu Hình Cảnh Báo
+                  </Button>
+                </div>
+              )}
+            </form>
           </div>
         </div>
       )}

@@ -37,6 +37,7 @@ const initialDefaultConfig: WorkspaceConfig = {
   pipelineStages: defaultEducationPreset.pipelineStages.map((s) => ({ ...s })),
   productCatalog: defaultEducationPreset.productCatalog.map((p) => ({ ...p })),
   criteria: defaultEducationPreset.criteria.map((c) => ({ ...c })),
+  unresponsiveAlertMinutes: 15,
 };
 
 const WorkspaceConfigContext = createContext<WorkspaceConfigContextType | undefined>(undefined);

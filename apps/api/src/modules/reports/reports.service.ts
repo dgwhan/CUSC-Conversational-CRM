@@ -11,7 +11,7 @@ export interface OverviewFilterDto {
   workspaceId?: string;
   ownerId?: string;
   currentStaffId?: string;
-  timeRange?: '7days' | '30days' | 'thisMonth' | 'quarter' | 'year' | 'all';
+  timeRange?: 'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'quarter' | 'year' | 'all';
   channel?: string;
   staffId?: string;
   courseId?: string;
@@ -86,10 +86,25 @@ export class ReportsService {
     // 2. Xác định mốc thời gian lọc
     const now = new Date();
     let startDate: Date | undefined;
+    let endDate: Date | undefined;
     let prevStartDate: Date | undefined;
     let prevEndDate: Date | undefined;
 
     switch (timeRange) {
+      case 'today': {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        endDate = undefined;
+        prevStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+        prevEndDate = startDate;
+        break;
+      }
+      case 'yesterday': {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        prevStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 0, 0, 0, 0);
+        prevEndDate = startDate;
+        break;
+      }
       case '7days': {
         const ms = 7 * 24 * 60 * 60 * 1000;
         startDate = new Date(now.getTime() - ms);
@@ -126,6 +141,7 @@ export class ReportsService {
       case 'all':
       default:
         startDate = undefined;
+        endDate = undefined;
         break;
     }
 
@@ -133,7 +149,9 @@ export class ReportsService {
     if (targetWsId) {
       customerWhere.workspaceId = targetWsId;
     }
-    if (startDate) {
+    if (startDate && endDate) {
+      customerWhere.createdAt = { gte: startDate, lt: endDate };
+    } else if (startDate) {
       customerWhere.createdAt = { gte: startDate };
     }
 
@@ -542,6 +560,54 @@ export class ReportsService {
    * Tính toán các điểm xu hướng thực tế theo ngày từ danh sách khách hàng trong DB
    */
   private computeRealTrends(customers: any[], range: string) {
+    if (range === 'today' || range === 'yesterday') {
+      const isToday = range === 'today';
+      const now = new Date();
+      const baseDay = isToday
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        : new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+
+      // Chia ngày thành 8 khung giờ (00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00)
+      const hours = [0, 3, 6, 9, 12, 15, 18, 21];
+      const result: Array<{ date: string; newLeads: number; won: number; enrolled: number; revenue: number }> = [];
+
+      for (const h of hours) {
+        const bucketStart = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), h, 0, 0, 0);
+        const bucketEnd = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), h + 3, 0, 0, 0);
+        const dateStr = `${String(h).padStart(2, '0')}:00`;
+
+        const matchedInBucket = customers.filter((c) => {
+          const ct = new Date(c.createdAt).getTime();
+          return ct >= bucketStart.getTime() && ct < bucketEnd.getTime();
+        });
+
+        let wonInBucket = 0;
+        let revInBucket = 0;
+
+        for (const c of matchedInBucket) {
+          const identities = (c.channelIdentities as any) || {};
+          const val = Number(identities.estimatedValue) || 0;
+          const status = (c.leadStatus || identities.leadStatus || '').toUpperCase();
+          const stage = (c.leadStage || identities.leadStage || '').toUpperCase();
+
+          if (status === 'WON' || status === 'CONVERTED' || stage === 'ENROLLED' || stage === 'WON') {
+            wonInBucket++;
+            revInBucket += val;
+          }
+        }
+
+        result.push({
+          date: dateStr,
+          newLeads: matchedInBucket.length,
+          won: wonInBucket,
+          enrolled: wonInBucket,
+          revenue: revInBucket,
+        });
+      }
+
+      return result;
+    }
+
     const days = range === '7days' ? 7 : range === '30days' ? 14 : range === 'thisMonth' ? 12 : 8;
     const now = new Date();
     const result: Array<{ date: string; newLeads: number; won: number; enrolled: number; revenue: number }> = [];

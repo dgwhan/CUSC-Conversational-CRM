@@ -4,9 +4,10 @@ import {
   Tag,
   UserCheck,
   UserX,
+  Clock,
 } from 'lucide-react';
 import type { ConversationItem, ChannelType } from '../../../types.js';
-import { formatConversationTime } from '../../../utils/index.js';
+import { formatConversationTime, getUnresponsiveStatus } from '../../../utils/index.js';
 import { Avatar } from '../../../../../components/common/Avatar.js';
 import { resolveChannelInfo } from '../../../../../lib/channel-meta.js';
 
@@ -14,14 +15,17 @@ export interface ConversationCardProps {
   item: ConversationItem;
   isSelected: boolean;
   onSelect: (id: string) => void;
+  alertThresholdMinutes?: number;
 }
 
 export const ConversationCard: React.FC<ConversationCardProps> = ({
   item,
   isSelected,
   onSelect,
+  alertThresholdMinutes = 15,
 }) => {
   const hasUnread = item.unreadCount > 0;
+  const { isOverdue, waitingMinutes } = getUnresponsiveStatus(item, alertThresholdMinutes);
 
   // Helper render channel badge overlay on avatar
   const renderChannelBadge = (channel: ChannelType) => {
@@ -53,6 +57,8 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
       className={`relative flex items-start gap-3 p-3 transition-colors cursor-pointer border-l-[3px] ${
         isSelected
           ? 'bg-blue-50/70 border-l-blue-600'
+          : isOverdue
+          ? 'bg-rose-50/30 border-l-rose-500 hover:bg-rose-50/60'
           : hasUnread
           ? 'bg-slate-50/60 border-l-transparent hover:bg-slate-100/70'
           : 'bg-white border-l-transparent hover:bg-slate-50/80'
@@ -80,9 +86,20 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
           >
             {item.customer.fullName}
           </span>
-          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap ml-1.5 shrink-0">
-            {formatConversationTime(item.lastMessageAt)}
-          </span>
+          <div className="flex items-center gap-1.5 ml-1.5 shrink-0">
+            {isOverdue && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded leading-none shadow-xs"
+                title={`Chưa phản hồi ${waitingMinutes} phút (vượt mốc cảnh báo ${alertThresholdMinutes} phút)`}
+              >
+                <Clock size={9} className="text-rose-600 animate-pulse" />
+                <span>{waitingMinutes >= 60 ? `${Math.floor(waitingMinutes / 60)}h${waitingMinutes % 60}p` : `${waitingMinutes}p`}</span>
+              </span>
+            )}
+            <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
+              {formatConversationTime(item.lastMessageAt)}
+            </span>
+          </div>
         </div>
 
         <p

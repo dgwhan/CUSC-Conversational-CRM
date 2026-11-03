@@ -21,6 +21,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
   conversation,
   staffList,
   quickReplies,
+  alertThresholdMinutes = 15,
   onSendMessage,
   onAssignStaff,
   onBackToList,
@@ -53,6 +54,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
         staffList={staffList}
         isWithin24Hours={isWithin24Hours}
         hoursRemaining={hoursRemaining}
+        alertThresholdMinutes={alertThresholdMinutes}
         onAssignStaff={onAssignStaff}
         onBackToList={onBackToList}
         onToggleProfile={onToggleProfile}

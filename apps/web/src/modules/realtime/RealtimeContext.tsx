@@ -82,7 +82,36 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
   const [myPresence, setMyPresence] = useState<StaffPresenceStatus>('ONLINE');
   const [soundActive, setSoundActiveState] = useState<boolean>(isSoundEnabled());
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [unreadCount, setUnreadCount] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const savedCount = localStorage.getItem('crm_unread_messages_count');
+      if (savedCount !== null) {
+        const val = parseInt(savedCount, 10);
+        if (!isNaN(val) && val > 0) return val;
+      }
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('crm_inbox_conversations')) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const count = list.reduce((acc: number, c: any) => acc + (c.unreadCount || 0), 0);
+              if (count > 0) return count;
+            }
+          }
+        }
+      }
+    } catch {}
+    return 0;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('crm_unread_messages_count', String(unreadCount));
+    } catch {}
+  }, [unreadCount]);
 
   const messageListenersRef = useRef<Set<(msg: InboundMessageEventData) => void>>(new Set());
   const pipelineListenersRef = useRef<Set<(evt: PipelineChangeEventData) => void>>(new Set());
@@ -126,7 +155,8 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Kích hoạt xử lý khi nhận tin nhắn mới
   const handleIncomingMessage = useCallback((msg: InboundMessageEventData) => {
     // 1. Phát chuông Ting ting nếu là tin nhắn đến (INBOUND)
-    if (msg.direction !== 'OUTBOUND') {
+    const isOutbound = String(msg.direction || '').toUpperCase() === 'OUTBOUND';
+    if (!isOutbound) {
       playTingTingSound();
       setUnreadCount((prev) => prev + 1);
     }

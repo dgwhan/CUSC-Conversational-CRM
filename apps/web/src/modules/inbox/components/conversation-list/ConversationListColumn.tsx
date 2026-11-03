@@ -26,6 +26,8 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
   isSyncingFacebook,
   onSyncZalo,
   isSyncingZalo,
+  channelAccounts,
+  alertThresholdMinutes = 15,
   isSyncing,
 }) => {
   const syncingFb = isSyncingFacebook ?? isSyncing;
@@ -36,11 +38,18 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
     setSearchQuery,
     selectedChannel,
     setSelectedChannel,
+    selectedZaloAccount,
+    setSelectedZaloAccount,
+    zaloAccounts,
     statusFilter,
     setStatusFilter,
     filteredConversations,
     totalUnread,
-  } = useConversationFilter({ conversations });
+  } = useConversationFilter({
+    conversations,
+    channelAccounts,
+    alertThresholdMinutes,
+  });
 
   return (
     <aside className="pancake-col-left w-[320px] min-w-[300px] max-w-[340px] border-r border-slate-200 bg-white flex flex-col h-full shrink-0 select-none">
@@ -59,8 +68,12 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
           onSearchChange={setSearchQuery}
           selectedChannel={selectedChannel}
           onChannelChange={setSelectedChannel}
+          selectedZaloAccount={selectedZaloAccount}
+          onZaloAccountChange={setSelectedZaloAccount}
+          zaloAccounts={zaloAccounts}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
+          alertThresholdMinutes={alertThresholdMinutes}
         />
       </div>
 
@@ -74,6 +87,7 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
               item={item}
               isSelected={item.id === selectedId}
               onSelect={onSelect}
+              alertThresholdMinutes={alertThresholdMinutes}
             />
           ))
         )}

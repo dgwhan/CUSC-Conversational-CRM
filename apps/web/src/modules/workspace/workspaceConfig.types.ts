@@ -54,6 +54,7 @@ export interface WorkspaceConfig {
   pipelineStages: PipelineStageConfig[];
   productCatalog: ProductItemConfig[];
   criteria: LeadQualificationCriteria[];
+  unresponsiveAlertMinutes?: number;
 }
 
 export interface WorkspaceItem {

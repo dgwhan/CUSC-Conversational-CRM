@@ -13,6 +13,10 @@ export interface ConversationListFiltersProps {
   onChannelChange: (channel: ConversationChannelFilter) => void;
   statusFilter: ConversationStatusFilter;
   onStatusFilterChange: (status: ConversationStatusFilter) => void;
+  zaloAccounts?: { id: string; name: string }[];
+  selectedZaloAccount?: string;
+  onZaloAccountChange?: (accountId: string) => void;
+  alertThresholdMinutes?: number;
 }
 
 export const ConversationListFilters: React.FC<ConversationListFiltersProps> = ({
@@ -22,6 +26,10 @@ export const ConversationListFilters: React.FC<ConversationListFiltersProps> = (
   onChannelChange,
   statusFilter,
   onStatusFilterChange,
+  zaloAccounts,
+  selectedZaloAccount,
+  onZaloAccountChange,
+  alertThresholdMinutes = 15,
 }) => {
   const { t } = useTranslation();
 
@@ -71,7 +79,7 @@ export const ConversationListFilters: React.FC<ConversationListFiltersProps> = (
           }`}
           onClick={() => onChannelChange('ZALO')}
         >
-          Zalo
+          Zalo {zaloAccounts && zaloAccounts.length > 1 ? `(${zaloAccounts.length})` : ''}
         </button>
         <button
           type="button"
@@ -97,6 +105,28 @@ export const ConversationListFilters: React.FC<ConversationListFiltersProps> = (
         </button>
       </div>
 
+      {/* Bộ lọc theo tài khoản Zalo (hiển thị khi chọn kênh Zalo và kết nối nhiều tài khoản) */}
+      {selectedChannel === 'ZALO' && zaloAccounts && zaloAccounts.length > 1 && (
+        <div className="w-full flex items-center gap-1.5 px-2.5 py-1.5 bg-sky-50/90 border border-sky-200 rounded-lg">
+          <span className="text-[11px] font-semibold text-sky-800 flex items-center gap-1 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+            Tài khoản:
+          </span>
+          <select
+            className="flex-1 h-6 px-1.5 text-[11px] font-medium text-sky-900 bg-white border border-sky-300 rounded focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer truncate"
+            value={selectedZaloAccount || 'ALL'}
+            onChange={(e) => onZaloAccountChange?.(e.target.value)}
+          >
+            <option value="ALL">Tất cả tài khoản Zalo ({zaloAccounts.length})</option>
+            {zaloAccounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Dropdown lọc trạng thái phụ */}
       <div className="w-full">
         <select
@@ -108,6 +138,11 @@ export const ConversationListFilters: React.FC<ConversationListFiltersProps> = (
         >
           <option value="ALL">Mọi trạng thái</option>
           <option value="UNREAD">{t('inbox.filterUnread')}</option>
+          {alertThresholdMinutes !== undefined && alertThresholdMinutes > 0 && (
+            <option value="UNRESPONSIVE">
+              ⚠️ Chưa phản hồi (&gt; {alertThresholdMinutes} phút)
+            </option>
+          )}
           <option value="ASSIGNED_TO_ME">{t('inbox.filterAssignedToMe')}</option>
           <option value="UNASSIGNED">{t('inbox.filterUnassigned')}</option>
         </select>

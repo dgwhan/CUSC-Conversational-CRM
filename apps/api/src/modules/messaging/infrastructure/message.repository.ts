@@ -9,6 +9,9 @@ import {
     META_SOURCE_TAGS,
 } from "../domain/tag-mapping/index.js";
 
+const isUuid = (val?: string | null): val is string =>
+    Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
 @Injectable()
 export class MessageRepository implements OnModuleInit {
     constructor(private readonly prisma: PrismaService) {}
@@ -188,15 +191,28 @@ export class MessageRepository implements OnModuleInit {
             const messageSentAt = e.sentAt ? new Date(e.sentAt) : new Date();
             const raw = (e.rawPayload as any) || {};
 
-            // A. Xác định hoặc tìm/tạo conversationId
-            let conversationId: string | null = e.conversationId || raw.conversationId || null;
+            // A. Xác định hoặc tìm/tạo conversationId (chỉ chấp nhận UUID hợp lệ)
+            let conversationId: string | null = isUuid(e.conversationId)
+                ? e.conversationId
+                : isUuid(raw.conversationId)
+                ? raw.conversationId
+                : null;
 
             if (!conversationId) {
                 try {
                     const isOutbound = e.direction === MessageDirection.OUTBOUND;
-                    const customerExternalId = isOutbound
+                    let customerExternalId = isOutbound
                         ? (raw.recipient?.id || raw.to?.data?.[0]?.id || raw.to?.id || e.senderExternalId)
                         : e.senderExternalId;
+
+                    // Nếu customerExternalId chưa có hoặc là unknown, thử trích xuất từ conversationId dạng FACEBOOK_pageId_psid hoặc ZALO_psid
+                    if ((!customerExternalId || customerExternalId === 'unknown') && typeof e.conversationId === 'string' && e.conversationId.includes('_')) {
+                        const parts = e.conversationId.split('_');
+                        const candidate = parts[parts.length - 1];
+                        if (/^\d+$/.test(candidate)) {
+                            customerExternalId = candidate;
+                        }
+                    }
 
                     let customerId = raw.customerId || null;
 
@@ -310,7 +326,7 @@ export class MessageRepository implements OnModuleInit {
 
             messagesData.push({
                 channelAccountId: accountId,
-                conversationId,
+                conversationId: isUuid(conversationId) ? conversationId : null,
                 channel: e.channel,
                 direction: e.direction ?? MessageDirection.INBOUND,
                 content: e.content,

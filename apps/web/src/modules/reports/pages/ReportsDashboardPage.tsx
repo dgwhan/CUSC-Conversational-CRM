@@ -65,6 +65,17 @@ export const ReportsDashboardPage: React.FC = () => {
 
   // Sinh các mốc thời gian với số liệu mặc định 0 nếu chưa có dữ liệu giao dịch
   const generateTrendData = useCallback((range: TimeRangeFilter): TrendDataPoint[] => {
+    if (range === 'today' || range === 'yesterday') {
+      const hours = [0, 3, 6, 9, 12, 15, 18, 21];
+      return hours.map((h) => ({
+        date: `${String(h).padStart(2, '0')}:00`,
+        newLeads: 0,
+        won: 0,
+        enrolled: 0,
+        revenue: 0,
+      }));
+    }
+
     const days = range === '7days' ? 7 : range === '30days' ? 14 : range === 'thisMonth' ? 10 : 8;
     const now = new Date();
     const result: TrendDataPoint[] = [];
@@ -122,10 +133,44 @@ export const ReportsDashboardPage: React.FC = () => {
     }
 
     // Lọc theo kênh nếu người dùng chọn
-    const filteredCandidates =
+    const channelFilteredCandidates =
       selectedChannel === 'ALL'
         ? localCandidates
         : localCandidates.filter((c) => c.channel === selectedChannel);
+
+    // Lọc theo chu kỳ thời gian nếu có trường createdAt
+    const now = new Date();
+    const filteredCandidates = channelFilteredCandidates.filter((c) => {
+      if (!c.createdAt) return true;
+      const cDate = new Date(c.createdAt);
+      if (isNaN(cDate.getTime())) return true;
+      if (selectedRange === 'today') {
+        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        return cDate >= startToday;
+      }
+      if (selectedRange === 'yesterday') {
+        const startYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        return cDate >= startYesterday && cDate < startToday;
+      }
+      if (selectedRange === '7days') {
+        return cDate.getTime() >= now.getTime() - 7 * 24 * 60 * 60 * 1000;
+      }
+      if (selectedRange === '30days') {
+        return cDate.getTime() >= now.getTime() - 30 * 24 * 60 * 60 * 1000;
+      }
+      if (selectedRange === 'thisMonth') {
+        return cDate >= new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+      if (selectedRange === 'quarter') {
+        const qMonth = Math.floor(now.getMonth() / 3) * 3;
+        return cDate >= new Date(now.getFullYear(), qMonth, 1);
+      }
+      if (selectedRange === 'year') {
+        return cDate >= new Date(now.getFullYear(), 0, 1);
+      }
+      return true;
+    });
 
     let totalEstimated = 0;
     let totalCollected = 0;

@@ -14,6 +14,110 @@ interface UseChatMessagingActionsProps {
   staffName?: string | null;
 }
 
+/**
+ * Phân giải Facebook recipientId (ưu tiên chuỗi số PSID từ Meta)
+ */
+export const extractFacebookRecipientId = (conv: ConversationItem): string => {
+  const identitiesObj = conv.customer.channelIdentities as any;
+  const fbIdentity =
+    identitiesObj?.facebook?.id ||
+    (typeof identitiesObj?.facebook === 'string' ? identitiesObj.facebook : undefined) ||
+    (Array.isArray(identitiesObj)
+      ? identitiesObj.find((id: any) => String(id.channel).toUpperCase() === 'FACEBOOK')?.externalUserId
+      : undefined);
+
+  if (fbIdentity && /^\d+$/.test(String(fbIdentity).trim())) {
+    return String(fbIdentity).trim();
+  }
+
+  // Nếu socialId có dạng FACEBOOK_pageId_psid hoặc số thuần túy
+  const socialId = conv.customer.socialId;
+  if (socialId && socialId !== 'khách' && !socialId.startsWith('cust-')) {
+    if (socialId.includes('_')) {
+      const parts = socialId.split('_');
+      const lastPart = parts[parts.length - 1];
+      if (/^\d+$/.test(lastPart)) return lastPart;
+    }
+    if (/^\d+$/.test(socialId)) {
+      return socialId;
+    }
+  }
+
+  // Thử trích xuất từ tin nhắn INBOUND gần nhất
+  const lastInbound = [...conv.messages]
+    .reverse()
+    .find((m) => m.direction === 'INBOUND' && (m as any).senderExternalId);
+  const senderExt = (lastInbound as any)?.senderExternalId;
+  if (senderExt && /^\d+$/.test(String(senderExt).trim())) {
+    return String(senderExt).trim();
+  }
+
+  // Fallback: truyền socialId hoặc customer.id để backend tiếp tục phân giải từ DB
+  return socialId && socialId !== 'khách' && !socialId.startsWith('cust-')
+    ? socialId
+    : conv.customer.id;
+};
+
+/**
+ * Phân giải Zalo recipientId (Zalo UID dạng số hoặc số điện thoại)
+ */
+export const extractZaloRecipientId = (conv: ConversationItem): string => {
+  const identitiesObj = conv.customer.channelIdentities as any;
+  const customerZaloId =
+    identitiesObj?.zalo?.id ||
+    (typeof identitiesObj?.zalo === 'string' ? identitiesObj.zalo : undefined) ||
+    (Array.isArray(identitiesObj)
+      ? identitiesObj.find((id: any) => String(id.channel).toUpperCase() === 'ZALO')?.externalUserId
+      : undefined);
+
+  if (customerZaloId && /^\d+$/.test(String(customerZaloId).trim())) {
+    return String(customerZaloId).trim();
+  }
+
+  const socialId = conv.customer.socialId;
+  if (socialId && socialId !== 'khách' && !socialId.startsWith('cust-')) {
+    return socialId;
+  }
+
+  return conv.customer.id;
+};
+
+/**
+ * Gửi tin nhắn qua FACEBOOK Channel (Meta Graph API)
+ */
+const sendFacebookMessage = async (
+  conv: ConversationItem,
+  text: string,
+  _attachments?: MessageAttachment[]
+) => {
+  const recipientId = extractFacebookRecipientId(conv);
+  return apiClient.sendMessage({
+    channel: 'FACEBOOK',
+    recipientId,
+    content: text,
+    conversationId: conv.id,
+    channelAccountId: conv.channelAccountId,
+  });
+};
+
+/**
+ * Gửi tin nhắn qua ZALO Channel (Zalo OA hoặc Zalo Cá Nhân)
+ */
+const sendZaloMessage = async (
+  conv: ConversationItem,
+  text: string,
+  _attachments?: MessageAttachment[]
+) => {
+  const recipientId = extractZaloRecipientId(conv);
+  return apiClient.sendMessage({
+    channel: conv.channel,
+    recipientId,
+    content: text,
+    conversationId: conv.id,
+    channelAccountId: conv.channelAccountId,
+  });
+};
+
 export const useChatMessagingActions = ({
   currentConv,
   setConversations,
@@ -48,33 +152,26 @@ export const useChatMessagingActions = ({
       })
     );
 
-    // 2. Gửi thực tế qua API Outbound của kênh tương ứng (ZALO, FACEBOOK...)
+    // 2. Gửi thực tế qua API Outbound tương ứng (Tách riêng Facebook & Zalo)
     try {
-      const identitiesObj = currentConv.customer.channelIdentities as any;
-      const customerZaloId =
-        identitiesObj?.zalo?.id ||
-        (typeof identitiesObj?.zalo === 'string' ? identitiesObj.zalo : undefined) ||
-        (Array.isArray(identitiesObj)
-          ? identitiesObj.find((id: any) => id.channel === 'ZALO')?.externalUserId
-          : undefined);
+      let res;
+      const channelUpper = String(currentConv.channel || '').toUpperCase();
 
-      const recipientId =
-        ((currentConv.channel === 'ZALO' || currentConv.channel === 'ZALO_PERSONAL') && customerZaloId) ||
-        (currentConv.customer.socialId &&
-          currentConv.customer.socialId !== 'khách' &&
-          !currentConv.customer.socialId.startsWith('cust-')
-          ? currentConv.customer.socialId
-          : '') ||
-        currentConv.customer.id;
+      if (channelUpper.includes('FACEBOOK') || channelUpper.includes('FB')) {
+        res = await sendFacebookMessage(currentConv, text, attachments);
+      } else if (channelUpper.includes('ZALO')) {
+        res = await sendZaloMessage(currentConv, text, attachments);
+      } else {
+        res = await apiClient.sendMessage({
+          channel: currentConv.channel,
+          recipientId: currentConv.customer.socialId || currentConv.customer.id,
+          content: text,
+          conversationId: currentConv.id,
+          channelAccountId: currentConv.channelAccountId,
+        });
+      }
 
-      const res = await apiClient.sendMessage({
-        channel: currentConv.channel,
-        recipientId,
-        content: text,
-        conversationId: currentConv.id,
-      });
-
-      // 3. Cập nhật trạng thái tin nhắn thành DELIVERED và đồng bộ messageId
+      // 3. Cập nhật trạng thái tin nhắn thành DELIVERED và đồng bộ messageId thực tế
       setConversations((prev) =>
         prev.map((c) => {
           if (c.id !== currentConv.id) return c;
@@ -106,5 +203,5 @@ export const useChatMessagingActions = ({
     }
   };
 
-  return { handleSendMessage };
+  return { handleSendMessage, sendFacebookMessage, sendZaloMessage };
 };

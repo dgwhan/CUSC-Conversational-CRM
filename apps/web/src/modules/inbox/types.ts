@@ -107,6 +107,7 @@ export interface ConversationItem {
   customer: CustomerProfile;
   channel: ChannelType;
   channelAccountName: string;
+  channelAccountId?: string;
   snippet: string;
   lastMessageAt: string;
   lastCustomerMessageAt: string; // Used to check the 24-hour Meta rule
@@ -131,7 +132,7 @@ export interface QuickReplyItem {
 
 export type ConversationChannelFilter = 'ALL' | ChannelType;
 
-export type ConversationStatusFilter = 'ALL' | 'UNREAD' | 'ASSIGNED_TO_ME' | 'UNASSIGNED';
+export type ConversationStatusFilter = 'ALL' | 'UNREAD' | 'UNRESPONSIVE' | 'ASSIGNED_TO_ME' | 'UNASSIGNED';
 
 export interface ConversationListColumnProps {
   conversations: ConversationItem[];
@@ -141,6 +142,8 @@ export interface ConversationListColumnProps {
   isSyncingFacebook?: boolean;
   onSyncZalo?: () => void;
   isSyncingZalo?: boolean;
+  channelAccounts?: any[];
+  alertThresholdMinutes?: number;
   /** Backward compatibility */
   isSyncing?: boolean;
 }
@@ -154,6 +157,7 @@ export interface ChatWindowColumnProps {
   conversation: ConversationItem;
   staffList: AssignedStaff[];
   quickReplies: QuickReplyItem[];
+  alertThresholdMinutes?: number;
   onSendMessage: (text: string, attachments?: MessageAttachment[]) => void;
   onAssignStaff: (staffId: string) => void;
   onToggleStatus?: () => void;

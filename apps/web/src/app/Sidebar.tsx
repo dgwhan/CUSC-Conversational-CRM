@@ -145,11 +145,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 style={item.restricted ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
               >
-                <span className="crm-nav-icon">{item.icon}</span>
+                <span className="crm-nav-icon" style={{ position: 'relative', display: 'inline-flex' }}>
+                  {item.icon}
+                  {item.id === 'inbox' && Boolean(unreadCount > 0) && (
+                    <span
+                      className="sidebar-unread-dot"
+                      title={`${unreadCount} tin nhắn mới chưa đọc`}
+                    />
+                  )}
+                </span>
                 <span className="crm-nav-label">{item.label}</span>
                 {item.badgeCount ? (
                   <span className="unread-total-badge" style={{ marginLeft: 'auto', fontSize: '10px' }}>
-                    {item.badgeCount}
+                    {item.badgeCount > 99 ? '99+' : item.badgeCount}
                   </span>
                 ) : (
                   item.tag && <span className="crm-nav-tag">{item.tag}</span>

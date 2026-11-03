@@ -56,6 +56,7 @@ export class WorkspaceConfigService {
       pipelineStages: preset.pipelineStages.map((s) => ({ ...s })),
       productCatalog: preset.productCatalog.map((p) => ({ ...p })),
       criteria: preset.criteria.map((c) => ({ ...c })),
+      unresponsiveAlertMinutes: 15,
     };
     this.workspaceConfigs.set(workspaceId, defaultConfig);
     return defaultConfig;
@@ -720,14 +721,18 @@ export class WorkspaceConfigService {
 
           if (dbConfig) {
             const finalWsId = dbConfig.workspaceId || actualWsId || workspaceId;
+            const term = (dbConfig.terminology as any) || INDUSTRY_PRESETS.EDUCATION.terminology;
             const config: WorkspaceConfig = {
               workspaceId: finalWsId,
               workspaceName: dbConfig.workspaceName || 'PolarisX',
               domain: (dbConfig.domain as BusinessDomain) || 'EDUCATION',
-              terminology: (dbConfig.terminology as any) || INDUSTRY_PRESETS.EDUCATION.terminology,
+              terminology: term,
               pipelineStages: ((dbConfig.pipelineStages as any[]) || []).map((s) => ({ ...s })),
               productCatalog: ((dbConfig.productCatalog as any[]) || []).map((p) => ({ ...p })),
               criteria: ((dbConfig.criteria as any[]) || []).map((c) => ({ ...c })),
+              unresponsiveAlertMinutes: typeof (dbConfig as any).unresponsiveAlertMinutes === 'number'
+                ? (dbConfig as any).unresponsiveAlertMinutes
+                : (typeof term.unresponsiveAlertMinutes === 'number' ? term.unresponsiveAlertMinutes : 15),
             };
             this.workspaceConfigs.set(workspaceId, config);
             if (finalWsId && finalWsId !== workspaceId) {
@@ -771,6 +776,9 @@ export class WorkspaceConfigService {
       pipelineStages: patch.pipelineStages || current.pipelineStages,
       productCatalog: patch.productCatalog || current.productCatalog,
       criteria: patch.criteria || current.criteria,
+      unresponsiveAlertMinutes: patch.unresponsiveAlertMinutes !== undefined
+        ? patch.unresponsiveAlertMinutes
+        : (current.unresponsiveAlertMinutes ?? 15),
     };
 
     // Kiểm tra tính hợp lệ qua Zod
@@ -803,6 +811,10 @@ export class WorkspaceConfigService {
               });
 
           const wsToLink = actualWsId || existing?.workspaceId || (isUuid(workspaceId) ? workspaceId : null);
+          const termPayload = {
+            ...validation.data.terminology,
+            unresponsiveAlertMinutes: validation.data.unresponsiveAlertMinutes,
+          };
 
           if (existing) {
             await this.prisma.workspaceConfiguration.update({
@@ -811,7 +823,7 @@ export class WorkspaceConfigService {
                 workspaceId: wsToLink,
                 domain: validation.data.domain,
                 workspaceName: validation.data.workspaceName,
-                terminology: validation.data.terminology as any,
+                terminology: termPayload as any,
                 pipelineStages: validation.data.pipelineStages as any,
                 productCatalog: validation.data.productCatalog as any,
                 criteria: validation.data.criteria as any,
@@ -826,7 +838,7 @@ export class WorkspaceConfigService {
                 workspaceId: wsToLink,
                 domain: validation.data.domain,
                 workspaceName: validation.data.workspaceName,
-                terminology: validation.data.terminology as any,
+                terminology: termPayload as any,
                 pipelineStages: validation.data.pipelineStages as any,
                 productCatalog: validation.data.productCatalog as any,
                 criteria: validation.data.criteria as any,

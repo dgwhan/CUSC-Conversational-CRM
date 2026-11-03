@@ -37,6 +37,8 @@ export const ReportsFilterBar: React.FC<ReportsFilterBarProps> = ({
   workspaceName,
 }) => {
   const timeRanges: { id: TimeRangeFilter; label: string }[] = [
+    { id: 'today', label: 'Hôm nay' },
+    { id: 'yesterday', label: 'Hôm qua' },
     { id: '7days', label: '7 Ngày qua' },
     { id: '30days', label: '30 Ngày qua' },
     { id: 'thisMonth', label: 'Tháng này' },

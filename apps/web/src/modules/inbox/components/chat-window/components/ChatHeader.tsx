@@ -12,12 +12,14 @@ import { Button } from '../../../../../components/ui/Button.js';
 import { resolveChannelInfo } from '../../../../../lib/channel-meta.js';
 import { useTranslation } from '../../../../../i18n/index.js';
 import { useUserRole } from '../../../../auth/UserRoleContext.js';
+import { getUnresponsiveStatus } from '../../../utils/index.js';
 
 export interface ChatHeaderProps {
   conversation: ConversationItem;
   staffList: AssignedStaff[];
   isWithin24Hours: boolean;
   hoursRemaining: number;
+  alertThresholdMinutes?: number;
   onAssignStaff: (staffId: string) => void;
   onBackToList?: () => void;
   onToggleProfile?: () => void;
@@ -28,6 +30,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   staffList,
   isWithin24Hours,
   hoursRemaining,
+  alertThresholdMinutes = 15,
   onAssignStaff,
   onBackToList,
   onToggleProfile,
@@ -35,6 +38,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   const { t } = useTranslation();
   const { isOwner, staffId } = useUserRole();
   const channelMeta = resolveChannelInfo(conversation.channel);
+  const { isOverdue, waitingMinutes } = getUnresponsiveStatus(conversation, alertThresholdMinutes);
 
   return (
     <div className="h-[60px] px-4 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
@@ -88,8 +92,19 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         </div>
       </div>
 
-      {/* Hành động Header: 24h Meta Badge, Phân công nhân viên, Nút Mobile Profile */}
+      {/* Hành động Header: Cảnh báo SLA phản hồi, 24h Meta Badge, Phân công nhân viên, Nút Mobile Profile */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Cảnh báo tin nhắn chưa phản hồi quá n phút */}
+        {isOverdue && (
+          <div
+            className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full animate-pulse shadow-xs"
+            title={`Khách hàng đã chờ ${waitingMinutes} phút chưa có phản hồi từ nhân viên`}
+          >
+            <Clock size={12} className="text-rose-600" />
+            <span>Chưa phản hồi {waitingMinutes >= 60 ? `${Math.floor(waitingMinutes / 60)}h${waitingMinutes % 60}p` : `${waitingMinutes}p`}</span>
+          </div>
+        )}
+
         {/* Badge 24h Meta (Facebook Messenger) */}
         {conversation.channel === 'FACEBOOK' && (
           <div

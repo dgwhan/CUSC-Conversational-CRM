@@ -213,6 +213,7 @@ export const mergeDuplicateConversations = (
         ...target,
         channel: finalChannel,
         channelAccountName: finalChannelAccountName,
+        channelAccountId: target.channelAccountId || conv.channelAccountId,
         snippet: latestMsg?.content || target.snippet || conv.snippet,
         lastMessageAt: latestMsg?.sentAt || target.lastMessageAt || conv.lastMessageAt,
         unreadCount: (target.unreadCount || 0) + (conv.unreadCount || 0),
@@ -455,3 +456,46 @@ export const resolveLeadStatusFromStage = (
 
   return LEAD_STATUS.POTENTIAL;
 };
+
+/**
+ * Kiểm tra xem một hội thoại có đang bị trễ phản hồi quá ngưỡng n phút cấu hình hay không.
+ * Điều kiện:
+ * 1. thresholdMinutes > 0
+ * 2. Tin nhắn cuối cùng đến từ khách hàng (hoặc unreadCount > 0 và chưa có phản hồi từ nhân viên)
+ * 3. Thời gian kể từ tin nhắn khách cuối cùng >= thresholdMinutes
+ */
+export function getUnresponsiveStatus(
+  item: ConversationItem,
+  thresholdMinutes?: number,
+): { isOverdue: boolean; waitingMinutes: number } {
+  if (!thresholdMinutes || thresholdMinutes <= 0) {
+    return { isOverdue: false, waitingMinutes: 0 };
+  }
+
+  const lastMsg = item.messages?.[item.messages.length - 1];
+  const isLastFromCustomer = lastMsg
+    ? lastMsg.direction === 'INBOUND'
+    : item.unreadCount > 0;
+
+  if (!isLastFromCustomer) {
+    return { isOverdue: false, waitingMinutes: 0 };
+  }
+
+  const customerMsgTime = item.lastCustomerMessageAt
+    ? new Date(item.lastCustomerMessageAt).getTime()
+    : lastMsg?.sentAt
+    ? new Date(lastMsg.sentAt).getTime()
+    : 0;
+
+  if (!customerMsgTime || isNaN(customerMsgTime)) {
+    return { isOverdue: false, waitingMinutes: 0 };
+  }
+
+  const elapsedMs = Date.now() - customerMsgTime;
+  const waitingMinutes = Math.max(0, Math.floor(elapsedMs / (60 * 1000)));
+
+  return {
+    isOverdue: waitingMinutes >= thresholdMinutes,
+    waitingMinutes,
+  };
+}

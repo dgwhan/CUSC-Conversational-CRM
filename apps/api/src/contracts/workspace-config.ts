@@ -71,6 +71,7 @@ export interface WorkspaceConfig {
   pipelineStages: PipelineStageConfig[];
   productCatalog: ProductItemConfig[];
   criteria: LeadQualificationCriteria[];
+  unresponsiveAlertMinutes?: number;
 }
 
 export const WorkspaceConfigSchema: z.ZodType<WorkspaceConfig> = z.object({
@@ -81,6 +82,7 @@ export const WorkspaceConfigSchema: z.ZodType<WorkspaceConfig> = z.object({
   pipelineStages: z.array(PipelineStageConfigSchema).min(2, 'Pipeline must have at least 2 stages'),
   productCatalog: z.array(ProductItemConfigSchema).min(1, 'Product catalog must have at least 1 item'),
   criteria: z.array(LeadQualificationCriteriaSchema).default([]),
+  unresponsiveAlertMinutes: z.number().min(0).max(1440).optional().default(15),
 }) as unknown as z.ZodType<WorkspaceConfig>;
 
 export const ApplyPresetBodySchema = z.object({

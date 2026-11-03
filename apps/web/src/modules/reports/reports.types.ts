@@ -1,4 +1,4 @@
-export type TimeRangeFilter = '7days' | '30days' | 'thisMonth' | 'quarter' | 'year' | 'all';
+export type TimeRangeFilter = 'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'quarter' | 'year' | 'all';
 
 export interface OverviewMetrics {
   totalLeads: number;

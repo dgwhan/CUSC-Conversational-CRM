@@ -121,6 +121,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     selectedId,
     setSelectedId,
     currentConv,
+    channelAccounts,
     loadSavedMessages,
     handleSelectConversation,
   } = useInboxConversations({
@@ -190,6 +191,8 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
           isSyncingFacebook={isSyncingFb}
           onSyncZalo={handleSyncZalo}
           isSyncingZalo={isSyncingZalo}
+          channelAccounts={channelAccounts}
+          alertThresholdMinutes={config.unresponsiveAlertMinutes ?? 15}
         />
 
         {/* CỘT 2 (Giữa): Cửa sổ Chat Trực tuyến hoặc Placeholder trống */}
@@ -198,6 +201,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
             conversation={currentConv}
             staffList={staffList}
             quickReplies={quickReplies}
+            alertThresholdMinutes={config.unresponsiveAlertMinutes ?? 15}
             onSendMessage={handleSendMessage}
             onAssignStaff={handleAssignStaff}
             onToggleStatus={handleToggleStatus}
