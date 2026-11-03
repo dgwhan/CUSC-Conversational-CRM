@@ -152,29 +152,7 @@ export const useCustomerDataActions = ({
       })
     );
 
-    try {
-      const kanbanRaw = localStorage.getItem('polarisx_crm_kanban_candidates') || localStorage.getItem('cusc_crm_kanban_candidates');
-      if (kanbanRaw) {
-        const kanbanList = JSON.parse(kanbanRaw);
-        if (Array.isArray(kanbanList)) {
-          const updatedKanban = kanbanList.map((cand: any) => {
-            if (
-              cand.conversationId === currentConv.id ||
-              cand.id === currentConv.customer.id ||
-              cand.fullName === currentConv.customer.fullName
-            ) {
-              return {
-                ...cand,
-                interestCourses: courses,
-                estimatedTuition: estimatedValue,
-              };
-            }
-            return cand;
-          });
-          localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
-        }
-      }
-    } catch { }
+    // Đã loại bỏ ghi chép trực tiếp vào localStorage
 
     if (currentConv.customer.id) {
       apiClient.updateCustomer(currentConv.customer.id, {
@@ -203,30 +181,7 @@ export const useCustomerDataActions = ({
       })
     );
 
-    try {
-      const kanbanRaw = localStorage.getItem('polarisx_crm_kanban_candidates') || localStorage.getItem('cusc_crm_kanban_candidates');
-      if (kanbanRaw) {
-        const kanbanList = JSON.parse(kanbanRaw);
-        if (Array.isArray(kanbanList)) {
-          const updatedKanban = kanbanList.map((cand: any) => {
-            if (
-              cand.conversationId === currentConv.id ||
-              cand.id === currentConv.customer.id ||
-              cand.fullName === currentConv.customer.fullName
-            ) {
-              return {
-                ...cand,
-                ...(info.phone !== undefined ? { phone: info.phone } : {}),
-                ...(info.email !== undefined ? { email: info.email } : {}),
-                ...(info.fullName !== undefined ? { fullName: info.fullName } : {}),
-              };
-            }
-            return cand;
-          });
-          localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
-        }
-      }
-    } catch { }
+    // Đã loại bỏ ghi chép trực tiếp vào localStorage
 
     if (currentConv.customer.id) {
       apiClient.updateCustomer(currentConv.customer.id, {

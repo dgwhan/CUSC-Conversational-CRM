@@ -1,4 +1,4 @@
-import { email, z } from 'zod';
+import { z } from 'zod';
 
 export const STAFF_ROLES = ['OWNER', 'STAFF'] as const;
 export const StaffRoleSchema = z.enum(STAFF_ROLES);

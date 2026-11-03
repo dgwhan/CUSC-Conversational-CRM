@@ -14,6 +14,7 @@ import {
   UseGuards,
   Optional,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/presentation/guards/jwt-auth.guard.js';
 import { OAuthService } from '../application/oauth.service.js';
 import { ChannelManagerService } from '../application/channel-manager.service.js';
 import { ZcaPersonalService } from '../application/zca-personal.service.js';
@@ -210,6 +211,22 @@ export class ChannelConnectorController {
       conversationId: body.conversationId,
       workspaceId: effectiveWorkspaceId,
     });
+  }
+
+  @Post('channels/mark-seen')
+  @UseGuards(JwtAuthGuard)
+  @Roles('OWNER', 'STAFF')
+  @HttpCode(HttpStatus.OK)
+  async markConversationSeen(
+    @Body() body: { conversationId?: string },
+    @Headers('x-workspace-id') workspaceId?: string,
+  ) {
+    if (!body.conversationId?.trim()) {
+      throw new BadRequestException('conversationId không được để trống');
+    }
+
+    await this.channelManager.markFacebookConversationSeen(body.conversationId.trim(), workspaceId);
+    return { success: true };
   }
 
   private getZcaService(): ZcaPersonalService {

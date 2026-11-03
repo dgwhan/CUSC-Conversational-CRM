@@ -18,17 +18,20 @@ model Contact {
 }
 
 model ChannelIdentity {
-    id             String   @id @default(uuid()) @db.Uuid
-    contactId      String   @map("contact_id") @db.Uuid
+    id             String    @id @default(uuid()) @db.Uuid
+    contactId      String?   @map("contact_id") @db.Uuid
+    customerId     String?   @map("customer_id") @db.Uuid
     channel        Channel
-    externalUserId String   @map("external_user_id") @db.VarChar(255)
-    createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-    updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+    externalUserId String    @map("external_user_id") @db.VarChar(255)
+    createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+    updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-    contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+    contact        Contact?  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+    customer       Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
     @@unique([channel, externalUserId])
     @@index([contactId])
+    @@index([customerId])
     @@map("channel_identities")
 }
 
@@ -51,4 +54,25 @@ model ContactMergeLog {
     @@index([sourceContactId])
     @@index([phoneNormalized])
     @@map("contact_merge_logs")
+}
+
+model CustomerMergeLog {
+    id               String    @id @default(uuid()) @db.Uuid
+    targetCustomerId String    @map("target_customer_id") @db.Uuid
+    sourceCustomerId String    @map("source_customer_id") @db.Uuid
+    phoneNormalized  String    @map("phone_normalized") @db.VarChar(50)
+    mergeType        String    @default("AUTO_PHONE_MATCH") @map("merge_type") @db.VarChar(50)
+    actorId          String?   @map("actor_id") @db.Uuid
+    snapshotData     Json      @map("snapshot_data") @db.JsonB
+    isReverted       Boolean   @default(false) @map("is_reverted")
+    revertedAt       DateTime? @map("reverted_at") @db.Timestamptz(3)
+    revertedBy       String?   @map("reverted_by") @db.Uuid
+    createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+    targetCustomer   Customer  @relation("MergeTargetCustomer", fields: [targetCustomerId], references: [id], onDelete: Cascade)
+
+    @@index([targetCustomerId])
+    @@index([sourceCustomerId])
+    @@index([phoneNormalized])
+    @@map("customer_merge_logs")
 }

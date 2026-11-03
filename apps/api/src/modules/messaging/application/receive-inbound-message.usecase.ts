@@ -66,9 +66,11 @@ export class ReceiveInboundMessage {
                         : event.senderExternalId;
 
                     // Tạo conversationId theo ngữ cảnh tài khoản và ID khách hàng đối thoại
-                    const conversationId = event.externalAccountId && customerExternalId
-                        ? `${event.channel}_${event.externalAccountId}_${customerExternalId}`
-                        : `conv_${item.id}`;
+                    const conversationId = item.conversationId || (
+                        event.externalAccountId && customerExternalId
+                            ? `${event.channel}_${event.externalAccountId}_${customerExternalId}`
+                            : `conv_${item.id}`
+                    );
 
                     let customerName = isOutbound
                         ? (event.channel === 'ZALO' ? 'Zalo Official Account' : 'Trang (Page Meta)')

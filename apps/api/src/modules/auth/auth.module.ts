@@ -37,6 +37,7 @@ import { JwtTokenService } from '../../platform/config/jwt.config.js';
     JwtTokenService,
   ],
   exports: [
+    JwtModule,
     JwtAuthGuard,
     RolesGuard,
     JwtTokenService,

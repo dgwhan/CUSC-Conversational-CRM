@@ -1,8 +1,12 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 import { CreateNotificationDto, NotificationFilterDto } from './dto/notification.dto.js';
 import { Notification } from '@prisma/client';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const normalizeWorkspaceId = (workspaceId?: string): string | undefined =>
+  workspaceId && UUID_REGEX.test(workspaceId) ? workspaceId : undefined;
 
 @Injectable()
 export class NotificationService {
@@ -17,9 +21,14 @@ export class NotificationService {
    * Tạo thông báo mới và phát sự kiện realtime đến các client trong Workspace
    */
   async create(dto: CreateNotificationDto): Promise<Notification> {
+    const safeWorkspaceId = normalizeWorkspaceId(dto.workspaceId);
+    if (!safeWorkspaceId) {
+      throw new BadRequestException('workspaceId must be a valid UUID');
+    }
+
     const notification = await this.prisma.notification.create({
       data: {
-        workspaceId: dto.workspaceId,
+        workspaceId: safeWorkspaceId,
         type: dto.type,
         severity: dto.severity,
         title: dto.title,
@@ -60,11 +69,23 @@ export class NotificationService {
     limit: number;
     totalPages: number;
   }> {
+    const safeWorkspaceId = normalizeWorkspaceId(workspaceId);
+    if (!safeWorkspaceId) {
+      return {
+        items: [],
+        total: 0,
+        unreadCount: 0,
+        page: Math.max(1, Number(filter.page) || 1),
+        limit: Math.min(100, Math.max(1, Number(filter.limit) || 20)),
+        totalPages: 0,
+      };
+    }
+
     const page = Math.max(1, Number(filter.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(filter.limit) || 20));
     const skip = (page - 1) * limit;
 
-    const where: any = { workspaceId };
+    const where: any = { workspaceId: safeWorkspaceId };
     if (typeof filter.isRead === 'boolean') {
       where.isRead = filter.isRead;
     }
@@ -84,7 +105,7 @@ export class NotificationService {
       }),
       this.prisma.notification.count({ where }),
       this.prisma.notification.count({
-        where: { workspaceId, isRead: false },
+        where: { workspaceId: safeWorkspaceId, isRead: false },
       }),
     ]);
 
@@ -102,8 +123,13 @@ export class NotificationService {
    * Lấy số lượng thông báo chưa đọc của workspace
    */
   async getUnreadCount(workspaceId: string): Promise<number> {
+    const safeWorkspaceId = normalizeWorkspaceId(workspaceId);
+    if (!safeWorkspaceId) {
+      return 0;
+    }
+
     return this.prisma.notification.count({
-      where: { workspaceId, isRead: false },
+      where: { workspaceId: safeWorkspaceId, isRead: false },
     });
   }
 
@@ -111,8 +137,13 @@ export class NotificationService {
    * Đánh dấu một thông báo là đã đọc
    */
   async markAsRead(workspaceId: string, id: string): Promise<Notification> {
+    const safeWorkspaceId = normalizeWorkspaceId(workspaceId);
+    if (!safeWorkspaceId) {
+      throw new NotFoundException('Invalid workspaceId');
+    }
+
     const notification = await this.prisma.notification.findFirst({
-      where: { id, workspaceId },
+      where: { id, workspaceId: safeWorkspaceId },
     });
 
     if (!notification) {
@@ -129,8 +160,13 @@ export class NotificationService {
    * Đánh dấu tất cả thông báo của workspace là đã đọc
    */
   async markAllAsRead(workspaceId: string): Promise<{ count: number }> {
+    const safeWorkspaceId = normalizeWorkspaceId(workspaceId);
+    if (!safeWorkspaceId) {
+      return { count: 0 };
+    }
+
     const result = await this.prisma.notification.updateMany({
-      where: { workspaceId, isRead: false },
+      where: { workspaceId: safeWorkspaceId, isRead: false },
       data: { isRead: true },
     });
 
@@ -141,8 +177,13 @@ export class NotificationService {
    * Xóa một thông báo
    */
   async delete(workspaceId: string, id: string): Promise<{ success: boolean }> {
+    const safeWorkspaceId = normalizeWorkspaceId(workspaceId);
+    if (!safeWorkspaceId) {
+      throw new NotFoundException('Invalid workspaceId');
+    }
+
     const notification = await this.prisma.notification.findFirst({
-      where: { id, workspaceId },
+      where: { id, workspaceId: safeWorkspaceId },
     });
 
     if (!notification) {

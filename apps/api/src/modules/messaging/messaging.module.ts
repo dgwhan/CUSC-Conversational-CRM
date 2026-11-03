@@ -7,6 +7,8 @@ import { ReceiveInboundMessage } from './application/receive-inbound-message.use
 import { ProcessMessageReceived } from './application/process-message-received.usecase.js';
 import { ImportMessagesUseCase } from './application/import-messages.usecase.js';
 import { ContactMergeService } from './application/contact-merge.service.js';
+import { CustomerService } from './application/customer.service.js';
+import { CustomerTagService } from './application/customer-tag.service.js';
 import { MessageRepository } from './infrastructure/message.repository.js';
 import { WebhookController } from './presentation/webhook.controller.js';
 import { MessageImportController } from './presentation/message-import.controller.js';
@@ -73,6 +75,8 @@ const adaptersProvider: Provider = {
         ProcessMessageReceived,
         ImportMessagesUseCase,
         ContactMergeService,
+        CustomerService,
+        CustomerTagService,
         DefaultCustomerGateway,
         DefaultClassificationGateway,
         ManualImportAdapter,
@@ -90,6 +94,8 @@ const adaptersProvider: Provider = {
         ProcessMessageReceived,
         ImportMessagesUseCase,
         ContactMergeService,
+        CustomerService,
+        CustomerTagService,
         INBOUND_QUEUE,
         CHANNEL_ADAPTERS,
         CUSTOMER_GATEWAY,

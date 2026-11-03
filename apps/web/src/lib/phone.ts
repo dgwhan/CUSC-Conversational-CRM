@@ -61,7 +61,7 @@ export function standardizeVietnamesePhoneNumber(
 
   const clean = trimmed.replace(/[\s.\-–—()]/g, '');
 
-  let nationalDigits = '';
+  let nationalDigits: string;
 
   if (clean.startsWith('+84')) {
     let remainder = clean.slice(3);

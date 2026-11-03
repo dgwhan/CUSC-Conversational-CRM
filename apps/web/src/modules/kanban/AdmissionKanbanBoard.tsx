@@ -41,31 +41,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
   const { isOwner, isAgent, staffId } = useUserRole();
   const { config, activeWorkspaceId } = useWorkspaceConfig();
 
-  const [candidates, setCandidates] = useState<KanbanCandidate[]>(() => {
-    try {
-      const saved = localStorage.getItem('polarisx_crm_kanban_candidates') || localStorage.getItem('cusc_crm_kanban_candidates');
-      if (saved) {
-        const parsed: KanbanCandidate[] = JSON.parse(saved);
-        // Tự động lọc sạch các ứng viên mẫu gán cứng cũ lưu trong localStorage của trình duyệt
-        const cleanList = parsed.filter(
-          (c) =>
-            !c.id.startsWith('cand-1') &&
-            !c.id.startsWith('cand-2') &&
-            !c.id.startsWith('cand-3') &&
-            !c.id.startsWith('cand-4') &&
-            !c.id.startsWith('cand-5') &&
-            !c.id.startsWith('cand-6') &&
-            !['Nguyễn Văn An', 'Trần Thị Thu Hà', 'Lê Hoàng Nam', 'Phạm Minh Đức', 'Đoàn Gia Huy', 'Võ Thị Mai Anh'].includes(c.fullName) &&
-            !['Lê Thị Thu Lan', 'Trần Hoàng Nam', 'Nguyễn Văn Minh (Bạn)'].includes(c.assignedStaffName || '')
-        );
-        if (cleanList.length !== parsed.length) {
-          localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(cleanList));
-        }
-        return cleanList;
-      }
-    } catch { }
-    return INITIAL_KANBAN_CANDIDATES;
-  });
+  const [candidates, setCandidates] = useState<KanbanCandidate[]>(INITIAL_KANBAN_CANDIDATES);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [channelFilter, setChannelFilter] = useState<'ALL' | ChannelType>('ALL');
@@ -77,12 +53,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Lưu lại danh sách mỗi khi có thay đổi
-  useEffect(() => {
-    try {
-      localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(candidates));
-    } catch { }
-  }, [candidates]);
+  // Đã loại bỏ lưu localStorage - CSDL PostgreSQL là Nguồn Chân Lý duy nhất
 
   // Lắng nghe sự kiện cập nhật Kanban từ Realtime WebSocket
   useEffect(() => {
@@ -386,33 +357,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
       )
     );
 
-    // Đồng bộ sang danh sách hội thoại Inbox trong LocalStorage
-    try {
-      const inboxRaw = localStorage.getItem('crm_inbox_conversations_v1');
-      if (inboxRaw) {
-        const convList = JSON.parse(inboxRaw);
-        if (Array.isArray(convList)) {
-          const updatedInbox = convList.map((conv: any) => {
-            if (
-              conv.id === editingProductCandidate.conversationId ||
-              conv.customer?.id === editingProductCandidate.id ||
-              conv.customer?.fullName === editingProductCandidate.fullName
-            ) {
-              return {
-                ...conv,
-                customer: {
-                  ...conv.customer,
-                  interestCourses: courses,
-                  estimatedValue: tuition,
-                },
-              };
-            }
-            return conv;
-          });
-          localStorage.setItem('crm_inbox_conversations_v1', JSON.stringify(updatedInbox));
-        }
-      }
-    } catch { }
+    // Đồng bộ sự kiện bộ nhớ nội bộ thay vì localStorage
 
     // Lưu vào Backend Database Customer
     if (editingProductCandidate.id) {
@@ -482,7 +427,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
     );
     const isFirstStage = stageIdx === 0 || targetStageConfig?.order === 1;
 
-    let computedStatus: 'NEW' | 'POTENTIAL' | 'CONVERTED' | 'UNQUALIFIED' = 'POTENTIAL';
+    let computedStatus: 'NEW' | 'POTENTIAL' | 'CONVERTED' | 'UNQUALIFIED';
     if (targetStageConfig?.isWon) {
       computedStatus = 'CONVERTED';
     } else if (targetStageConfig?.isLost) {
@@ -512,33 +457,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
       )
     );
 
-    // Đồng bộ sang hội thoại Inbox trong LocalStorage
-    try {
-      const inboxRaw = localStorage.getItem('crm_inbox_conversations_v1');
-      if (inboxRaw) {
-        const convList = JSON.parse(inboxRaw);
-        if (Array.isArray(convList)) {
-          const updatedInbox = convList.map((conv: any) => {
-            if (
-              conv.id === candidate.conversationId ||
-              conv.customer?.id === candidate.id ||
-              conv.customer?.fullName === candidate.fullName
-            ) {
-              return {
-                ...conv,
-                customer: {
-                  ...conv.customer,
-                  leadStage: nextStage,
-                  leadStatus: computedStatus,
-                },
-              };
-            }
-            return conv;
-          });
-          localStorage.setItem('crm_inbox_conversations_v1', JSON.stringify(updatedInbox));
-        }
-      }
-    } catch { }
+    // Đồng bộ sự kiện bộ nhớ nội bộ thay vì localStorage
 
     // Gọi API cập nhật vào Database Customer
     if (candidate.id) {
