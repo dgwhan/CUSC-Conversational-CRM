@@ -119,7 +119,7 @@ export function sanitizeSensitiveString(text: string): string {
         // Lọc generic token trong URL query param
         .replace(/([?&](?:token|app_secret|secret)=)[^& \t\r\n]+/gi, '$1***REDACTED***')
         // Lọc token dạng key-value text: "token: EAAB..." hoặc "token=EAAB..."
-        .replace(/((?:access_token|token|secret|app_secret|password|credential)[\s:=]+)[A-Za-z0-9_\-\.=]{8,}/gi, '$1***REDACTED***')
+        .replace(/((?:access_token|token|secret|app_secret|password|credential)[\s:=]+)[A-Za-z0-9_\-.=]{8,}/gi, '$1***REDACTED***')
         // Lọc Meta Facebook Page/User Access Token (luôn bắt đầu bằng EAA... với độ dài > 15 ký tự)
         .replace(/\b(EAA[A-Za-z0-9]{15,})\b/g, '***REDACTED***')
         // Lọc Bearer token trong Authorization headers / messages

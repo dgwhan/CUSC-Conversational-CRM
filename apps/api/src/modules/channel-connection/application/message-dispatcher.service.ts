@@ -175,7 +175,7 @@ export class MessageDispatcherService {
         where: { id: account.id },
         data: {
           metadata: {
-            ...((account.metadata as any) || {}),
+            ...(account.metadata as any),
             isPersonal: true,
             engine: 'zca-js',
           },

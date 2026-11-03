@@ -82,7 +82,7 @@ export class JwtTokenService {
     return this._jwtSettings;
   }
 
-  public GenerateToken(user: JwtUser): JwtTokenResult {
+  public generateToken(user: JwtUser): JwtTokenResult {
     const expires = new Date(
       Date.now() + this._jwtSettings.ExpiresInMinutes * 60 * 1000,
     );
@@ -125,7 +125,10 @@ export class JwtTokenService {
     return tokenResult;
   }
 
-  public generateToken(user: JwtUser): JwtTokenResult {
-    return this.GenerateToken(user);
+  /**
+   * Alias for generateToken for backwards compatibility
+   */
+  public GenerateToken(user: JwtUser): JwtTokenResult {
+    return this.generateToken(user);
   }
 }

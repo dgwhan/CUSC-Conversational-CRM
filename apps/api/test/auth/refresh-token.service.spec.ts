@@ -12,7 +12,7 @@ describe('RefreshTokenService - Broken Access Token Protection', () => {
         create: vi.fn(),
         update: vi.fn(),
       },
-      staff: {
+      user: {
         update: vi.fn(),
       },
       $transaction: vi.fn(async (cb) => cb(mockPrisma)),
@@ -63,7 +63,7 @@ describe('RefreshTokenService - Broken Access Token Protection', () => {
       tokenHash: hash,
       expiresAt: new Date(Date.now() + 1000000),
       revokedAt: new Date(Date.now() - 5000), // đã bị thu hồi trước đó!
-      staff: {
+      user: {
         id: 'staff-uuid-999',
         status: 'ACTIVE',
       },
@@ -98,11 +98,11 @@ describe('RefreshTokenService - Broken Access Token Protection', () => {
     mockPrisma.refreshToken.findUnique.mockResolvedValue({
       id: 'old-token-id',
       familyId: 'family-abc',
-      staffId: 'staff-1',
+      userId: 'staff-1',
       tokenHash: hash,
       expiresAt: new Date(Date.now() + 3600000),
       revokedAt: null,
-      staff: {
+      user: {
         id: 'staff-1',
         email: 'staff@cusc.vn',
         fullName: 'Tu Van Vien',
@@ -110,6 +110,7 @@ describe('RefreshTokenService - Broken Access Token Protection', () => {
         tokenVersion: 2,
         mustChangePassword: false,
         phoneNumber: '0912345678',
+        lockedUntil: null,
       },
     });
 

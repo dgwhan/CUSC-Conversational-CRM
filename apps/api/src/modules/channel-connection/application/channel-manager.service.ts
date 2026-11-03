@@ -172,8 +172,8 @@ export class ChannelManagerService {
                 disconnectedAt: null,
                 isActive: true,
                 metadata: {
-                  ...((primaryZalo.metadata as any) || {}),
-                  ...(page.metadata || {}),
+                  ...(primaryZalo.metadata as any),
+                  ...page.metadata,
                   lastReconnectedAt: new Date().toISOString(),
                   ...(previousDisconnectedAt
                     ? { previousDisconnectedAt: previousDisconnectedAt.toISOString() }
@@ -231,7 +231,7 @@ export class ChannelManagerService {
           isWebhookSubscribed,
           isActive: true,
           metadata: {
-            ...(page.metadata || {}),
+            ...page.metadata,
             ...(webhookError ? { webhookError } : {}),
             lastReconnectedAt: new Date().toISOString(),
           } as any,
@@ -251,7 +251,7 @@ export class ChannelManagerService {
           isWebhookSubscribed,
           isActive: true,
           metadata: {
-            ...(page.metadata || {}),
+            ...page.metadata,
             ...(webhookError ? { webhookError } : {}),
             lastReconnectedAt: new Date().toISOString(),
           } as any,

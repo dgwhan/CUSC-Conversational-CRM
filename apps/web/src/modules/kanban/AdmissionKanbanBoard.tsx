@@ -427,7 +427,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
     );
     const isFirstStage = stageIdx === 0 || targetStageConfig?.order === 1;
 
-    let computedStatus: 'NEW' | 'POTENTIAL' | 'CONVERTED' | 'UNQUALIFIED' = 'POTENTIAL';
+    let computedStatus: 'NEW' | 'POTENTIAL' | 'CONVERTED' | 'UNQUALIFIED';
     if (targetStageConfig?.isWon) {
       computedStatus = 'CONVERTED';
     } else if (targetStageConfig?.isLost) {

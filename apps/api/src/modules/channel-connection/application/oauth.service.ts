@@ -22,7 +22,6 @@ export class OAuthService {
     redirectUri?: string,
     existingState?: string,
   ): AuthorizeUrlResult {
-    const isProduction = this.config.get<string>('NODE_ENV') === 'production';
     const state = existingState || randomBytes(16).toString('hex');
 
     // Đọc URL frontend từ cấu hình môi trường, không gán cứng

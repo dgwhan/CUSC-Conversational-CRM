@@ -592,7 +592,7 @@ export class ZcaPersonalService implements OnModuleInit {
   /**
    * Kích hoạt WebSocket Listener nhận tin nhắn Zalo cá nhân trực tiếp trên Localhost
    */
-  startListenerForApi(targetId: string, api: any, accountMeta?: any): void {
+  startListenerForApi(targetId: string, api: any, _accountMeta?: any): void {
     if (!api || !api.listener) {
       this.logger.warn(`[zca-js] api.listener không khả dụng cho tài khoản ${targetId}`);
       return;
@@ -893,7 +893,7 @@ export class ZcaPersonalService implements OnModuleInit {
                 ...(isBetterName ? { fullName: customerName } : {}),
                 ...(isBetterAvatar ? { avatarUrl: customerAvatar } : {}),
                 channelIdentities: {
-                  ...((dbCustomer.channelIdentities as any) || {}),
+                  ...(dbCustomer.channelIdentities as any),
                   zalo: customerZaloId,
                   socialId: customerZaloId,
                   channel: 'ZALO',
@@ -1076,7 +1076,7 @@ export class ZcaPersonalService implements OnModuleInit {
               isActive: false,
               disconnectedAt: now,
               metadata: {
-                ...((channelAccount.metadata as any) || {}),
+                ...(channelAccount.metadata as any),
                 deactivatedReason: 'SESSION_EXPIRED',
                 deactivatedDetails: reason,
                 lastExpiredAt: now.toISOString(),

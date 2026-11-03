@@ -238,7 +238,7 @@ export class WorkspaceConfigService {
       workspaceId,
       terminology: {
         ...current.terminology,
-        ...(patch.terminology || {}),
+        ...patch.terminology,
       },
       pipelineStages: patch.pipelineStages || current.pipelineStages,
       productCatalog: patch.productCatalog || current.productCatalog,

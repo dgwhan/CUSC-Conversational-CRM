@@ -8,11 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import argon2 from 'argon2';
-import { randomUUID } from 'node:crypto';
 import type {
-  CreateStaffRequestDto,
-  UpdateStaffRequestDto,
-  StaffItemResponseDto,
   StaffItemResponse,
   CreateStaffDto,
   UpdateStaffDto,
@@ -80,9 +76,8 @@ export class StaffManagementService {
 
         const staffMembers = await this.prisma.user.findMany({
           where: {
-            OR: [
-              ...(targetWorkspace
-                ? [
+            OR: targetWorkspace
+              ? [
                   { id: targetWorkspace.ownerId },
                   {
                     memberships: {
@@ -93,10 +88,7 @@ export class StaffManagementService {
                     },
                   },
                 ]
-                : [
-                  { id: resolvedOwner },
-                ]),
-            ],
+              : [{ id: resolvedOwner }],
           },
           select: {
             id: true,
@@ -125,7 +117,7 @@ export class StaffManagementService {
           } else if (s.memberships && s.memberships[0]?.role) {
             role = s.memberships[0].role;
           }
-          const { memberships, ...rest } = s;
+          const { memberships: _memberships, ...rest } = s;
           return {
             ...rest,
             role,

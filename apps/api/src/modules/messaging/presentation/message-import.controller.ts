@@ -16,7 +16,6 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ImportMessagesUseCase } from '../application/import-messages.usecase.js';
 import { generateCsvTemplate } from '../application/csv-parser.js';
 import { MessageRepository } from '../infrastructure/message.repository.js';
-import { Channel } from '../domain/channel.js';
 
 @Controller('messages')
 export class MessageImportController {

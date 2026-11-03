@@ -28,6 +28,15 @@ const toIsoTimestamp = (value?: string | Date | null): string | null => {
   return Number.isNaN(timestamp.getTime()) ? null : timestamp.toISOString();
 };
 
+const isSameChannelFamily = (ch1: string, ch2: string): boolean => {
+  if (ch1 === ch2) return true;
+  if (ch1.startsWith('ZALO') && ch2.startsWith('ZALO')) return true;
+  return false;
+};
+
+const isRealName = (n?: string): boolean =>
+  Boolean(n && n.length > 1 && !n.includes('#') && !n.toLowerCase().startsWith('khách hàng') && !n.toLowerCase().startsWith('lead'));
+
 export const useInboxConversations = ({
   activeWorkspaceId,
   ownerId,
@@ -193,7 +202,7 @@ export const useInboxConversations = ({
       }
 
       setConversations((prev) => {
-        let updated = [...prev];
+        const updated = [...prev];
         for (const [convId, groupItems] of Object.entries(groups)) {
           const sorted = [...groupItems].sort(
             (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
@@ -304,15 +313,6 @@ export const useInboxConversations = ({
               status: 'DELIVERED',
             };
           });
-
-          const isRealName = (n?: string) =>
-            Boolean(n && n.length > 1 && !n.includes('#') && !n.toLowerCase().startsWith('khách hàng') && !n.toLowerCase().startsWith('lead'));
-
-          const isSameChannelFamily = (ch1: string, ch2: string) => {
-            if (ch1 === ch2) return true;
-            if (ch1.startsWith('ZALO') && ch2.startsWith('ZALO')) return true;
-            return false;
-          };
 
           const existingIndex = updated.findIndex((c) => {
             // CUS-04: Giữ tách biệt 2 cuộc hội thoại khác kênh, không gộp tin nhắn của kênh này vào kênh kia
@@ -458,20 +458,7 @@ export const useInboxConversations = ({
   // Lắng nghe sự kiện Realtime tin nhắn mới từ WebSocket
   useEffect(() => {
     const unsubscribe = onNewMessage((msg: any) => {
-      const isMsgPersonalZalo = Boolean(
-        msg.channel === 'ZALO_PERSONAL' || (
-          msg.channel === 'ZALO' && (
-            msg.isPersonal ||
-            msg.channelAccount?.isPersonal ||
-            msg.channelAccount?.metadata?.isPersonal ||
-            msg.channelAccount?.metadata?.engine === 'zca-js' ||
-            msg.rawPayload?.isPersonal ||
-            msg.rawPayload?.engine === 'zca-js'
-          )
-        )
-      );
-      const effectiveMsgChannel: ChannelType = isMsgPersonalZalo ? 'ZALO_PERSONAL' : msg.channel;
-      const msgSenderId =
+            const msgSenderId =
         msg.senderExternalId ||
         msg.senderId ||
         msg.rawPayload?.uidFrom ||
@@ -498,12 +485,6 @@ export const useInboxConversations = ({
           )
         );
         const effectiveMsgChannel: ChannelType = isMsgPersonalZalo ? 'ZALO_PERSONAL' : (msg.channel as any);
-
-        const isSameChannelFamily = (ch1: string, ch2: string) => {
-          if (ch1 === ch2) return true;
-          if (ch1.startsWith('ZALO') && ch2.startsWith('ZALO')) return true;
-          return false;
-        };
 
         const existingIdx = prev.findIndex((c) => {
           // CUS-04: Bắt buộc cùng kênh mới gộp tin nhắn vào cuộc hội thoại
@@ -643,7 +624,7 @@ export const useInboxConversations = ({
             c.customer.fullName === event.customerName ||
             (event.customerId && c.id.includes(event.customerId))
           ) {
-            let legacyStatus: LeadStatus = 'NEW';
+            let legacyStatus: LeadStatus;
             const upper = String(event.newStage).toUpperCase();
             if (upper.includes('ENROLLED') || upper.includes('WON') || upper.includes('CONVERTED')) {
               legacyStatus = 'CONVERTED';

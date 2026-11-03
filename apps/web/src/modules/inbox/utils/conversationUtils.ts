@@ -72,6 +72,15 @@ export const deduplicateMessages = (messages: ChatMessage[]): ChatMessage[] => {
   return result.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
 };
 
+const isRealName = (name?: string): boolean =>
+  Boolean(
+    name &&
+    name.length > 1 &&
+    !name.includes('#') &&
+    !name.toLowerCase().startsWith('khách hàng') &&
+    !name.toLowerCase().startsWith('lead')
+  );
+
 /**
  * Khử trùng lặp và gộp các cuộc hội thoại trùng kênh,
  * ĐỒNG THỜI giữ tách biệt các cuộc hội thoại khác kênh và định danh chung về 1 Customer (CUS-04).
@@ -81,15 +90,6 @@ export const mergeDuplicateConversations = (
   excludedAvatars?: Set<string>,
 ): ConversationItem[] => {
   const merged: ConversationItem[] = [];
-
-  const isRealName = (name?: string) =>
-    Boolean(
-      name &&
-      name.length > 1 &&
-      !name.includes('#') &&
-      !name.toLowerCase().startsWith('khách hàng') &&
-      !name.toLowerCase().startsWith('lead')
-    );
 
   for (const conv of conversations) {
     const existingIdx = merged.findIndex((m) => {

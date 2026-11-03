@@ -30,7 +30,9 @@ import {
 export function sanitizeTagName(tag: string, maxLength: number = TAG_MAPPING_DEFAULTS.MAX_TAG_LENGTH): string {
     if (!tag) return '';
     // Xóa ký tự điều khiển ẩn, khoảng trắng thừa
+    /* eslint-disable no-control-regex */
     const cleaned = tag.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+    /* eslint-enable no-control-regex */
     return cleaned.slice(0, maxLength);
 }
 

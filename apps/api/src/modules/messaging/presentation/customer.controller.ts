@@ -10,7 +10,6 @@ import {
     Optional,
 } from '@nestjs/common';
 import { CustomerService, UpdateCustomerDto } from '../application/customer.service.js';
-import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { RealtimeService } from '../../realtime/realtime.service.js';
 import { ContactMergeService } from '../application/contact-merge.service.js';
 
