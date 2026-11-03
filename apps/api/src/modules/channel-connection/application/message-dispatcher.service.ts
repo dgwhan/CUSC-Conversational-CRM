@@ -15,6 +15,9 @@ import type {
   ChannelType,
 } from '../../../contracts/channel-connection.js';
 
+const isUuid = (val?: string | null): val is string =>
+  Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
 export interface SendMessageInput {
   channel: ChannelType | Channel;
   recipientId: string;
@@ -156,9 +159,6 @@ export class MessageDispatcherService {
       input.recipientId.startsWith('mock_') ||
       input.recipientId.startsWith('test_');
 
-    let externalMessageId = '';
-    let rawPayload: Record<string, unknown> = {};
-
     // Áp dụng cơ chế Giới hạn tần suất & Anti-Ban Rate Limiter cho kênh Zalo
     const isPersonalZalo = Boolean(
       isPersonalZaloRequested ||
@@ -187,199 +187,27 @@ export class MessageDispatcherService {
       await this.zcaService.enforceRateLimitAndSafety(account.id, input.recipientId, isPersonalZalo);
     }
 
-    // 3. Gửi tin nhắn qua Zalo Open API hoặc zca-js Engine
-    if (channelEnum === Channel.ZALO || input.channel === 'ZALO') {
-      let resolvedRecipientId = input.recipientId ? String(input.recipientId).trim() : '';
+    // 3. Tách biệt hoàn toàn xử lý gửi tin nhắn cho từng Kênh (FACEBOOK & ZALO riêng biệt)
+    let sendResult: {
+      externalMessageId: string;
+      rawPayload: Record<string, unknown>;
+      resolvedRecipientId: string;
+    };
 
-      const isPotentialPhone =
-        Boolean(resolvedRecipientId) &&
-        ((resolvedRecipientId.startsWith('+84') && resolvedRecipientId.length >= 10 && resolvedRecipientId.length <= 14) ||
-         (resolvedRecipientId.startsWith('84') && resolvedRecipientId.length >= 9 && resolvedRecipientId.length <= 13) ||
-         (resolvedRecipientId.startsWith('0') && resolvedRecipientId.length >= 9 && resolvedRecipientId.length <= 12));
-
-      // Tự động phân giải recipientId nếu là Customer UUID, 'khách', hoặc số điện thoại danh bạ
-      const needsResolution = !/^\d+$/.test(resolvedRecipientId) || isPotentialPhone;
-
-      if (needsResolution) {
-        let customer: any = null;
-
-        // a. Thử tìm Customer bằng ID (UUID)
-        if (resolvedRecipientId && this.prisma?.customer) {
-          try {
-            customer = await this.prisma.customer.findUnique({
-              where: { id: resolvedRecipientId },
-            });
-          } catch { }
-        }
-
-        // a2. Thử tìm Customer bằng số điện thoại nếu resolvedRecipientId là phone
-        if (!customer && isPotentialPhone && this.prisma?.customer) {
-          try {
-            const rawDigits = resolvedRecipientId.replace(/\D/g, '');
-            const phoneNoLeadingZero = rawDigits.startsWith('84') ? '0' + rawDigits.slice(2) : rawDigits;
-            customer = await this.prisma.customer.findFirst({
-              where: {
-                OR: [
-                  { phone: { in: [resolvedRecipientId, phoneNoLeadingZero, rawDigits] } },
-                  { channelIdentities: { path: ['phone'], equals: resolvedRecipientId } },
-                ],
-              },
-            });
-          } catch { }
-        }
-
-        // b. Nếu chưa có, thử tìm từ conversationId
-        if (!customer && input.conversationId && this.prisma?.conversation) {
-          try {
-            const conv = await this.prisma.conversation.findUnique({
-              where: { id: input.conversationId },
-              include: { customer: true },
-            });
-            if (conv?.customer) {
-              customer = conv.customer;
-            }
-          } catch { }
-        }
-
-        // c. Trích xuất UID Zalo từ channelIdentities của Customer
-        if (customer?.channelIdentities) {
-          const identities = customer.channelIdentities as any;
-          const zaloId =
-            identities?.zalo?.id ||
-            (typeof identities?.zalo === 'string' ? identities.zalo : null) ||
-            (Array.isArray(identities) ? identities.find((x: any) => x.channel === 'ZALO')?.externalUserId : null);
-          if (zaloId && /^\d+$/.test(String(zaloId).trim())) {
-            resolvedRecipientId = String(zaloId).trim();
-          }
-        }
-
-        // d. Nếu vẫn là số điện thoại hoặc chưa ra UID, thử tìm tin nhắn INBOUND gần nhất trong cuộc trò chuyện
-        const stillPhoneOrUnresolved = !/^\d+$/.test(resolvedRecipientId) || isPotentialPhone;
-        if (stillPhoneOrUnresolved && input.conversationId && this.prisma?.message) {
-          try {
-            const lastInbound = await this.prisma.message.findFirst({
-              where: {
-                conversationId: input.conversationId,
-                direction: MessageDirection.INBOUND,
-              },
-              orderBy: { sentAt: 'desc' },
-            });
-            if (lastInbound?.rawPayload) {
-              const raw = lastInbound.rawPayload as any;
-              const candidate = raw.uidFrom || raw.sender?.id || raw.from?.id || raw.senderExternalId;
-              if (candidate && /^\d+$/.test(String(candidate).trim())) {
-                resolvedRecipientId = String(candidate).trim();
-              }
-            }
-          } catch { }
-        }
-      }
-
-      const isTestOrMockRecipient =
-        isMock ||
-        resolvedRecipientId.startsWith('mock_') ||
-        resolvedRecipientId.startsWith('test_') ||
-        resolvedRecipientId.startsWith('zalo_user_') ||
-        resolvedRecipientId.startsWith('cust-') ||
-        resolvedRecipientId === 'khách' ||
-        resolvedRecipientId === 'anonymous';
-
-      if (isPersonalZalo && this.zcaService) {
-        if (isTestOrMockRecipient && !/^\d+$/.test(resolvedRecipientId)) {
-          // Môi trường test / mock dữ liệu mẫu: mô phỏng thành công để không bị Zalo Web từ chối mã 1001
-          externalMessageId = `zca_sim_${Date.now()}`;
-          rawPayload = {
-            error: 0,
-            message: 'Simulated Personal Zalo message for mock/test customer',
-            data: { message_id: externalMessageId, recipientId: resolvedRecipientId, content: input.content },
-          };
-        } else {
-          const personalRes = await this.zcaService.sendPersonalMessage(account, resolvedRecipientId, input.content);
-          externalMessageId = personalRes.messageId;
-          rawPayload = personalRes.rawPayload;
-        }
-      } else if (isMock || isTestOrMockRecipient) {
-        externalMessageId = `mock_zalo_msg_${Date.now()}`;
-        rawPayload = {
-          error: 0,
-          message: 'Success (Mock Simulation)',
-          data: { message_id: externalMessageId, recipientId: resolvedRecipientId },
-        };
-      } else {
-        try {
-          const zaloRes = await fetch('https://openapi.zalo.me/v3.0/oa/message/cs', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              access_token: token,
-            },
-            body: JSON.stringify({
-              recipient: {
-                user_id: resolvedRecipientId,
-              },
-              message: {
-                text: input.content,
-              },
-            }),
-          });
-
-          const zaloJson = (await zaloRes.json().catch(() => ({}))) as {
-            error: number;
-            message: string;
-            data?: { message_id: string };
-          };
-
-          if (zaloJson.error !== 0) {
-            let explanation = zaloJson.message || `Lỗi HTTP ${zaloRes.status}`;
-            if (zaloJson.error === -216) {
-              explanation =
-                'Access Token Zalo không hợp lệ hoặc đã hết hạn. Hãy cập nhật Token mới từ Zalo for Developers.';
-            } else if (zaloJson.error === -201) {
-              explanation =
-                'Chính sách Zalo: Khách hàng chưa gửi tin nhắn cho OA trong 7 ngày qua. OA chỉ được phản hồi cho khách hàng có tương tác trong 7 ngày gần nhất.';
-            } else if (zaloJson.error === -213) {
-              explanation = 'Người dùng chưa quan tâm OA hoặc đã chặn tin nhắn từ OA.';
-            }
-            throw new BadRequestException(`Gửi tin Zalo thất bại [Mã ${zaloJson.error}]: ${explanation}`);
-          }
-
-          externalMessageId = zaloJson.data?.message_id || `zalo_out_${Date.now()}`;
-          rawPayload = zaloJson;
-        } catch (err: unknown) {
-          if (err instanceof BadRequestException) throw err;
-          throw new BadRequestException(`Không thể gửi tin nhắn qua máy chủ Zalo: ${(err as Error).message}`);
-        }
-      }
-    } else if (channelEnum === Channel.FACEBOOK || input.channel === 'FACEBOOK') {
-      // Facebook Graph API
-      if (isMock) {
-        externalMessageId = `mock_fb_msg_${Date.now()}`;
-        rawPayload = { recipient_id: input.recipientId, message_id: externalMessageId };
-      } else {
-        try {
-          const fbRes = await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${token}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              recipient: { id: input.recipientId },
-              message: { text: input.content },
-            }),
-          });
-          const fbJson = await fbRes.json().catch(() => ({}));
-          if (!fbRes.ok || fbJson.error) {
-            throw new BadRequestException(`Facebook Graph API lỗi: ${fbJson.error?.message || fbRes.statusText}`);
-          }
-          externalMessageId = fbJson.message_id || `fb_out_${Date.now()}`;
-          rawPayload = fbJson;
-        } catch (err: unknown) {
-          if (err instanceof BadRequestException) throw err;
-          throw new BadRequestException(`Không thể gửi tin nhắn Facebook: ${(err as Error).message}`);
-        }
-      }
+    if (channelEnum === Channel.FACEBOOK || rawChannel.includes('FACEBOOK') || rawChannel.includes('FB')) {
+      sendResult = await this.sendFacebookMessage(account, token, input, isMock);
+    } else if (channelEnum === Channel.ZALO || rawChannel.includes('ZALO')) {
+      sendResult = await this.sendZaloMessage(account, token, input, isPersonalZalo, isMock);
     } else {
-      externalMessageId = `${String(input.channel).toLowerCase()}_out_${Date.now()}`;
-      rawPayload = { recipient: input.recipientId, sent: true };
+      const fallbackMsgId = `${String(input.channel).toLowerCase()}_out_${Date.now()}`;
+      sendResult = {
+        externalMessageId: fallbackMsgId,
+        rawPayload: { recipient: input.recipientId, sent: true },
+        resolvedRecipientId: input.recipientId,
+      };
     }
+
+    const { externalMessageId, rawPayload, resolvedRecipientId } = sendResult;
 
     const sentAt = new Date();
 
@@ -398,12 +226,13 @@ export class MessageDispatcherService {
             direction: MessageDirection.OUTBOUND,
             content: input.content,
             sentAt,
-            conversationId: input.conversationId,
+            conversationId: isUuid(input.conversationId) ? input.conversationId : undefined,
             processedAt: sentAt,
             rawPayload: {
               ...rawPayload,
-              recipient: { id: input.recipientId },
+              recipient: { id: resolvedRecipientId || input.recipientId },
               message: { text: input.content },
+              conversationKey: input.conversationId,
             },
           },
         ]);
@@ -420,12 +249,40 @@ export class MessageDispatcherService {
 
     // 5. Cập nhật snippet và lastMessageAt của Conversation
     try {
-      const conv = await this.prisma.conversation.findFirst({
-        where: {
-          channelAccountId: account.id,
-          ...(input.conversationId ? { id: input.conversationId } : {}),
-        },
-      });
+      let conv = null;
+      if (isUuid(input.conversationId)) {
+        conv = await this.prisma.conversation.findUnique({
+          where: { id: input.conversationId },
+        });
+      }
+      if (!conv && insertedId) {
+        const msg = await this.prisma.message.findUnique({
+          where: { id: insertedId },
+          select: { conversationId: true },
+        });
+        if (msg?.conversationId) {
+          conv = await this.prisma.conversation.findUnique({
+            where: { id: msg.conversationId },
+          });
+        }
+      }
+      if (!conv) {
+        conv = await this.prisma.conversation.findFirst({
+          where: {
+            channelAccountId: account.id,
+            ...(resolvedRecipientId ? {
+              customer: {
+                OR: [
+                  { channelIdentities: { path: [channelEnum.toLowerCase()], equals: resolvedRecipientId } },
+                  { channelIdentities: { path: [channelEnum.toLowerCase(), 'id'], equals: resolvedRecipientId } },
+                  { channelIdentities: { path: ['socialId'], equals: resolvedRecipientId } },
+                ],
+              },
+            } : {}),
+          },
+        });
+      }
+
       if (conv) {
         await this.prisma.conversation.update({
           where: { id: conv.id },
@@ -462,9 +319,429 @@ export class MessageDispatcherService {
       messageId: externalMessageId,
       sentAt,
       content: input.content,
-      recipientId: input.recipientId,
+      recipientId: resolvedRecipientId || input.recipientId,
       channel: input.channel as ChannelType,
     };
+  }
+
+  /**
+   * Phân giải Facebook Page-Scoped ID (PSID) của khách hàng
+   * Facebook Graph API bắt buộc recipient[id] phải là chuỗi số (PSID) do Meta cấp
+   */
+  private async resolveFacebookRecipientId(
+    recipientId: string,
+    conversationId?: string,
+    workspaceId?: string,
+  ): Promise<string> {
+    let resolved = recipientId ? String(recipientId).trim() : '';
+
+    // a. Nếu chuỗi có định dạng FACEBOOK_pageId_psid hoặc fb_pageId_psid, trích xuất psid cuối
+    if (resolved.includes('_')) {
+      const parts = resolved.split('_');
+      const lastPart = parts[parts.length - 1];
+      if (/^\d+$/.test(lastPart)) {
+        return lastPart;
+      }
+    }
+
+    // b. Nếu đã là chuỗi số nguyên thuần túy, đó chính là PSID hợp lệ
+    if (/^\d+$/.test(resolved)) {
+      return resolved;
+    }
+
+    let customer: any = null;
+
+    // c. Thử tìm Customer từ recipientId nếu nó là UUID
+    if (isUuid(resolved) && this.prisma?.customer) {
+      try {
+        customer = await this.prisma.customer.findUnique({
+          where: { id: resolved },
+        });
+      } catch { }
+    }
+
+    // d. Nếu chưa có Customer, thử tìm từ conversationId
+    if (!customer && isUuid(conversationId) && this.prisma?.conversation) {
+      try {
+        const conv = await this.prisma.conversation.findUnique({
+          where: { id: conversationId },
+          include: { customer: true },
+        });
+        if (conv?.customer) {
+          customer = conv.customer;
+        }
+        // Kiểm tra xem externalConversationId có chứa PSID dạng FACEBOOK_page_psid không
+        const extConvId = (conv as any)?.externalConversationId;
+        if (extConvId && typeof extConvId === 'string' && extConvId.includes('_')) {
+          const parts = extConvId.split('_');
+          const lastPart = parts[parts.length - 1];
+          if (/^\d+$/.test(lastPart)) {
+            return lastPart;
+          }
+        }
+      } catch { }
+    }
+
+    // e. Trích xuất Facebook PSID từ customer.channelIdentities
+    if (customer?.channelIdentities) {
+      const identities = customer.channelIdentities as any;
+      const fbCandidate =
+        identities?.facebook?.id ||
+        (typeof identities?.facebook === 'string' ? identities.facebook : null) ||
+        (Array.isArray(identities)
+          ? identities.find((x: any) => String(x.channel).toUpperCase() === 'FACEBOOK')?.externalUserId
+          : null);
+
+      if (fbCandidate) {
+        const str = String(fbCandidate).trim();
+        if (/^\d+$/.test(str)) {
+          return str;
+        }
+        if (str.includes('_')) {
+          const parts = str.split('_');
+          const lastPart = parts[parts.length - 1];
+          if (/^\d+$/.test(lastPart)) {
+            return lastPart;
+          }
+        }
+      }
+    }
+
+    // f. Trích xuất từ customer.socialId nếu có
+    const custSocialId = (customer as any)?.socialId;
+    if (custSocialId) {
+      const socialStr = String(custSocialId).trim();
+      if (/^\d+$/.test(socialStr)) {
+        return socialStr;
+      }
+      if (socialStr.includes('_')) {
+        const parts = socialStr.split('_');
+        const lastPart = parts[parts.length - 1];
+        if (/^\d+$/.test(lastPart)) {
+          return lastPart;
+        }
+      }
+    }
+
+    // g. Thử tìm từ tin nhắn INBOUND gần nhất trong cuộc trò chuyện
+    if (isUuid(conversationId) && this.prisma?.message) {
+      try {
+        const lastInbound = await this.prisma.message.findFirst({
+          where: {
+            conversationId,
+            direction: MessageDirection.INBOUND,
+          },
+          orderBy: { sentAt: 'desc' },
+        });
+        if (lastInbound) {
+          const senderExtId = (lastInbound as any)?.senderExternalId;
+          if (senderExtId && /^\d+$/.test(String(senderExtId).trim())) {
+            return String(senderExtId).trim();
+          }
+          if (lastInbound.rawPayload) {
+            const raw = lastInbound.rawPayload as any;
+            const candidate = raw?.sender?.id || raw?.from?.id || raw?.uidFrom || raw?.senderExternalId;
+            if (candidate && /^\d+$/.test(String(candidate).trim())) {
+              return String(candidate).trim();
+            }
+          }
+        }
+      } catch { }
+    }
+
+    return resolved;
+  }
+
+  /**
+   * Xử lý gửi tin nhắn riêng biệt cho kênh FACEBOOK qua Facebook Graph API
+   */
+  private async sendFacebookMessage(
+    account: any,
+    token: string,
+    input: {
+      recipientId: string;
+      content: string;
+      conversationId?: string;
+      workspaceId?: string;
+    },
+    isMock: boolean,
+  ): Promise<{
+    externalMessageId: string;
+    rawPayload: Record<string, unknown>;
+    resolvedRecipientId: string;
+  }> {
+    const resolvedRecipientId = await this.resolveFacebookRecipientId(
+      input.recipientId,
+      input.conversationId,
+      input.workspaceId,
+    );
+
+    const isTestOrMockRecipient =
+      isMock ||
+      resolvedRecipientId.startsWith('mock_') ||
+      resolvedRecipientId.startsWith('test_') ||
+      resolvedRecipientId.startsWith('fb_user_') ||
+      resolvedRecipientId.startsWith('cust-') ||
+      resolvedRecipientId === 'khách' ||
+      resolvedRecipientId === 'anonymous';
+
+    if (isMock || (isTestOrMockRecipient && !/^\d+$/.test(resolvedRecipientId))) {
+      const mockMsgId = `mock_fb_msg_${Date.now()}`;
+      return {
+        externalMessageId: mockMsgId,
+        rawPayload: {
+          recipient_id: resolvedRecipientId,
+          message_id: mockMsgId,
+          isMock: true,
+          content: input.content,
+        },
+        resolvedRecipientId,
+      };
+    }
+
+    // Facebook Graph API bắt buộc recipient[id] phải là chuỗi số (PSID)
+    if (!/^\d+$/.test(resolvedRecipientId)) {
+      throw new BadRequestException(
+        `Không tìm thấy Facebook PSID (Page-Scoped ID) hợp lệ của khách hàng (nhận được: "${resolvedRecipientId}"). Facebook yêu cầu khách hàng phải gửi tin nhắn cho Fanpage trước để tạo PSID (recipient[id] phải là chuỗi số).`,
+      );
+    }
+
+    try {
+      const fbRes = await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: resolvedRecipientId },
+          message: { text: input.content },
+        }),
+      });
+
+      const fbJson = (await fbRes.json().catch(() => ({}))) as {
+        message_id?: string;
+        recipient_id?: string;
+        error?: {
+          message?: string;
+          type?: string;
+          code?: number;
+          error_subcode?: number;
+          fbtrace_id?: string;
+        };
+      };
+
+      if (!fbRes.ok || fbJson.error) {
+        const errObj = fbJson.error;
+        let explanation = errObj?.message || fbRes.statusText || 'Lỗi không xác định từ Meta';
+
+        if (errObj?.code === 10 || errObj?.error_subcode === 2018028) {
+          explanation =
+            'Chính sách Facebook: Tin nhắn ngoài khung giờ 24h. Fanpage chỉ được gửi phản hồi cho khách hàng trong vòng 24 giờ kể từ tin nhắn cuối cùng của khách.';
+        } else if (errObj?.code === 190) {
+          explanation =
+            'Access Token của Fanpage Facebook đã hết hạn hoặc bị hủy quyền. Vui lòng kết nối lại tài khoản Fanpage trong Cài đặt Kênh.';
+        } else if (errObj?.code === 100) {
+          explanation =
+            `Facebook Graph API lỗi (#100): Mã người nhận không hợp lệ (${resolvedRecipientId}). Khách hàng phải nhắn tin cho Fanpage trước để khởi tạo cuộc trò chuyện.`;
+        }
+
+        throw new BadRequestException(`Facebook Graph API lỗi: ${explanation}`);
+      }
+
+      const externalMessageId = fbJson.message_id || `fb_out_${Date.now()}`;
+      return {
+        externalMessageId,
+        rawPayload: fbJson as Record<string, unknown>,
+        resolvedRecipientId,
+      };
+    } catch (err: unknown) {
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException(`Không thể gửi tin nhắn qua Facebook: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * Xử lý gửi tin nhắn riêng biệt cho kênh ZALO (OA CS API hoặc Zalo Cá Nhân zca-js)
+   */
+  private async sendZaloMessage(
+    account: any,
+    token: string,
+    input: {
+      recipientId: string;
+      content: string;
+      conversationId?: string;
+    },
+    isPersonalZalo: boolean,
+    isMock: boolean,
+  ): Promise<{
+    externalMessageId: string;
+    rawPayload: Record<string, unknown>;
+    resolvedRecipientId: string;
+  }> {
+    let resolvedRecipientId = input.recipientId ? String(input.recipientId).trim() : '';
+
+    const isPotentialPhone =
+      Boolean(resolvedRecipientId) &&
+      ((resolvedRecipientId.startsWith('+84') && resolvedRecipientId.length >= 10 && resolvedRecipientId.length <= 14) ||
+       (resolvedRecipientId.startsWith('84') && resolvedRecipientId.length >= 9 && resolvedRecipientId.length <= 13) ||
+       (resolvedRecipientId.startsWith('0') && resolvedRecipientId.length >= 9 && resolvedRecipientId.length <= 12));
+
+    // Tự động phân giải recipientId nếu là Customer UUID, 'khách', hoặc số điện thoại danh bạ
+    const needsResolution = !/^\d+$/.test(resolvedRecipientId) || isPotentialPhone;
+
+    if (needsResolution) {
+      let customer: any = null;
+
+      // a. Thử tìm Customer bằng ID (UUID)
+      if (resolvedRecipientId && this.prisma?.customer) {
+        try {
+          customer = await this.prisma.customer.findUnique({
+            where: { id: resolvedRecipientId },
+          });
+        } catch { }
+      }
+
+      // a2. Thử tìm Customer bằng số điện thoại nếu resolvedRecipientId là phone
+      if (!customer && isPotentialPhone && this.prisma?.customer) {
+        try {
+          const rawDigits = resolvedRecipientId.replace(/\D/g, '');
+          const phoneNoLeadingZero = rawDigits.startsWith('84') ? '0' + rawDigits.slice(2) : rawDigits;
+          customer = await this.prisma.customer.findFirst({
+            where: {
+              OR: [
+                { phone: { in: [resolvedRecipientId, phoneNoLeadingZero, rawDigits] } },
+                { channelIdentities: { path: ['phone'], equals: resolvedRecipientId } },
+              ],
+            },
+          });
+        } catch { }
+      }
+
+      // b. Nếu chưa có, thử tìm từ conversationId
+      if (!customer && input.conversationId && this.prisma?.conversation) {
+        try {
+          const conv = await this.prisma.conversation.findUnique({
+            where: { id: input.conversationId },
+            include: { customer: true },
+          });
+          if (conv?.customer) {
+            customer = conv.customer;
+          }
+        } catch { }
+      }
+
+      // c. Trích xuất UID Zalo từ channelIdentities của Customer
+      if (customer?.channelIdentities) {
+        const identities = customer.channelIdentities as any;
+        const zaloId =
+          identities?.zalo?.id ||
+          (typeof identities?.zalo === 'string' ? identities.zalo : null) ||
+          (Array.isArray(identities) ? identities.find((x: any) => x.channel === 'ZALO')?.externalUserId : null);
+        if (zaloId && /^\d+$/.test(String(zaloId).trim())) {
+          resolvedRecipientId = String(zaloId).trim();
+        }
+      }
+
+      // d. Nếu vẫn là số điện thoại hoặc chưa ra UID, thử tìm tin nhắn INBOUND gần nhất trong cuộc trò chuyện
+      const stillPhoneOrUnresolved = !/^\d+$/.test(resolvedRecipientId) || isPotentialPhone;
+      if (stillPhoneOrUnresolved && input.conversationId && this.prisma?.message) {
+        try {
+          const lastInbound = await this.prisma.message.findFirst({
+            where: {
+              conversationId: input.conversationId,
+              direction: MessageDirection.INBOUND,
+            },
+            orderBy: { sentAt: 'desc' },
+          });
+          if (lastInbound?.rawPayload) {
+            const raw = lastInbound.rawPayload as any;
+            const candidate = raw.uidFrom || raw.sender?.id || raw.from?.id || raw.senderExternalId;
+            if (candidate && /^\d+$/.test(String(candidate).trim())) {
+              resolvedRecipientId = String(candidate).trim();
+            }
+          }
+        } catch { }
+      }
+    }
+
+    const isTestOrMockRecipient =
+      isMock ||
+      resolvedRecipientId.startsWith('mock_') ||
+      resolvedRecipientId.startsWith('test_') ||
+      resolvedRecipientId.startsWith('zalo_user_') ||
+      resolvedRecipientId.startsWith('cust-') ||
+      resolvedRecipientId === 'khách' ||
+      resolvedRecipientId === 'anonymous';
+
+    let externalMessageId = '';
+    let rawPayload: Record<string, unknown> = {};
+
+    if (isPersonalZalo && this.zcaService) {
+      if (isTestOrMockRecipient && !/^\d+$/.test(resolvedRecipientId)) {
+        // Môi trường test / mock dữ liệu mẫu: mô phỏng thành công để không bị Zalo Web từ chối mã 1001
+        externalMessageId = `zca_sim_${Date.now()}`;
+        rawPayload = {
+          error: 0,
+          message: 'Simulated Personal Zalo message for mock/test customer',
+          data: { message_id: externalMessageId, recipientId: resolvedRecipientId, content: input.content },
+        };
+      } else {
+        const personalRes = await this.zcaService.sendPersonalMessage(account, resolvedRecipientId, input.content);
+        externalMessageId = personalRes.messageId;
+        rawPayload = personalRes.rawPayload;
+      }
+    } else if (isMock || isTestOrMockRecipient) {
+      externalMessageId = `mock_zalo_msg_${Date.now()}`;
+      rawPayload = {
+        error: 0,
+        message: 'Success (Mock Simulation)',
+        data: { message_id: externalMessageId, recipientId: resolvedRecipientId },
+      };
+    } else {
+      try {
+        const zaloRes = await fetch('https://openapi.zalo.me/v3.0/oa/message/cs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            access_token: token,
+          },
+          body: JSON.stringify({
+            recipient: {
+              user_id: resolvedRecipientId,
+            },
+            message: {
+              text: input.content,
+            },
+          }),
+        });
+
+        const zaloJson = (await zaloRes.json().catch(() => ({}))) as {
+          error: number;
+          message: string;
+          data?: { message_id: string };
+        };
+
+        if (zaloJson.error !== 0) {
+          let explanation = zaloJson.message || `Lỗi HTTP ${zaloRes.status}`;
+          if (zaloJson.error === -216) {
+            explanation =
+              'Access Token Zalo không hợp lệ hoặc đã hết hạn. Hãy cập nhật Token mới từ Zalo for Developers.';
+          } else if (zaloJson.error === -201) {
+            explanation =
+              'Chính sách Zalo: Khách hàng chưa gửi tin nhắn cho OA trong 7 ngày qua. OA chỉ được phản hồi cho khách hàng có tương tác trong 7 ngày gần nhất.';
+          } else if (zaloJson.error === -213) {
+            explanation = 'Người dùng chưa quan tâm OA hoặc đã chặn tin nhắn từ OA.';
+          }
+          throw new BadRequestException(`Gửi tin Zalo thất bại [Mã ${zaloJson.error}]: ${explanation}`);
+        }
+
+        externalMessageId = zaloJson.data?.message_id || `zalo_out_${Date.now()}`;
+        rawPayload = zaloJson;
+      } catch (err: unknown) {
+        if (err instanceof BadRequestException) throw err;
+        throw new BadRequestException(`Không thể gửi tin nhắn qua máy chủ Zalo: ${(err as Error).message}`);
+      }
+    }
+
+    return { externalMessageId, rawPayload, resolvedRecipientId };
   }
 
   async markFacebookConversationSeen(conversationId: string, workspaceId?: string): Promise<void> {

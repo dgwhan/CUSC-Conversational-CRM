@@ -62,7 +62,7 @@ export class DefaultCustomerGateway implements CustomerGateway {
             }
 
             return {
-                id: existingIdentity.contactId || existingIdentity.customerId || existingIdentity.id,
+                id: existingIdentity.contactId || (existingIdentity as any).customerId || existingIdentity.id,
                 contactId: existingIdentity.contactId || undefined,
                 isNew: false,
                 contact: existingIdentity.contact,
@@ -108,7 +108,7 @@ export class DefaultCustomerGateway implements CustomerGateway {
             if (identity.contactId !== contact.id) {
                 await this.prisma.contact.delete({ where: { id: contact.id } }).catch(() => { });
                 return {
-                    id: identity.contactId || identity.customerId || identity.id,
+                    id: identity.contactId || (identity as any).customerId || identity.id,
                     contactId: identity.contactId || undefined,
                     isNew: false,
                     contact: identity.contact,
@@ -141,7 +141,7 @@ export class DefaultCustomerGateway implements CustomerGateway {
                 });
                 if (found) {
                     return {
-                        id: found.contactId || found.customerId || found.id,
+                        id: found.contactId || (found as any).customerId || found.id,
                         contactId: found.contactId || undefined,
                         isNew: false,
                         contact: found.contact,

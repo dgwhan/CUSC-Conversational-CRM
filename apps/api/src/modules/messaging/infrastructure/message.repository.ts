@@ -10,6 +10,7 @@ import {
 } from "../domain/tag-mapping/index.js";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (val?: string | null): val is string => Boolean(val && UUID_REGEX.test(val));
 const normalizeWorkspaceId = (workspaceId?: string): string | undefined =>
     workspaceId && UUID_REGEX.test(workspaceId) ? workspaceId : undefined;
 
