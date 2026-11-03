@@ -49,6 +49,19 @@ export const useConversationStatusActions = ({
         .catch(() => {});
     }
 
+    if (currentConv.id) {
+      apiClient
+        .assignConversation(
+          currentConv.id,
+          {
+            staffId: staff?.id || null,
+            staffName: staff?.name || null,
+          },
+          activeWorkspaceId || undefined
+        )
+        .catch(() => {});
+    }
+
     notify.success(
       staff
         ? `Đã phân công ${staff.name} phụ trách cuộc hội thoại này.`

@@ -105,6 +105,7 @@ model Conversation {
     @@index([workspaceId, lastMessageAt])
     @@index([channelAccountId])
     @@index([customerId])
+    @@index([assignedMemberId])
     @@map("conversations")
 }
 

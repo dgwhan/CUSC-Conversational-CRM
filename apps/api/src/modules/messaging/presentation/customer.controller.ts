@@ -69,6 +69,19 @@ export class CustomerController {
     }
 
     /**
+     * Đồng bộ phân công nhân sự (staff / workspace_member) cho cuộc hội thoại
+     * Đảm bảo toàn vẹn tham chiếu với bảng workspace_members
+     */
+    @Patch('conversations/:conversationId/assign')
+    async assignConversation(
+        @Param('conversationId') conversationId: string,
+        @Body() body: { staffId?: string | null; staffName?: string | null },
+        @Headers('x-workspace-id') headerWsId?: string,
+    ) {
+        return this.customerService.assignConversation(conversationId, body.staffId, body.staffName, headerWsId);
+    }
+
+    /**
      * Update customer profile, recruitment pipeline stage, and lead qualification status.
      * Automatically broadcasts real-time pipeline changes to connected staff.
      */

@@ -596,6 +596,20 @@ class ApiClient {
     });
   }
 
+  assignConversation(
+    conversationId: string,
+    data: { staffId?: string | null; staffName?: string | null },
+    workspaceId?: string,
+  ) {
+    return this.patch<Record<string, unknown>>(
+      `/customers/conversations/${encodeURIComponent(conversationId)}/assign`,
+      data,
+      {
+        headers: workspaceId ? { 'x-workspace-id': workspaceId } : {},
+      }
+    );
+  }
+
   deleteCustomerTag(id: string, tag: string, conversationId?: string, workspaceId?: string) {
     return this.delete<Record<string, unknown>>(`/customers/${id}/tags/${encodeURIComponent(tag)}`, {
       params: conversationId ? { conversationId } : undefined,

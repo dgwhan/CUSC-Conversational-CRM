@@ -16,6 +16,7 @@ describe('CustomerController', () => {
             getCustomerById: vi.fn(),
             updateCustomer: vi.fn(),
             removeCustomerTag: vi.fn(),
+            assignConversation: vi.fn(),
         };
 
         mockRealtime = {
@@ -138,6 +139,37 @@ describe('CustomerController', () => {
                 undefined,
             );
             expect(result.leadStatus).toBe('POTENTIAL');
+        });
+    });
+
+    describe('assignConversation', () => {
+        it('ủy quyền phân công hội thoại sang CustomerService với header workspace', async () => {
+            const convId = '33333333-3333-3333-3333-333333333333';
+            const staffId = '44444444-4444-4444-4444-444444444444';
+            const wsId = '55555555-5555-5555-5555-555555555555';
+
+            vi.mocked(mockCustomerService.assignConversation!).mockResolvedValue({
+                success: true,
+                conversationId: convId,
+                assignedMemberId: staffId,
+                assignedStaffId: staffId,
+                assignedStaffName: 'Nguyễn Văn Tư Vấn',
+            } as any);
+
+            const result = await controller.assignConversation(
+                convId,
+                { staffId, staffName: 'Nguyễn Văn Tư Vấn' },
+                wsId,
+            );
+
+            expect(mockCustomerService.assignConversation).toHaveBeenCalledWith(
+                convId,
+                staffId,
+                'Nguyễn Văn Tư Vấn',
+                wsId,
+            );
+            expect(result.success).toBe(true);
+            expect(result.assignedMemberId).toBe(staffId);
         });
     });
 });

@@ -29,6 +29,9 @@ export class UpdateCustomerDto {
     updatedBy?: string;
     tags?: string[];
     conversationId?: string;
+    assignedStaffId?: string | null;
+    assignedStaffName?: string | null;
+    assignedMemberId?: string | null;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -133,6 +136,18 @@ export class CustomerService {
                                     avatarUrl: true,
                                 },
                             },
+                            assignedMember: {
+                                include: {
+                                    user: {
+                                        select: {
+                                            id: true,
+                                            fullName: true,
+                                            email: true,
+                                            avatarUrl: true,
+                                        },
+                                    },
+                                },
+                            },
                         },
                         orderBy: { lastMessageAt: 'desc' },
                         take: 20,
@@ -192,6 +207,18 @@ export class CustomerService {
                                     avatarUrl: true,
                                 },
                             },
+                            assignedMember: {
+                                include: {
+                                    user: {
+                                        select: {
+                                            id: true,
+                                            fullName: true,
+                                            email: true,
+                                            avatarUrl: true,
+                                        },
+                                    },
+                                },
+                            },
                         },
                         orderBy: { lastMessageAt: 'desc' },
                         take: 20,
@@ -211,6 +238,18 @@ export class CustomerService {
                                         displayName: true,
                                         channel: true,
                                         avatarUrl: true,
+                                    },
+                                },
+                                assignedMember: {
+                                    include: {
+                                        user: {
+                                            select: {
+                                                id: true,
+                                                fullName: true,
+                                                email: true,
+                                                avatarUrl: true,
+                                            },
+                                        },
                                     },
                                 },
                             },
@@ -267,6 +306,12 @@ export class CustomerService {
             manuallyRemovedTags = deduplicateTags([...prevManuallyRemoved, ...removed, ...additionalRemoved]);
         }
 
+        let resolvedMemberId: string | null | undefined = undefined;
+        if (body.assignedStaffId !== undefined || body.assignedMemberId !== undefined) {
+            const rawStaffId = body.assignedMemberId !== undefined ? body.assignedMemberId : body.assignedStaffId;
+            resolvedMemberId = await this.resolveWorkspaceMemberId(rawStaffId, headerWsId || existing.workspaceId);
+        }
+
         const updatedIdentities = {
             ...currentIdentities,
             ...(body.interestCourses !== undefined ? { interestCourses: body.interestCourses } : {}),
@@ -274,6 +319,9 @@ export class CustomerService {
             ...(body.leadStage !== undefined ? { leadStage: body.leadStage } : {}),
             ...(body.leadStatus !== undefined ? { leadStatus: body.leadStatus } : {}),
             ...(cleanTags !== undefined ? { tags: cleanTags, manuallyRemovedTags } : {}),
+            ...(body.assignedStaffId !== undefined ? { assignedStaffId: body.assignedStaffId } : {}),
+            ...(body.assignedStaffName !== undefined ? { assignedStaffName: body.assignedStaffName } : {}),
+            ...(resolvedMemberId !== undefined ? { assignedMemberId: resolvedMemberId } : {}),
         };
 
         let updated: any;
@@ -316,6 +364,16 @@ export class CustomerService {
             await this.syncConversationTags(existing.id, body.conversationId, cleanTags);
         }
 
+        // Đồng bộ phân công nhân sự (assigned_member_id) vào bảng Conversation đảm bảo toàn vẹn tham chiếu
+        if (resolvedMemberId !== undefined && this.prisma.conversation) {
+            await this.syncConversationAssignedMember(
+                existing.id,
+                body.conversationId,
+                resolvedMemberId,
+                headerWsId || existing.workspaceId,
+            );
+        }
+
         if (body.leadStage !== undefined || body.leadStatus !== undefined) {
             try {
                 const firstConv = existing.conversations?.[0];
@@ -347,6 +405,9 @@ export class CustomerService {
             interestCourses: updatedIdentities.interestCourses || [],
             estimatedValue: updatedIdentities.estimatedValue || 0,
             tags: cleanTags || updatedIdentities.tags || [],
+            assignedStaffId: updatedIdentities.assignedStaffId || null,
+            assignedStaffName: updatedIdentities.assignedStaffName || null,
+            assignedMemberId: resolvedMemberId !== undefined ? resolvedMemberId : (updatedIdentities.assignedMemberId || null),
             ...(mergedResult ? { isMerged: true, mergeResult: mergedResult } : {}),
         };
     }
@@ -369,6 +430,25 @@ export class CustomerService {
         const tags = Array.from(new Set([...convTags, ...identityTags]));
         const hasExplicitTags = Array.isArray(identities.tags) || (customer.conversations?.[0] && Array.isArray(customer.conversations[0].tags));
 
+        const firstConv = customer.conversations?.[0];
+        const assignedMember = firstConv?.assignedMember;
+        const assignedStaff = assignedMember
+            ? {
+                id: assignedMember.user?.id || assignedMember.userId || assignedMember.id,
+                memberId: assignedMember.id,
+                name: assignedMember.user?.fullName || 'Tư vấn viên',
+                email: assignedMember.user?.email || null,
+                avatar: assignedMember.user?.avatarUrl || '',
+                role: assignedMember.role || 'STAFF',
+            }
+            : (identities.assignedStaffId
+                ? {
+                    id: identities.assignedStaffId,
+                    name: identities.assignedStaffName || 'Tư vấn viên',
+                    role: 'STAFF',
+                }
+                : undefined);
+
         return {
             ...customer,
             leadStatus: customer.leadStatus || identities.leadStatus || 'NEW',
@@ -377,7 +457,254 @@ export class CustomerService {
             interestCourses: identities.interestCourses || [],
             estimatedValue: identities.estimatedValue || 0,
             tags: hasExplicitTags ? tags : (customer.leadStatus === 'POTENTIAL' ? ['Lead'] : ['Khách hàng mới']),
+            assignedStaffId: identities.assignedStaffId || assignedMember?.user?.id || assignedMember?.userId || null,
+            assignedStaffName: identities.assignedStaffName || assignedMember?.user?.fullName || null,
+            assignedMemberId: firstConv?.assignedMemberId || identities.assignedMemberId || null,
+            assignedStaff,
         };
+    }
+
+    /**
+     * Phân công nhân sự (staff) cho cuộc hội thoại và đồng bộ khách hàng.
+     * Đảm bảo tính toàn vẹn tham chiếu (Foreign Key tới workspace_members).
+     */
+    async assignConversation(
+        conversationId: string,
+        staffId?: string | null,
+        staffName?: string | null,
+        workspaceId?: string,
+    ) {
+        let resolvedMemberId: string | null = null;
+        let targetWsId = workspaceId && UUID_REGEX.test(workspaceId) ? workspaceId : undefined;
+
+        let conv: any = null;
+        if (UUID_REGEX.test(conversationId)) {
+            try {
+                conv = await this.prisma.conversation.findUnique({
+                    where: { id: conversationId },
+                    include: { customer: true },
+                });
+                if (conv?.workspaceId && !targetWsId) {
+                    targetWsId = conv.workspaceId;
+                }
+            } catch {
+                conv = null;
+            }
+        }
+
+        resolvedMemberId = await this.resolveWorkspaceMemberId(staffId, targetWsId);
+
+        if (conv) {
+            await this.prisma.conversation.update({
+                where: { id: conv.id },
+                data: { assignedMemberId: resolvedMemberId },
+            });
+
+            if (conv.customer) {
+                const currentIdentities = (conv.customer.channelIdentities as any) || {};
+                await this.prisma.customer.update({
+                    where: { id: conv.customer.id },
+                    data: {
+                        channelIdentities: {
+                            ...currentIdentities,
+                            assignedStaffId: staffId || null,
+                            assignedStaffName: staffName || null,
+                            assignedMemberId: resolvedMemberId,
+                        },
+                    },
+                });
+            }
+        } else {
+            // Synthetic conversationId or lookup by channel identities
+            const parts = conversationId.split('_');
+            const channel = parts[0]?.toUpperCase();
+            const senderExternalId = parts.length >= 3 ? parts.slice(2).join('_') : (parts.length === 2 ? parts[1] : null);
+
+            let customer: any = null;
+            if (senderExternalId) {
+                customer = await this.prisma.customer.findFirst({
+                    where: {
+                        OR: [
+                            ...(channel ? [{ channelIdentities: { path: [channel.toLowerCase()], equals: senderExternalId } }] : []),
+                            { channelIdentities: { path: ['socialId'], equals: senderExternalId } },
+                            { channelIdentities: { path: ['facebook'], equals: senderExternalId } },
+                            { channelIdentities: { path: ['zalo', 'id'], equals: senderExternalId } },
+                            { channelIdentities: { path: ['zalo'], equals: senderExternalId } },
+                        ],
+                    },
+                });
+            }
+
+            if (customer) {
+                const currentIdentities = (customer.channelIdentities as any) || {};
+                await this.prisma.customer.update({
+                    where: { id: customer.id },
+                    data: {
+                        channelIdentities: {
+                            ...currentIdentities,
+                            assignedStaffId: staffId || null,
+                            assignedStaffName: staffName || null,
+                            assignedMemberId: resolvedMemberId,
+                        },
+                    },
+                });
+                await this.prisma.conversation.updateMany({
+                    where: {
+                        customerId: customer.id,
+                        ...(targetWsId ? { workspaceId: targetWsId } : {}),
+                    },
+                    data: { assignedMemberId: resolvedMemberId },
+                });
+            }
+        }
+
+        return {
+            success: true,
+            conversationId,
+            assignedMemberId: resolvedMemberId,
+            assignedStaffId: staffId || null,
+            assignedStaffName: staffName || null,
+        };
+    }
+
+    /**
+     * Phân giải staffId (WorkspaceMember.id hoặc User.id) thành WorkspaceMember.id hợp lệ
+     * Đảm bảo không bị vi phạm foreign key constraint của bảng workspace_members trong PostgreSQL.
+     */
+    async resolveWorkspaceMemberId(
+        staffId?: string | null,
+        workspaceId?: string | null,
+    ): Promise<string | null> {
+        if (!staffId || staffId === 'unassigned' || staffId === 'none' || staffId === 'all') {
+            return null;
+        }
+
+        const cleanId = staffId.replace(/^(user|member|staff)-/, '');
+        if (!UUID_REGEX.test(cleanId)) {
+            return null;
+        }
+
+        const validWsId = workspaceId && UUID_REGEX.test(workspaceId) ? workspaceId : null;
+
+        try {
+            // 1. Kiểm tra trực tiếp WorkspaceMember theo ID
+            const memberById = await this.prisma.workspaceMember.findUnique({
+                where: { id: cleanId },
+                select: { id: true, workspaceId: true, isActive: true },
+            });
+            if (memberById) {
+                return memberById.id;
+            }
+
+            // 2. Kiểm tra nếu staffId là User.id thuộc về Workspace
+            if (validWsId) {
+                const memberByUserId = await this.prisma.workspaceMember.findUnique({
+                    where: {
+                        workspaceId_userId: {
+                            workspaceId: validWsId,
+                            userId: cleanId,
+                        },
+                    },
+                    select: { id: true },
+                });
+                if (memberByUserId) {
+                    return memberByUserId.id;
+                }
+            } else {
+                const anyMember = await this.prisma.workspaceMember.findFirst({
+                    where: { userId: cleanId },
+                    select: { id: true },
+                });
+                if (anyMember) {
+                    return anyMember.id;
+                }
+            }
+
+            // 3. Nếu User có thật trong bảng User và đã có Workspace, tự động tạo thành viên Workspace
+            if (validWsId) {
+                const user = await this.prisma.user.findUnique({
+                    where: { id: cleanId },
+                    select: { id: true },
+                });
+                if (user) {
+                    try {
+                        const newMember = await this.prisma.workspaceMember.create({
+                            data: {
+                                workspaceId: validWsId,
+                                userId: user.id,
+                                role: 'STAFF',
+                                isActive: true,
+                            },
+                            select: { id: true },
+                        });
+                        return newMember.id;
+                    } catch {
+                        const existing = await this.prisma.workspaceMember.findUnique({
+                            where: {
+                                workspaceId_userId: {
+                                    workspaceId: validWsId,
+                                    userId: user.id,
+                                },
+                            },
+                            select: { id: true },
+                        });
+                        if (existing) return existing.id;
+                    }
+                }
+            }
+        } catch (err: any) {
+            this.logger.warn(`Could not resolve workspace member for staffId ${staffId}: ${err?.message || err}`);
+        }
+
+        return null;
+    }
+
+    /**
+     * Đồng bộ assigned_member_id vào bảng Conversation trong DB.
+     */
+    async syncConversationAssignedMember(
+        customerId: string,
+        conversationId?: string,
+        resolvedMemberId?: string | null,
+        workspaceId?: string,
+    ): Promise<void> {
+        try {
+            if (conversationId && UUID_REGEX.test(conversationId)) {
+                await this.prisma.conversation.update({
+                    where: { id: conversationId },
+                    data: { assignedMemberId: resolvedMemberId || null },
+                });
+                return;
+            }
+
+            if (conversationId && conversationId.includes('_')) {
+                const parts = conversationId.split('_');
+                const senderExternalId = parts.length >= 3 ? parts.slice(2).join('_') : (parts.length === 2 ? parts[1] : null);
+
+                if (senderExternalId && UUID_REGEX.test(customerId)) {
+                    await this.prisma.conversation.updateMany({
+                        where: {
+                            customerId,
+                            ...(workspaceId && UUID_REGEX.test(workspaceId) ? { workspaceId } : {}),
+                        },
+                        data: { assignedMemberId: resolvedMemberId || null },
+                    });
+                    return;
+                }
+            }
+
+            if (customerId && UUID_REGEX.test(customerId)) {
+                await this.prisma.conversation.updateMany({
+                    where: {
+                        customerId,
+                        ...(workspaceId && UUID_REGEX.test(workspaceId) ? { workspaceId } : {}),
+                    },
+                    data: { assignedMemberId: resolvedMemberId || null },
+                });
+            }
+        } catch (err: any) {
+            this.logger.warn(`Could not sync conversation assignedMemberId: ${err?.message || err}`);
+        }
     }
 
     private async findExistingCustomer(id: string, conversationId?: string, body?: UpdateCustomerDto): Promise<any> {
@@ -488,6 +815,14 @@ export class CustomerService {
         const validEmail = body.email && body.email !== 'Chưa có Email' ? body.email : null;
         let newCust: any;
 
+        let resolvedMemberId: string | null = null;
+        if (body.assignedStaffId !== undefined || body.assignedMemberId !== undefined) {
+            resolvedMemberId = await this.resolveWorkspaceMemberId(
+                body.assignedMemberId !== undefined ? body.assignedMemberId : body.assignedStaffId,
+                headerWsId,
+            );
+        }
+
         const customerPayload = {
             fullName: body.fullName || (id.startsWith('cand-') ? 'Ứng viên mới' : 'Khách hàng'),
             phone: validPhone,
@@ -502,6 +837,9 @@ export class CustomerService {
                 ...(body.interestCourses !== undefined ? { interestCourses: body.interestCourses } : {}),
                 ...(body.estimatedValue !== undefined ? { estimatedValue: body.estimatedValue } : {}),
                 ...(body.tags !== undefined ? { tags: body.tags } : {}),
+                ...(body.assignedStaffId !== undefined ? { assignedStaffId: body.assignedStaffId } : {}),
+                ...(body.assignedStaffName !== undefined ? { assignedStaffName: body.assignedStaffName } : {}),
+                ...(resolvedMemberId !== null ? { assignedMemberId: resolvedMemberId } : {}),
             },
         };
 
@@ -528,7 +866,10 @@ export class CustomerService {
             try {
                 await this.prisma.conversation.update({
                     where: { id: body.conversationId },
-                    data: { customerId: newCust.id },
+                    data: {
+                        customerId: newCust.id,
+                        ...(resolvedMemberId !== null ? { assignedMemberId: resolvedMemberId } : {}),
+                    },
                 });
             } catch { }
         }

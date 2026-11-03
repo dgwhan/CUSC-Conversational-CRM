@@ -334,6 +334,21 @@ export const useInboxConversations = ({
             return false;
           });
 
+          const assignedStaffFromMessage =
+            (latest as any).assignedStaff ||
+            (groupItems.find((m: any) => m.assignedStaff) as any)?.assignedStaff;
+          const assignedStaffFromCust =
+            matchedCust?.assignedStaff ||
+            (matchedCust?.channelIdentities?.assignedStaffId
+              ? {
+                  id: matchedCust.channelIdentities.assignedStaffId,
+                  name: matchedCust.channelIdentities.assignedStaffName || 'Tư vấn viên',
+                  role: 'STAFF',
+                  avatar: '',
+                }
+              : undefined);
+          const effectiveAssignedStaff = assignedStaffFromMessage || assignedStaffFromCust;
+
           if (existingIndex >= 0) {
             const existing = updated[existingIndex];
 
@@ -360,6 +375,7 @@ export const useInboxConversations = ({
               snippet: latest.content || existing.snippet,
               lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toISOString() : new Date().toISOString(),
               lastCustomerMessageAt,
+              assignedStaff: existing.assignedStaff || effectiveAssignedStaff,
               tags: existingTags,
               customer: shouldUpdateCustomer
                 ? {
@@ -421,6 +437,7 @@ export const useInboxConversations = ({
               lastMessageAt: latest.sentAt ? new Date(latest.sentAt).toISOString() : new Date().toISOString(),
               lastCustomerMessageAt,
               unreadCount: 0,
+              assignedStaff: effectiveAssignedStaff,
               tags: initialCustomerTags,
               status: 'OPEN',
               customer: {

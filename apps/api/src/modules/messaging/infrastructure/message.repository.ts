@@ -122,6 +122,18 @@ export class MessageRepository implements OnModuleInit {
                         conversation: {
                             include: {
                                 customer: true,
+                                assignedMember: {
+                                    include: {
+                                        user: {
+                                            select: {
+                                                id: true,
+                                                fullName: true,
+                                                email: true,
+                                                avatarUrl: true,
+                                            },
+                                        },
+                                    },
+                                },
                             },
                         },
                     },
@@ -206,6 +218,25 @@ export class MessageRepository implements OnModuleInit {
                         ? m.conversation.tags
                         : (Array.isArray(raw.tags) && raw.tags.length > 0 ? raw.tags : []);
 
+                const assignedMember = m.conversation?.assignedMember;
+                const customerIdentities = (customer?.channelIdentities as any) || {};
+                const assignedStaff = assignedMember
+                    ? {
+                        id: assignedMember.user?.id || assignedMember.userId || assignedMember.id,
+                        memberId: assignedMember.id,
+                        name: assignedMember.user?.fullName || 'Tư vấn viên',
+                        email: assignedMember.user?.email || null,
+                        avatar: assignedMember.user?.avatarUrl || '',
+                        role: assignedMember.role || 'STAFF',
+                    }
+                    : (customerIdentities?.assignedStaffId
+                        ? {
+                            id: customerIdentities.assignedStaffId,
+                            name: customerIdentities.assignedStaffName || 'Tư vấn viên',
+                            role: 'STAFF',
+                        }
+                        : undefined);
+
                 return {
                     ...m,
                     senderExternalId,
@@ -214,6 +245,7 @@ export class MessageRepository implements OnModuleInit {
                     customerPhone: customer?.phone || null,
                     customerEmail: customer?.email || null,
                     tags,
+                    assignedStaff,
                 };
             } catch {
                 return m;
@@ -359,11 +391,25 @@ export class MessageRepository implements OnModuleInit {
 
                     // Nếu chưa có thì tự động tạo mới cuộc hội thoại
                     if (!conv) {
+                        let initialAssignedMemberId: string | null = null;
+                        if (customerId) {
+                            try {
+                                const prevConv = await this.prisma.conversation.findFirst({
+                                    where: { customerId, assignedMemberId: { not: null } },
+                                    select: { assignedMemberId: true },
+                                });
+                                if (prevConv?.assignedMemberId) {
+                                    initialAssignedMemberId = prevConv.assignedMemberId;
+                                }
+                            } catch {}
+                        }
+
                         conv = await this.prisma.conversation.create({
                             data: {
                                 workspaceId: e.workspaceId || uniqueAccounts.get(`${e.channel}:${e.externalAccountId}`)?.workspaceId || null,
                                 channelAccountId: accountId,
                                 customerId: customerId || null,
+                                assignedMemberId: initialAssignedMemberId,
                                 status: 'OPEN',
                                 snippet: e.content || 'Tin nhắn mới',
                                 lastMessageAt: messageSentAt,
