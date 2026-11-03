@@ -2,9 +2,7 @@ import {
   PASSWORD_RECOVERY_CHALLENGE_STATUS,
   PASSWORD_RECOVERY_DELIVERY_STATUS,
   VERIFICATION_RESULT,
-  type VerificationResult,
 } from '../../domain/password-recovery.constants.js';
-import { STAFF_STATUS } from '../../../auth/domain/staff-status.constants.js';
 import {
   BadRequestException,
   HttpException,

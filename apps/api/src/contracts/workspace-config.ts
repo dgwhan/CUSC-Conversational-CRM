@@ -10,6 +10,15 @@ export const BusinessDomainSchema = z.enum([
 ]);
 export type BusinessDomain = z.infer<typeof BusinessDomainSchema>;
 
+export const SystemStageCategorySchema = z.enum([
+  'NEW',
+  'IN_PROGRESS',
+  'QUALIFIED',
+  'WON',
+  'LOST',
+]);
+export type SystemStageCategory = z.infer<typeof SystemStageCategorySchema>;
+
 export const PipelineStageConfigSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, 'Stage name is required'),
@@ -18,6 +27,7 @@ export const PipelineStageConfigSchema = z.object({
   bgColor: z.string().default('#f0f9ff'),
   borderColor: z.string().default('#bae6fd'),
   order: z.number().int().default(0),
+  category: SystemStageCategorySchema.optional().default('IN_PROGRESS'),
   isWon: z.boolean().optional().default(false),
   isLost: z.boolean().optional().default(false),
   isSystem: z.boolean().optional().default(false),
@@ -30,10 +40,20 @@ export interface PipelineStageConfig {
   bgColor: string;
   borderColor: string;
   order: number;
+  category?: SystemStageCategory;
   isWon?: boolean;
   isLost?: boolean;
   isSystem?: boolean;
 }
+
+export const WorkspaceTagSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  color: z.string().default('#0284c7'),
+  isSystem: z.boolean().default(false),
+  aliases: z.array(z.string()).default([]),
+});
+export type WorkspaceTag = z.infer<typeof WorkspaceTagSchema>;
 
 export const ProductItemConfigSchema = z.object({
   id: z.string().min(1),

@@ -49,27 +49,35 @@ model ChannelAccount {
 }
 
 model Customer {
-    id                String         @id @default(uuid()) @db.Uuid
-    workspaceId       String?        @map("workspace_id") @db.Uuid
-    fullName          String         @map("full_name")
-    phone             String?
-    email             String?
-    avatarUrl         String?        @map("avatar_url")
-    leadStatus        String         @default("NEW") @map("lead_status") @db.VarChar(50)
-    leadStage         String?        @map("lead_stage") @db.VarChar(50)
-    notes             String?        @db.Text
-    channelIdentities Json?          @map("channel_identities") @db.JsonB
-    createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-    updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+    id                   String             @id @default(uuid()) @db.Uuid
+    workspaceId          String?            @map("workspace_id") @db.Uuid
+    fullName             String             @map("full_name")
+    phone                String?            @db.VarChar(50)
+    phoneNormalized      String?            @map("phone_normalized") @db.VarChar(50)
+    email                String?            @db.VarChar(255)
+    avatarUrl            String?            @map("avatar_url")
+    leadStatus           String             @default("NEW") @map("lead_status") @db.VarChar(50)
+    leadStage            String?            @map("lead_stage") @db.VarChar(50)
+    notes                String?            @db.Text
+    channelIdentities    Json?              @map("channel_identities") @db.JsonB
+    isMerged             Boolean            @default(false) @map("is_merged")
+    mergedIntoCustomerId String?            @map("merged_into_customer_id") @db.Uuid
+    createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+    updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-    workspace         Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-    conversations     Conversation[]
+    workspace            Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+    conversations        Conversation[]
+    identities           ChannelIdentity[]
+    mergeLogsTarget      CustomerMergeLog[] @relation("MergeTargetCustomer")
 
     @@index([workspaceId])
     @@index([phone])
+    @@index([phoneNormalized])
     @@index([email])
     @@index([leadStatus])
     @@index([leadStage])
+    @@index([isMerged])
+    @@index([mergedIntoCustomerId])
     @@map("customers")
 }
 

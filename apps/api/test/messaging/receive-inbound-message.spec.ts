@@ -113,7 +113,7 @@ describe('ReceiveInboundMessage UseCase', () => {
         // Lần đầu tiên insert thành công trả về ID
         // 9 lần sau do ON CONFLICT DO NOTHING nên insertManyIgnoreDuplicate trả về []
         vi.mocked(mockRepo.insertManyIgnoreDuplicate!)
-            .mockResolvedValueOnce([{ id: 'msg-first-time-id' }])
+            .mockResolvedValueOnce([{ id: 'msg-first-time-id', conversationId: 'conversation-id' }])
             .mockResolvedValue([]);
 
         const req: RawWebhookRequest & { channel: Channel } = {

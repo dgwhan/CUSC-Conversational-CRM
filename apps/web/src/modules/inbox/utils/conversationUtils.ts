@@ -72,6 +72,15 @@ export const deduplicateMessages = (messages: ChatMessage[]): ChatMessage[] => {
   return result.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
 };
 
+const isRealName = (name?: string): boolean =>
+  Boolean(
+    name &&
+    name.length > 1 &&
+    !name.includes('#') &&
+    !name.toLowerCase().startsWith('khách hàng') &&
+    !name.toLowerCase().startsWith('lead')
+  );
+
 /**
  * Khử trùng lặp và gộp các cuộc hội thoại trùng kênh,
  * ĐỒNG THỜI giữ tách biệt các cuộc hội thoại khác kênh và định danh chung về 1 Customer (CUS-04).
@@ -81,15 +90,6 @@ export const mergeDuplicateConversations = (
   excludedAvatars?: Set<string>,
 ): ConversationItem[] => {
   const merged: ConversationItem[] = [];
-
-  const isRealName = (name?: string) =>
-    Boolean(
-      name &&
-      name.length > 1 &&
-      !name.includes('#') &&
-      !name.toLowerCase().startsWith('khách hàng') &&
-      !name.toLowerCase().startsWith('lead')
-    );
 
   for (const conv of conversations) {
     const existingIdx = merged.findIndex((m) => {
@@ -199,6 +199,15 @@ export const mergeDuplicateConversations = (
           : target.customer.fullName;
 
       const latestMsg = combinedMessages[combinedMessages.length - 1];
+      const lastCustomerMessageAt = [target.lastCustomerMessageAt, conv.lastCustomerMessageAt]
+        .reduce<string | null>((latest, value) => {
+          if (!value) return latest;
+          const timestamp = Date.parse(value);
+          if (!Number.isFinite(timestamp)) return latest;
+          return latest === null || timestamp > Date.parse(latest)
+            ? new Date(timestamp).toISOString()
+            : latest;
+        }, null);
       const finalChannel =
         target.channel === 'ZALO_PERSONAL' || conv.channel === 'ZALO_PERSONAL'
           ? 'ZALO_PERSONAL'
@@ -216,6 +225,7 @@ export const mergeDuplicateConversations = (
         channelAccountId: target.channelAccountId || conv.channelAccountId,
         snippet: latestMsg?.content || target.snippet || conv.snippet,
         lastMessageAt: latestMsg?.sentAt || target.lastMessageAt || conv.lastMessageAt,
+        lastCustomerMessageAt,
         unreadCount: (target.unreadCount || 0) + (conv.unreadCount || 0),
         tags: filteredTags,
         customer: {

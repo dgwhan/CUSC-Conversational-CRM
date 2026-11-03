@@ -155,9 +155,16 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           size="sm"
           icon={<Send size={13} />}
           onClick={onSend}
-          disabled={!inputText.trim()}
+          disabled={
+            !inputText.trim() ||
+            (conversation.channel === 'FACEBOOK' && !isWithin24Hours)
+          }
           className="h-8 px-4 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm gap-1.5 cursor-pointer"
-          title="Gửi tin nhắn (Enter)"
+          title={
+            conversation.channel === 'FACEBOOK' && !isWithin24Hours
+              ? 'Đã hết cửa sổ phản hồi 24 giờ của Facebook'
+              : 'Gửi tin nhắn (Enter)'
+          }
         >
           Gửi
         </Button>

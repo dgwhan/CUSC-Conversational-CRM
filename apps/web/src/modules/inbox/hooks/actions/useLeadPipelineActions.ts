@@ -75,29 +75,7 @@ export const useLeadPipelineActions = ({
     );
 
     // Đồng bộ sang phễu Kanban trong LocalStorage để bên Kanban nhận ngay
-    try {
-      const kanbanRaw = localStorage.getItem('polarisx_crm_kanban_candidates') || localStorage.getItem('cusc_crm_kanban_candidates');
-      if (kanbanRaw) {
-        const kanbanList = JSON.parse(kanbanRaw);
-        if (Array.isArray(kanbanList)) {
-          const updatedKanban = kanbanList.map((cand: any) => {
-            if (
-              cand.conversationId === currentConv.id ||
-              cand.id === currentConv.customer.id ||
-              cand.fullName === currentConv.customer.fullName
-            ) {
-              return {
-                ...cand,
-                stage: stageForKanban,
-                tags: nextTags,
-              };
-            }
-            return cand;
-          });
-          localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
-        }
-      }
-    } catch { }
+    // Đã loại bỏ ghi chép trực tiếp vào localStorage
 
     // Lưu vào Backend Database Customer qua API
     if (currentConv.customer.id) {
@@ -189,46 +167,7 @@ export const useLeadPipelineActions = ({
       })
     );
 
-    try {
-      const kanbanRaw = localStorage.getItem('polarisx_crm_kanban_candidates') || localStorage.getItem('cusc_crm_kanban_candidates');
-      const kanbanList = kanbanRaw ? JSON.parse(kanbanRaw) : [];
-      let found = false;
-      const updatedKanban = (Array.isArray(kanbanList) ? kanbanList : []).map((cand: any) => {
-        if (
-          cand.conversationId === currentConv.id ||
-          cand.id === currentConv.customer.id ||
-          cand.fullName === currentConv.customer.fullName
-        ) {
-          found = true;
-          return {
-            ...cand,
-            stage: resolvedStageId,
-          };
-        }
-        return cand;
-      });
-
-      if (!found) {
-        updatedKanban.unshift({
-          id: currentConv.customer.id,
-          fullName: currentConv.customer.fullName,
-          phone: currentConv.customer.phone && currentConv.customer.phone !== 'Chưa có SĐT' ? currentConv.customer.phone : 'Chưa có SĐT',
-          email: currentConv.customer.email && currentConv.customer.email !== 'Chưa có Email' ? currentConv.customer.email : 'Chưa có Email',
-          avatarUrl: currentConv.customer.avatarUrl,
-          channel: currentConv.channel,
-          channelAccountName: currentConv.channelAccountName,
-          stage: resolvedStageId,
-          estimatedTuition: currentConv.customer.estimatedValue || 0,
-          priority: 'MEDIUM',
-          interestCourses: currentConv.customer.interestCourses || [],
-          lastActivityAt: 'Vừa xong',
-          notesCount: 0,
-          tags: currentConv.tags || currentConv.customer.tags || ['Lead'],
-          conversationId: currentConv.id,
-        });
-      }
-      localStorage.setItem('polarisx_crm_kanban_candidates', JSON.stringify(updatedKanban));
-    } catch { }
+    // Đã loại bỏ ghi chép trực tiếp vào localStorage
 
     if (currentConv.customer.id) {
       apiClient.updateCustomer(currentConv.customer.id, {

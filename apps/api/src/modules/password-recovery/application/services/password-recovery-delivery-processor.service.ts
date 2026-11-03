@@ -37,20 +37,6 @@ type ClaimedDelivery = {
   };
 };
 
-function safeErrorCategory(error: unknown): string {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    typeof error.code === 'string' &&
-    /^P\d{4}$/.test(error.code)
-  ) {
-    return error.code;
-  }
-
-  return error instanceof Error ? error.name : 'UnknownError';
-}
-
 @Injectable()
 //Worker claim outbox, gửi OTP, kích hoạt challenge hoặc lên lịch retry
 export class PasswordRecoveryDeliveryProcessor

@@ -8,7 +8,7 @@ import { standardizeVietnamesePhoneNumber } from './phone.js';
 export function removeVietnameseTones(str?: unknown): string {
   if (str === null || str === undefined) return '';
 
-  let text = '';
+  let text: string;
   if (typeof str === 'string') {
     text = str;
   } else if (typeof str === 'number') {

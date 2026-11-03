@@ -45,53 +45,56 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
     const matchedCurrentMember = staffMembers?.find(
       (m) => m.id === staffId || (staffEmail && m.email === staffEmail)
     );
-    const currentUserRole = isOwnerEffective
-      ? 'Chủ doanh nghiệp'
-      : matchedCurrentMember?.role === 'OWNER'
-      ? 'Chủ doanh nghiệp'
-      : 'Tư vấn viên';
+    const currentUserRole = matchedCurrentMember
+      ? matchedCurrentMember.role === 'OWNER'
+        ? 'Chủ doanh nghiệp'
+        : 'Tư vấn viên'
+      : isOwnerEffective
+        ? 'Chủ doanh nghiệp'
+        : 'Tư vấn viên';
+    const presenceById = new Map(Object.values(staffPresences).map((presence) => [presence.staffId, presence]));
 
-    const list: AssignedStaff[] = Object.values(staffPresences).map((s) => {
-      const member = staffMembers?.find((m) => m.id === s.staffId);
-      const isMemberOwner = member?.role === 'OWNER';
-      return {
-        id: s.staffId,
-        name: s.name,
-        avatar: s.avatar,
-        role: isMemberOwner ? 'Chủ doanh nghiệp' : member?.role === 'STAFF' ? 'Tư vấn viên' : s.role || 'Tư vấn viên',
-      };
-    });
+    if (staffMembers?.length) {
+      const membersByIdentity = new Map<string, (typeof staffMembers)[number]>();
+      for (const member of staffMembers) {
+        const identity = member.email.trim().toLowerCase() || member.id;
+        const existing = membersByIdentity.get(identity);
+        if (!existing || (member.role === 'OWNER' && existing.role !== 'OWNER')) {
+          membersByIdentity.set(identity, member);
+        }
+      }
 
-    if (staffId && !list.some((s) => s.id === staffId)) {
+      return Array.from(membersByIdentity.values()).map((member) => {
+        const presence = presenceById.get(member.id);
+        const isCurrentUser = member.id === staffId || (staffEmail && member.email === staffEmail);
+        return {
+          id: member.id,
+          name: isCurrentUser
+            ? `${member.fullName || member.email} (Bạn)`
+            : member.fullName || member.email,
+          avatar: presence?.avatar || '',
+          role: member.role === 'OWNER' ? 'Chủ doanh nghiệp' : 'Tư vấn viên',
+          presenceStatus: presence?.status,
+        };
+      });
+    }
+
+    const list: AssignedStaff[] = Object.values(staffPresences).map((presence) => ({
+      id: presence.staffId,
+      name: presence.staffId === staffId
+        ? (presence.name.includes('(Bạn)') ? presence.name : `${presence.name} (Bạn)`)
+        : presence.name,
+      avatar: presence.avatar,
+      role: presence.staffId === staffId ? currentUserRole : 'Tư vấn viên',
+      presenceStatus: presence.status,
+    }));
+
+    if (staffId && !list.some((member) => member.id === staffId)) {
       list.unshift({
         id: staffId,
         name: staffName ? `${staffName} (Bạn)` : 'Bạn',
         avatar: '',
         role: currentUserRole,
-      });
-    } else {
-      const selfIndex = list.findIndex((s) => s.id === staffId);
-      if (selfIndex !== -1) {
-        list[selfIndex] = {
-          ...list[selfIndex],
-          name: list[selfIndex].name.includes('(Bạn)')
-            ? list[selfIndex].name
-            : `${list[selfIndex].name} (Bạn)`,
-          role: currentUserRole,
-        };
-      }
-    }
-
-    if (Array.isArray(staffMembers)) {
-      staffMembers.forEach((member) => {
-        if (!list.some((s) => s.id === member.id)) {
-          list.push({
-            id: member.id,
-            name: member.fullName || member.email,
-            avatar: '',
-            role: member.role === 'OWNER' ? 'Chủ doanh nghiệp' : 'Tư vấn viên',
-          });
-        }
       });
     }
 

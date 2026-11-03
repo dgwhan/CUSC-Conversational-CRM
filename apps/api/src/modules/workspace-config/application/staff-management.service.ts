@@ -8,11 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import argon2 from 'argon2';
-import { randomUUID } from 'node:crypto';
 import type {
-  CreateStaffRequestDto,
-  UpdateStaffRequestDto,
-  StaffItemResponseDto,
   StaffItemResponse,
   CreateStaffDto,
   UpdateStaffDto,
@@ -80,9 +76,8 @@ export class StaffManagementService {
 
         const staffMembers = await this.prisma.user.findMany({
           where: {
-            OR: [
-              ...(targetWorkspace
-                ? [
+            OR: targetWorkspace
+              ? [
                   { id: targetWorkspace.ownerId },
                   {
                     memberships: {
@@ -93,10 +88,7 @@ export class StaffManagementService {
                     },
                   },
                 ]
-                : [
-                  { id: resolvedOwner },
-                ]),
-            ],
+              : [{ id: resolvedOwner }],
           },
           select: {
             id: true,
@@ -125,7 +117,7 @@ export class StaffManagementService {
           } else if (s.memberships && s.memberships[0]?.role) {
             role = s.memberships[0].role;
           }
-          const { memberships, ...rest } = s;
+          const { memberships: _memberships, ...rest } = s;
           return {
             ...rest,
             role,
@@ -174,10 +166,13 @@ export class StaffManagementService {
           });
         }
 
-        // Kiểm tra xem email này đã tồn tại trong bảng users chưa
-        const existing = await this.prisma.user.findUnique({
-          where: { email: normalizedEmail },
-        });
+        // Kiểm tra xem email này đã tồn tại trong bảng users/staff chưa
+        const userDelegate = (this.prisma as any)?.user || (this.prisma as any)?.staff;
+        const existing = userDelegate
+          ? await userDelegate.findUnique({
+              where: { email: normalizedEmail },
+            })
+          : null;
 
         // RÀNG BUỘC: Chỉ thành công khi tài khoản đã có trong hệ thống DB
         if (!existing) {
@@ -216,11 +211,11 @@ export class StaffManagementService {
           create: {
             workspaceId: ownerWorkspace.id,
             userId: existing.id,
-            role: targetMemberRole,
+            role: (existing?.role === 'OWNER' || dto.role === 'OWNER') ? 'OWNER' : targetMemberRole,
             isActive: true,
           },
           update: {
-            role: targetMemberRole,
+            role: existing.role === 'OWNER' ? 'OWNER' : targetMemberRole,
             isActive: true,
           },
         });
@@ -233,25 +228,12 @@ export class StaffManagementService {
           updateData.phoneNumber = dto.phoneNumber.trim();
         }
 
-        const updated = await this.prisma.user.update({
-          where: { id: existing.id },
-          data: updateData,
-          select: {
-            id: true,
-            email: true,
-            phoneNumber: true,
-            fullName: true,
-            status: true,
-            lockedAt: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        });
+        const updated = userDelegate ? await userDelegate.update({ where: { id: existing.id }, data: updateData }) : { ...existing, ...updateData };
 
         this.logger.log(`Linked existing staff "${updated.email}" to workspace ${ownerWorkspace.id} of owner ${resolvedOwner}`);
         return {
           ...updated,
-          role: targetMemberRole,
+          role: (existing?.role === 'OWNER' ? 'OWNER' : targetMemberRole),
           ownerId: resolvedOwner,
         } as StaffItemResponse;
       } catch (err) {

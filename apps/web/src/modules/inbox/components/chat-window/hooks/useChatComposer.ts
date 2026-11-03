@@ -12,8 +12,13 @@ export function useChatComposer({ conversation, onSendMessage }: UseChatComposer
   const { t } = useTranslation();
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [currentTimestamp] = useState(() => Date.now());
+  const [currentTimestamp, setCurrentTimestamp] = useState(() => Date.now());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTimestamp(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Tự động cuộn xuống tin nhắn cuối cùng khi có tin mới
   useEffect(() => {
@@ -23,17 +28,23 @@ export function useChatComposer({ conversation, onSendMessage }: UseChatComposer
   // Kiểm tra thời hạn 24 giờ của Meta (Facebook Messenger)
   const lastCustomerMessageTime = conversation.lastCustomerMessageAt
     ? new Date(conversation.lastCustomerMessageAt).getTime()
-    : new Date(conversation.lastMessageAt).getTime();
+    : Number.NaN;
 
   const hoursDiff = (currentTimestamp - lastCustomerMessageTime) / (1000 * 60 * 60);
-  const isWithin24Hours = hoursDiff <= 24;
-  const hoursRemaining = Math.max(0, Math.floor(24 - hoursDiff));
+  const isWithin24Hours = Number.isFinite(hoursDiff) && hoursDiff >= 0 && hoursDiff < 24;
+  const hoursRemaining = Number.isFinite(hoursDiff) ? Math.max(0, Math.floor(24 - hoursDiff)) : 0;
 
   const handleSend = useCallback(() => {
     if (!inputText.trim()) return;
+    if (conversation.channel === 'FACEBOOK' && !isWithin24Hours) {
+      notify.warning(
+        'Đã hết cửa sổ phản hồi 24 giờ của Facebook. Chờ khách nhắn lại hoặc dùng phương thức được Meta cho phép.',
+      );
+      return;
+    }
     onSendMessage(inputText.trim());
     setInputText('');
-  }, [inputText, onSendMessage]);
+  }, [conversation.channel, inputText, isWithin24Hours, onSendMessage]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -102,4 +113,3 @@ export function useChatComposer({ conversation, onSendMessage }: UseChatComposer
     handleInsertEmoji,
   };
 }
-

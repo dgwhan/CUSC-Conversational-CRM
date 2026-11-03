@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { WorkspaceConfigService } from '../workspace-config/workspace-config.service.js';
 import type { PipelineStageConfig } from '../../contracts/workspace-config.js';
@@ -9,7 +9,6 @@ const isUuid = (val?: string): boolean =>
 
 export interface OverviewFilterDto {
   workspaceId?: string;
-  ownerId?: string;
   currentStaffId?: string;
   timeRange?: 'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'quarter' | 'year' | 'all';
   channel?: string;
@@ -33,7 +32,6 @@ export class ReportsService {
   async getOverview(filter: OverviewFilterDto) {
     const {
       workspaceId,
-      ownerId,
       currentStaffId,
       timeRange = '30days',
       channel,
@@ -42,45 +40,44 @@ export class ReportsService {
       productId,
     } = filter;
 
-    // 1. Tải cấu hình linh hoạt của Workspace (Domain, Terminology, PipelineStages, ProductCatalog)
+    if (!currentStaffId) {
+      throw new UnauthorizedException('Authenticated user is required to load workspace reports');
+    }
+
+    const userWorkspaceFilter = {
+      isActive: true,
+      OR: [
+        { ownerId: currentStaffId },
+        { members: { some: { userId: currentStaffId, isActive: true } } },
+      ],
+    };
+
+    let workspace =
+      workspaceId && isUuid(workspaceId)
+        ? await this.prisma.workspace.findFirst({
+            where: { id: workspaceId, ...userWorkspaceFilter },
+            select: { id: true },
+          })
+        : null;
+
+    // A stale workspace ID from another login must never select another tenant's report data.
+    if (!workspace) {
+      workspace = await this.prisma.workspace.findFirst({
+        where: userWorkspaceFilter,
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+    }
+
+    let targetWsId = workspace?.id;
     const config = await this.configService.getConfig(
-      workspaceId || 'ws-default-001',
-      ownerId,
+      targetWsId || 'ws-default-001',
+      undefined,
       currentStaffId,
     );
 
-    // Xác định workspaceId dạng UUID nếu có
-    let targetWsId = workspaceId && isUuid(workspaceId) ? workspaceId : undefined;
     if (!targetWsId && config.workspaceId && isUuid(config.workspaceId)) {
       targetWsId = config.workspaceId;
-    }
-    if (!targetWsId) {
-      targetWsId = (await this.configService.resolveWorkspaceForOwner(ownerId || currentStaffId || '')) || undefined;
-    }
-
-    // Tự động dọn dẹp các hội thoại & customer rác cũ (tự sinh từ danh bạ bạn bè Zalo cũ không có tin nhắn)
-    if (targetWsId && this.prisma?.customer) {
-      try {
-        await (this.prisma as any).conversation.deleteMany({
-          where: {
-            workspaceId: targetWsId,
-            snippet: 'Đồng bộ từ danh bạ Zalo',
-            messages: { none: {} },
-          },
-        }).catch(() => {});
-
-        await this.prisma.customer.deleteMany({
-          where: {
-            workspaceId: targetWsId,
-            fullName: { startsWith: 'Bạn Zalo #' },
-            conversations: {
-              none: {
-                messages: { some: {} },
-              },
-            },
-          },
-        }).catch(() => {});
-      } catch {}
     }
 
     // 2. Xác định mốc thời gian lọc
@@ -145,7 +142,7 @@ export class ReportsService {
         break;
     }
 
-    const customerWhere: any = {};
+    const customerWhere: any = { workspaceId: targetWsId };
     if (targetWsId) {
       customerWhere.workspaceId = targetWsId;
     }
@@ -156,28 +153,30 @@ export class ReportsService {
     }
 
     // 3. Lấy toàn bộ khách hàng / hồ sơ từ DB
-    const customers = await this.prisma.customer.findMany({
-      where: customerWhere,
-      include: {
-        conversations: {
+    const customers = targetWsId
+      ? await this.prisma.customer.findMany({
+          where: customerWhere,
           include: {
-            channelAccount: {
-              select: { channel: true, displayName: true },
-            },
-            assignedMember: {
+            conversations: {
               include: {
-                user: {
-                  select: { id: true, fullName: true, email: true },
+                channelAccount: {
+                  select: { channel: true, displayName: true },
+                },
+                assignedMember: {
+                  include: {
+                    user: {
+                      select: { id: true, fullName: true, email: true },
+                    },
+                  },
                 },
               },
+              orderBy: { lastMessageAt: 'desc' },
+              take: 1,
             },
           },
-          orderBy: { lastMessageAt: 'desc' },
-          take: 1,
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+          orderBy: { createdAt: 'desc' },
+        })
+      : [];
 
     // Tính số lượng khách hàng kỳ trước để đo lường % tăng trưởng
     let prevPeriodCount = 0;

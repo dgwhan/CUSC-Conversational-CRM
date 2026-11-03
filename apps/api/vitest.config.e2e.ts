@@ -13,6 +13,6 @@ export default defineConfig({
     globals: true,
     root: './',
     fileParallelism: false,
-    include: ['**/*.e2e-spec.ts'],
+    include: ['**/*.e2e-spec.ts', '**/*.e2e.spec.ts'],
   },
 });

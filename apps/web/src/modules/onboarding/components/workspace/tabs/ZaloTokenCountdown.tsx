@@ -51,9 +51,7 @@ export const ZaloTokenCountdown: React.FC<ZaloTokenCountdownProps> = ({
   const { hours, minutes, isExpired, totalHoursLeft } = timeLeft;
 
   // Tổng thời gian phiên chuẩn 72 giờ
-  const totalDurationMs = 72 * 60 * 60 * 1000;
-  const currentDiff = tokenExpiresAt ? Math.max(0, new Date(tokenExpiresAt).getTime() - Date.now()) : 0;
-  const progressPercent = Math.max(0, Math.min(100, Math.round((currentDiff / totalDurationMs) * 100)));
+  const progressPercent = Math.max(0, Math.min(100, Math.round((totalHoursLeft / 72) * 100)));
 
   // Phân loại màu sắc theo mức độ thời hạn
   const isUrgent = totalHoursLeft < 2; // < 2 giờ -> ĐỎ

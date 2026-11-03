@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ChannelTypeSchema = z.enum(['FACEBOOK', 'ZALO', 'TIKTOK', 'INSTAGRAM']);
+export const ChannelTypeSchema = z.enum(['FACEBOOK', 'ZALO', 'TIKTOK', 'MANUAL_IMPORT', 'INSTAGRAM']);
 export type ChannelType = z.infer<typeof ChannelTypeSchema>;
 
 export const AuthorizeUrlQuerySchema = z.object({

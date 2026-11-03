@@ -456,6 +456,10 @@ class ApiClient {
     });
   }
 
+  markFacebookConversationSeen(conversationId: string) {
+    return this.post<{ success: boolean }>('/channels/mark-seen', { conversationId });
+  }
+
   initZaloPersonalQr() {
     return this.post<{
       sessionId: string;
@@ -876,4 +880,3 @@ export interface NotificationListResponse {
 }
 
 export const apiClient = new ApiClient();
-

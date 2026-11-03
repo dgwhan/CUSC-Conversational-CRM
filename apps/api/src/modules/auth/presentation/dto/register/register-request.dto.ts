@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { StaffRoleSchema } from '../../../../../contracts/iam.js';
 import { AUTH_VALIDATION } from '../auth.constants.js';
 
 export const registerRequestSchema = z

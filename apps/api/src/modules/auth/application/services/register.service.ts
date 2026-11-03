@@ -7,7 +7,7 @@ import { PrismaService } from "../../../../platform/database/prisma.service.js";
 import { JwtTokenService } from "../../../../platform/config/jwt.config.js";
 import { AUTH_VALIDATION, MILLISECONDS_PER_DAY, SECONDS_PER_DAY } from "../../presentation/dto/auth.constants.js";
 import type { RegisterRequestDto } from "../../presentation/dto/register/register-request.dto.js";
-import type { RegisterResponseDto, AuthRegisterResult } from "../../presentation/dto/register/register-response.dto.js";
+import type { AuthRegisterResult } from "../../presentation/dto/register/register-response.dto.js";
 import type { LoginRequestContext } from "../../presentation/dto/login/login-request.dto.js";
 
 export type { AuthRegisterResult };
