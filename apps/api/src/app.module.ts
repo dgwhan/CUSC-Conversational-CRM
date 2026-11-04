@@ -13,6 +13,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { WorkspaceConfigModule } from './modules/workspace-config/workspace-config.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { NotificationModule } from './modules/notification/notification.module.js';
+import { NlpModule } from './modules/nlp/nlp.module.js';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { NotificationModule } from './modules/notification/notification.module.j
     WorkspaceConfigModule,
     ReportsModule,
     NotificationModule,
+    NlpModule,
   ],
   controllers: [AppController],
   providers: [AppService],

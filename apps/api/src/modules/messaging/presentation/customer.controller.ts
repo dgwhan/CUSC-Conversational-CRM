@@ -1,6 +1,7 @@
 import {
     Controller,
     Get,
+    Post,
     Patch,
     Delete,
     Param,
@@ -103,5 +104,17 @@ export class CustomerController {
         @Param('tag') tagToRemove: string,
     ) {
         return this.customerService.removeCustomerTag(id, tagToRemove);
+    }
+
+    /**
+     * Ẩn danh hóa thông tin cá nhân khách hàng, tin nhắn và lead theo Nghị định 13/2023/NĐ-CP
+     */
+    @Post(':id/anonymize')
+    async anonymizeCustomer(
+        @Param('id') id: string,
+        @Body() body: { reason?: string },
+        @Headers('x-staff-id') staffId?: string,
+    ) {
+        return this.customerService.anonymizeCustomer(id, staffId, body?.reason);
     }
 }

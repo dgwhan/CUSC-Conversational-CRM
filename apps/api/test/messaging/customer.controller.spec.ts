@@ -17,6 +17,7 @@ describe('CustomerController', () => {
             updateCustomer: vi.fn(),
             removeCustomerTag: vi.fn(),
             assignConversation: vi.fn(),
+            anonymizeCustomer: vi.fn(),
         };
 
         mockRealtime = {
@@ -170,6 +171,40 @@ describe('CustomerController', () => {
             );
             expect(result.success).toBe(true);
             expect(result.assignedMemberId).toBe(staffId);
+        });
+    });
+
+    describe('anonymizeCustomer', () => {
+        it('chuyển tiếp lệnh ẩn danh dữ liệu theo Nghị định 13/2023/NĐ-CP tới CustomerService', async () => {
+            const customerId = 'cust-123456';
+            const staffId = 'staff-admin-99';
+            const reason = 'Khách hàng yêu cầu rút dữ liệu cá nhân';
+
+            vi.mocked(mockCustomerService.anonymizeCustomer!).mockResolvedValue({
+                success: true,
+                anonymizedCustomerId: customerId,
+                anonymizedName: 'Khách hàng ẩn danh #CUST12',
+                message: 'Đã ẩn danh hóa thành công',
+                retainedMetrics: {
+                    leadStatus: 'POTENTIAL',
+                    leadStage: 'STAGE_QUALIFIED',
+                    workspaceId: 'ws-1',
+                },
+            } as any);
+
+            const result = await controller.anonymizeCustomer(
+                customerId,
+                { reason },
+                staffId,
+            );
+
+            expect(mockCustomerService.anonymizeCustomer).toHaveBeenCalledWith(
+                customerId,
+                staffId,
+                reason,
+            );
+            expect(result.success).toBe(true);
+            expect(result.anonymizedCustomerId).toBe(customerId);
         });
     });
 });

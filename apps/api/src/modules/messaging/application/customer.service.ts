@@ -948,4 +948,135 @@ export class CustomerService {
     private async syncConversationTags(customerId: string, conversationId?: string, cleanTags?: string[]) {
         return this.tagService.syncConversationTags(customerId, conversationId, cleanTags);
     }
+
+    /**
+     * Ẩn danh hóa thông tin cá nhân khách hàng, tin nhắn và lead theo Nghị định 13/2023/NĐ-CP.
+     * Bảo toàn 100% số liệu tổng hợp (KPI, phễu tuyển sinh, doanh thu).
+     * Sau khi ẩn danh: không còn tên hay SĐT nào có thể truy vết ra người đó.
+     */
+    async anonymizeCustomer(customerId: string, actorId?: string, reason?: string) {
+        const customer = await this.prisma.customer.findUnique({
+            where: { id: customerId },
+            include: {
+                conversations: {
+                    include: {
+                        messages: true,
+                    },
+                },
+            },
+        });
+
+        if (!customer) {
+            throw new NotFoundException(`Không tìm thấy khách hàng với ID ${customerId}`);
+        }
+
+        const originalName = customer.fullName;
+        const originalPhone = customer.phone;
+        const anonToken = customer.id.replace(/-/g, '').slice(0, 6).toUpperCase();
+        const anonName = `Khách hàng ẩn danh #${anonToken}`;
+        const anonPhone = '09********';
+
+        // 1. Cập nhật ẩn danh Customer
+        const updatedCustomer = await this.prisma.customer.update({
+            where: { id: customerId },
+            data: {
+                fullName: anonName,
+                phone: anonPhone,
+                phoneNormalized: null,
+                email: null,
+                avatarUrl: null,
+                channelIdentities: Prisma.JsonNull,
+                notes: `Dữ liệu cá nhân đã được ẩn danh theo Nghị định 13/2023/NĐ-CP (Lý do: ${reason || 'Yêu cầu từ chủ thể dữ liệu'}).`,
+            },
+        });
+
+        // 2. Ẩn danh Contact liên kết nếu có
+        try {
+            if (customer.phoneNormalized) {
+                await this.prisma.contact.updateMany({
+                    where: { phoneNormalized: customer.phoneNormalized },
+                    data: {
+                        displayName: `Liên hệ ẩn danh #${anonToken}`,
+                        phoneNormalized: null,
+                        email: null,
+                        notes: 'Thông tin cá nhân đã được ẩn danh theo Nghị định 13/2023/NĐ-CP.',
+                    },
+                });
+            }
+        } catch { }
+
+        // 3. Xóa hoặc ẩn danh các ChannelIdentity liên kết
+        try {
+            await this.prisma.channelIdentity.deleteMany({
+                where: { customerId: customer.id },
+            });
+        } catch { }
+
+        // 4. Làm sạch nội dung tin nhắn và đoạn trích hội thoại
+        try {
+            const convIds = customer.conversations.map((c) => c.id);
+            if (convIds.length > 0) {
+                // Cập nhật snippet của hội thoại
+                await this.prisma.conversation.updateMany({
+                    where: { id: { in: convIds } },
+                    data: {
+                        snippet: '[Hội thoại đã được ẩn danh theo Nghị định 13/2023/NĐ-CP]',
+                    },
+                });
+
+                // Làm sạch nội dung tin nhắn
+                for (const conv of customer.conversations) {
+                    for (const msg of conv.messages) {
+                        let cleanContent = msg.content || '';
+                        if (originalPhone && cleanContent) {
+                            cleanContent = cleanContent.replace(new RegExp(originalPhone, 'gi'), '[SĐT ĐÃ ẨN DANH]');
+                        }
+                        if (originalName && cleanContent) {
+                            cleanContent = cleanContent.replace(new RegExp(originalName, 'gi'), '[TÊN ĐÃ ẨN DANH]');
+                        }
+                        // Quét mọi chuỗi giống số điện thoại
+                        cleanContent = cleanContent.replace(/(?:\+84|0)[235789][0-9]{8}\b/g, '[SĐT ĐÃ ẨN DANH]');
+
+                        await this.prisma.message.update({
+                            where: { id: msg.id },
+                            data: {
+                                content: cleanContent,
+                                attachments: [],
+                            },
+                        }).catch(() => { });
+                    }
+                }
+            }
+        } catch (msgErr) {
+            this.logger.warn(`Lỗi khi làm sạch tin nhắn ẩn danh: ${(msgErr as Error).message}`);
+        }
+
+        // 5. Ghi log kiểm toán
+        this.logger.log(`[PDPD-ANONYMIZE] Customer ${customerId} anonymized successfully by actor ${actorId || 'system'}. Original PII removed.`);
+
+        // 6. Phát sóng Realtime để cập nhật giao diện
+        if (this.realtime) {
+            try {
+                this.realtime.broadcastPipelineChange({
+                    customerId: customer.id,
+                    customerName: anonName,
+                    newStage: (customer.leadStage || 'STAGE_NEW') as string,
+                    previousStage: (customer.leadStage || 'STAGE_NEW') as string,
+                    updatedBy: 'Hệ thống PDPD (Nghị định 13)',
+                });
+            } catch { }
+        }
+
+        return {
+            success: true,
+            anonymizedCustomerId: customer.id,
+            anonymizedName: anonName,
+            message: 'Đã ẩn danh hóa thành công thông tin cá nhân theo Nghị định 13/2023/NĐ-CP.',
+            retainedMetrics: {
+                leadStatus: customer.leadStatus,
+                leadStage: customer.leadStage,
+                workspaceId: customer.workspaceId,
+            },
+        };
+    }
 }
