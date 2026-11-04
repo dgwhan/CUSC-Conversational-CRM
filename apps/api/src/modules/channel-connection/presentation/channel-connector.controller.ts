@@ -13,6 +13,7 @@ import {
   HttpStatus,
   UseGuards,
   Optional,
+  Req,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/presentation/guards/jwt-auth.guard.js';
 import { OAuthService } from '../application/oauth.service.js';
@@ -194,6 +195,9 @@ export class ChannelConnectorController {
       workspaceId?: string;
     },
     @Headers('x-workspace-id') headerWorkspaceId?: string,
+    @Headers('x-user-role') headerUserRole?: string,
+    @Headers('x-staff-id') headerStaffId?: string,
+    @Req() req?: any,
   ) {
     if (!body.recipientId?.trim()) {
       throw new BadRequestException('recipientId (ID người nhận trên kênh) không được để trống');
@@ -203,6 +207,21 @@ export class ChannelConnectorController {
     }
 
     const effectiveWorkspaceId = body.workspaceId || headerWorkspaceId;
+    const userRole = ((req?.user?.role || headerUserRole || 'OWNER') as string).toUpperCase();
+    const staffId = req?.user?.id || headerStaffId;
+
+    // Role STAFF chỉ xem và phản hồi được hội thoại mà mình được phân công
+    if (userRole === 'STAFF' && staffId) {
+      await this.channelManager.verifyStaffCanReply(
+        {
+          conversationId: body.conversationId,
+          channelAccountId: body.channelAccountId,
+          recipientId: body.recipientId.trim(),
+          workspaceId: effectiveWorkspaceId,
+        },
+        staffId,
+      );
+    }
     return this.channelManager.sendMessage({
       channel: body.channel || 'ZALO',
       recipientId: body.recipientId.trim(),

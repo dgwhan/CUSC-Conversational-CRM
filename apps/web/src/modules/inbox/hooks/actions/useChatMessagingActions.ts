@@ -7,6 +7,7 @@ import type {
 import { deduplicateMessages } from '../../utils/conversationUtils.js';
 import { apiClient } from '../../../../lib/api-client.js';
 import { notify } from '../../../../components/feedback/toastEmitter.js';
+import { useUserRole } from '../../../auth/index.js';
 
 interface UseChatMessagingActionsProps {
   currentConv?: ConversationItem;
@@ -123,8 +124,24 @@ export const useChatMessagingActions = ({
   setConversations,
   staffName,
 }: UseChatMessagingActionsProps) => {
+  const { isOwner, staffId } = useUserRole();
+
   const handleSendMessage = async (text: string, attachments?: MessageAttachment[]) => {
     if (!currentConv) return;
+
+    // Role STAFF chỉ xem và phản hồi được hội thoại mà mình được phân công
+    if (!isOwner && staffId) {
+      const assigned = currentConv.assignedStaff;
+      const isAssigned =
+        assigned?.id === staffId ||
+        assigned?.memberId === staffId ||
+        (assigned?.name && staffName && assigned.name.trim().toLowerCase() === staffName.trim().toLowerCase());
+
+      if (!isAssigned) {
+        notify.error('Bạn chỉ có thể phản hồi các cuộc hội thoại được phân công cho mình (403 Forbidden).', 'Không có quyền');
+        return;
+      }
+    }
 
     const tempId = `temp-${Date.now()}`;
     const nowIso = new Date().toISOString();

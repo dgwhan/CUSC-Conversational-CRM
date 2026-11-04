@@ -421,6 +421,12 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
     const candidate = candidates.find((c) => c.id === candId);
     if (!candidate || candidate.stage === nextStage) return;
 
+    // Role STAFF chỉ được chỉnh sửa trạng thái khách hàng mà mình phụ trách
+    if (!isOwner && staffId && candidate.assignedStaffId && candidate.assignedStaffId !== staffId) {
+      notify.error('Bạn chỉ có quyền chỉnh sửa trạng thái khách hàng mà mình phụ trách (403 Forbidden).', 'Không có quyền');
+      return;
+    }
+
     const targetStageConfig = config.pipelineStages.find(
       (s) => s.id === nextStage || s.id === `STAGE_${nextStage}` || s.id.replace('STAGE_', '') === nextStage
     );
@@ -499,6 +505,8 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
   // Lọc danh sách thẻ
   const filteredCandidates = candidates.filter((item) => {
     if (channelFilter !== 'ALL' && item.channel !== channelFilter) return false;
+    // Role STAFF chỉ xem khách hàng mà mình phụ trách (OWNER xem toàn bộ)
+    if (!isOwner && staffId && item.assignedStaffId && item.assignedStaffId !== staffId) return false;
     if (staffFilter !== 'ALL' && item.assignedStaffId !== staffFilter) return false;
     if (courseFilter !== 'ALL' && !item.interestCourses.some((c) => c.includes(courseFilter))) return false;
 

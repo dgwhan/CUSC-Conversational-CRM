@@ -463,12 +463,23 @@ export const useInboxConversations = ({
             updated.unshift(newConv);
           }
         }
-        return mergeDuplicateConversations(updated, knownAccountAvatars);
+        // Role STAFF: chỉ xem các hội thoại mà mình được phân công (OWNER xem tất cả)
+        const visibleList = (!isOwner && staffId)
+          ? updated.filter((c) => {
+              const assigned = c.assignedStaff;
+              return (
+                assigned?.id === staffId ||
+                assigned?.memberId === staffId ||
+                (assigned?.name && staffName && assigned.name.trim().toLowerCase() === staffName.trim().toLowerCase())
+              );
+            })
+          : updated;
+        return mergeDuplicateConversations(visibleList, knownAccountAvatars);
       });
     } catch {
       // Backend có thể chưa khởi động hoặc chưa có tin nhắn
     }
-  }, [activeWorkspaceId, storageKey, staffName]);
+  }, [activeWorkspaceId, storageKey, staffName, isOwner, staffId]);
 
   useEffect(() => {
     loadSavedMessages();
