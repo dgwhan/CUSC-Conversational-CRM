@@ -129,7 +129,6 @@ export class MessageRepository implements OnModuleInit {
                                                 id: true,
                                                 fullName: true,
                                                 email: true,
-                                                avatarUrl: true,
                                             },
                                         },
                                     },
@@ -226,7 +225,7 @@ export class MessageRepository implements OnModuleInit {
                         memberId: assignedMember.id,
                         name: assignedMember.user?.fullName || 'Tư vấn viên',
                         email: assignedMember.user?.email || null,
-                        avatar: assignedMember.user?.avatarUrl || '',
+                        avatar: (assignedMember.user as any)?.avatarUrl || '',
                         role: assignedMember.role || 'STAFF',
                     }
                     : (customerIdentities?.assignedStaffId
