@@ -57,15 +57,12 @@ export const StaffLeaderboard: React.FC<StaffLeaderboardProps> = ({
   const displayValue = valueLabel || 'Doanh Thu';
 
   return (
-    <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200/80 shadow-xs">
+      <div className="flex items-center justify-between mb-2.5">
         <div>
           <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            Bảng Xếp Hạng & Hiệu Suất Tư Vấn Viên / Sales
+            Bảng xếp hạng
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Đánh giá năng lực chốt giao dịch, tốc độ phản hồi và giá trị doanh thu đem về
-          </p>
         </div>
       </div>
 

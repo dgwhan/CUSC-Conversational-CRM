@@ -150,15 +150,12 @@ export const LeadTrendChart: React.FC<LeadTrendChartProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs flex flex-col h-full">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+    <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200/80 shadow-xs flex flex-col h-full">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2.5">
         <div>
           <h3 className="text-base font-bold text-slate-800">
             Biểu Đồ Xu Hướng Tăng Trưởng
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Biến động lưu lượng {displayEntity.toLowerCase()} và dòng doanh thu theo thời gian
-          </p>
         </div>
 
         <div className="flex items-center bg-slate-100 p-0.5 rounded-lg self-start sm:self-auto">

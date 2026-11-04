@@ -106,11 +106,12 @@
 
 .crumb-current {
   color: var(--color-text-main, #0f172a);
+  font-size: 14px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 320px;
+  max-width: 450px;
 }
 
 /* --------------------------------------------------------------------------

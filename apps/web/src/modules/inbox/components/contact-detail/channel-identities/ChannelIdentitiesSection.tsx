@@ -106,7 +106,7 @@ export const ChannelIdentitiesSection: React.FC<ChannelIdentitiesSectionProps> =
           <h3 className="text-[13px] font-semibold text-slate-800 m-0">
             Định danh kênh hội thoại
           </h3>
-          <span className="text-[10px] font-medium px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+          <span className="text-[11px] font-medium px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">
             Đã gộp đa kênh
           </span>
         </div>
@@ -146,7 +146,7 @@ export const ChannelIdentitiesSection: React.FC<ChannelIdentitiesSectionProps> =
                       }}
                     />
                   ) : (
-                    <span className="text-white text-[10px] font-bold">{meta.badgeText}</span>
+                    <span className="text-white text-[11px] font-bold">{meta.badgeText}</span>
                   )}
                 </span>
 

@@ -31,7 +31,7 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
   // =========================================================================
   if (wizard.viewMode === 'list') {
     return (
-      <div className="onboarding-page-container">
+      <div className="w-full min-h-full">
         <WorkspaceListPage
         workspaces={wizard.myWorkspaces}
         activeWorkspaceId={wizard.activeWorkspaceId}
@@ -50,7 +50,7 @@ export const OnboardingWizardPage: React.FC<OnboardingWizardPageProps> = ({
   // =========================================================================
   if (wizard.viewMode === 'detail' && wizard.selectedDetailWorkspace) {
     return (
-      <div className="onboarding-page-container">
+      <div className="w-full min-h-full">
         <WorkspaceDetailPage
           workspace={wizard.selectedDetailWorkspace}
           isActive={wizard.selectedDetailWorkspace.id === wizard.activeWorkspaceId}

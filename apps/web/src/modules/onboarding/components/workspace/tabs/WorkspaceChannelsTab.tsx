@@ -104,17 +104,8 @@ export const WorkspaceChannelsTab: React.FC<WorkspaceChannelsTabProps> = ({
   ];
 
   return (
-    <div className="pt-6">
-      {/* 1. Header & Toolbar tìm kiếm kênh */}
-      <div className="mb-4">
-        <h2 className="text-base font-bold text-slate-900 m-0">
-          Kênh kết nối
-        </h2>
-        <p className="text-xs text-slate-500 mt-1 m-0">
-          Kết nối và quản lý các kênh giao tiếp đa nền tảng của bạn.
-        </p>
-      </div>
-
+    <div className="space-y-3.5 pt-1">
+      {/* 1. Toolbar tìm kiếm & lọc kênh */}
       <PageToolbar
         search={
           <SearchInput
@@ -122,7 +113,7 @@ export const WorkspaceChannelsTab: React.FC<WorkspaceChannelsTabProps> = ({
             onChange={setChannelSearch}
             placeholder="Tìm kiếm kênh kết nối theo tên hoặc ID... (Nhấn /)"
             shortcutHint="/"
-            size="md"
+            size="sm"
           />
         }
         filters={
@@ -130,14 +121,14 @@ export const WorkspaceChannelsTab: React.FC<WorkspaceChannelsTabProps> = ({
             value={platformFilter}
             onChange={(e) => setPlatformFilter(e.target.value)}
             options={platformFilterOptions}
-            size="md"
+            size="sm"
           />
         }
         actions={
           <Button
             variant="primary"
-            size="md"
-            icon={<Plus size={14} />}
+            size="sm"
+            icon={<Plus size={13} />}
             onClick={() => setIsPlatformPickerOpen(true)}
           >
             Thêm kênh
@@ -146,7 +137,7 @@ export const WorkspaceChannelsTab: React.FC<WorkspaceChannelsTabProps> = ({
       />
 
       {/* 2. Danh sách kênh kết nối */}
-      <div className="mb-6">
+      <div>
         {isLoading && (
           <LoadingState message="Đang tải danh sách kênh kết nối..." />
         )}

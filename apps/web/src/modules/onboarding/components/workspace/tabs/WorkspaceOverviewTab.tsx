@@ -67,25 +67,25 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
     }
   };
   return (
-    <div className="pt-6 flex flex-col gap-8">
-      {/* 1. THỐNG KÊ TỔNG QUAN (Áp dụng PageSection chuẩn hệ thống) */}
+    <div className="space-y-4 pt-1">
+      {/* 1. THỐNG KÊ TỔNG QUAN */}
       <PageSection
         title="Tổng quan không gian làm việc"
         hasDivider
-        className="pb-6"
+        className="pb-4"
       >
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-          <div className="p-4 sm:p-5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-colors shadow-2xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="p-3.5 sm:p-4 rounded-lg border border-slate-200 bg-white shadow-2xs">
             <div className="text-xs font-medium text-slate-500 mb-1">Thành viên</div>
-            <div className="text-2xl font-bold text-slate-900 tracking-tight">{membersCount}</div>
+            <div className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">{membersCount}</div>
           </div>
-          <div className="p-4 sm:p-5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-colors shadow-2xs">
+          <div className="p-3.5 sm:p-4 rounded-lg border border-slate-200 bg-white shadow-2xs">
             <div className="text-xs font-medium text-slate-500 mb-1">Kênh kết nối</div>
-            <div className="text-2xl font-bold text-slate-900 tracking-tight">{channelsCount}</div>
+            <div className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">{channelsCount}</div>
           </div>
-          <div className="p-4 sm:p-5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-colors shadow-2xs">
+          <div className="p-3.5 sm:p-4 rounded-lg border border-slate-200 bg-white shadow-2xs">
             <div className="text-xs font-medium text-slate-500 mb-1">Khách hàng liên hệ</div>
-            <div className="text-2xl font-bold text-slate-900 tracking-tight">
+            <div className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
               {isLoadingContacts ? (
                 <span className="text-slate-400 font-normal text-lg">...</span>
               ) : (
@@ -96,10 +96,10 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
         </div>
       </PageSection>
 
-      {/* 2. THÔNG TIN CHUNG (Áp dụng PageSection chuẩn hệ thống) */}
+      {/* 2. THÔNG TIN CHUNG */}
       <PageSection
         title="Thông tin chung"
-        className="pb-6"
+        className="pb-4"
         actions={
           workspace.isOwner && onEditWorkspace ? (
             <Button
@@ -113,7 +113,7 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
           ) : undefined
         }
       >
-        <div className="border border-slate-200/80 rounded-xl bg-white px-5 sm:px-6 divide-y divide-slate-100 shadow-2xs text-sm">
+        <div className="border border-slate-200 rounded-lg bg-white px-4 sm:px-5 divide-y divide-slate-100 shadow-2xs text-xs sm:text-sm">
           <div className="py-3.5 px-1 flex items-center justify-between gap-4">
             <span className="text-slate-500 shrink-0">Tên không gian làm việc</span>
             {isEditingNameInline ? (
@@ -202,7 +202,7 @@ export const WorkspaceOverviewTab: React.FC<WorkspaceOverviewTabProps> = ({
           title="Khu vực quản trị cấp cao"
           subtitle="Các thao tác nhạy cảm liên quan đến sự tồn tại của Không gian làm việc"
         >
-          <div className="p-5 sm:p-6 border border-red-200/80 bg-red-50/30 rounded-xl flex items-center justify-between gap-4 flex-wrap shadow-2xs">
+          <div className="p-4 border border-red-200 bg-red-50/30 rounded-lg flex items-center justify-between gap-4 flex-wrap shadow-2xs">
             <div>
               <div className="text-xs font-bold text-red-900 mb-0.5">Xóa Không gian làm việc này</div>
               <div className="text-[11px] text-red-600">

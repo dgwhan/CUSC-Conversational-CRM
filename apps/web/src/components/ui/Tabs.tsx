@@ -33,7 +33,7 @@ export const Tabs = <T extends string = string>({
   return (
     <div
       role="tablist"
-      className={`flex items-center gap-8 text-sm ${
+      className={`flex items-center gap-6 sm:gap-7 text-xs sm:text-[13px] ${
         borderBottom ? 'border-b border-slate-200' : ''
       } ${className}`}
     >
@@ -50,7 +50,7 @@ export const Tabs = <T extends string = string>({
             aria-disabled={isDisabled}
             disabled={isDisabled}
             onClick={() => !isDisabled && onChange(tab.id)}
-            className={`pb-3 font-semibold transition-colors bg-transparent border-none cursor-pointer text-sm flex items-center gap-1.5 outline-none ${
+            className={`pb-2.5 font-semibold transition-colors bg-transparent border-none cursor-pointer text-xs sm:text-[13px] flex items-center gap-1.5 outline-none ${
               isActive
                 ? 'text-blue-600 border-b-2 border-blue-600 -mb-[1px]'
                 : isDisabled
@@ -62,9 +62,9 @@ export const Tabs = <T extends string = string>({
             <span>{tab.label}</span>
             {tab.count !== undefined && tab.count !== null && (
               <span
-                className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold ${
                   isActive
-                    ? 'bg-blue-100 text-blue-700 font-bold'
+                    ? 'bg-blue-100 text-blue-700'
                     : 'bg-slate-100 text-slate-600'
                 }`}
               >

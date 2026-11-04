@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button } from '../../../../../../components/ui/index.js';
 import type { WorkspaceItem } from '../../../../../workspace/WorkspaceConfigContext.js';
+import { DOMAIN_OPTIONS, getDomainLabel } from '../../../../../workspace/workspaceConfig.types.js';
 import { notify } from '../../../../../../components/feedback/toastEmitter.js';
 
 export interface EditWorkspaceModalProps {
@@ -10,14 +11,6 @@ export interface EditWorkspaceModalProps {
   onSave: (workspaceId: string, data: { name: string; domain: string }) => Promise<void>;
 }
 
-const DOMAIN_OPTIONS = [
-  { value: 'EDUCATION', label: 'Giáo dục & Tuyển sinh' },
-  { value: 'REAL_ESTATE', label: 'Bất động sản & Dự án' },
-  { value: 'BEAUTY_SPA', label: 'Thẩm mỹ viện & Spa' },
-  { value: 'B2B_SAAS', label: 'B2B SaaS & Phần mềm' },
-  { value: 'RETAIL', label: 'Bán lẻ & Thương mại' },
-];
-
 export const EditWorkspaceModal: React.FC<EditWorkspaceModalProps> = ({
   isOpen,
   onClose,
@@ -25,13 +18,22 @@ export const EditWorkspaceModal: React.FC<EditWorkspaceModalProps> = ({
   onSave,
 }) => {
   const [name, setName] = useState('');
-  const [domain, setDomain] = useState('EDUCATION');
+  const [selectedDomainKey, setSelectedDomainKey] = useState('EDUCATION');
+  const [customDomainText, setCustomDomainText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (workspace) {
       setName(workspace.name || '');
-      setDomain(workspace.domain || 'EDUCATION');
+      const wsDomain = workspace.domain || 'EDUCATION';
+      const isPreset = DOMAIN_OPTIONS.some((opt) => opt.value === wsDomain && opt.value !== 'CUSTOM');
+      if (isPreset) {
+        setSelectedDomainKey(wsDomain);
+        setCustomDomainText('');
+      } else {
+        setSelectedDomainKey('CUSTOM');
+        setCustomDomainText(wsDomain === 'CUSTOM' ? '' : wsDomain);
+      }
     }
   }, [workspace, isOpen]);
 
@@ -43,12 +45,17 @@ export const EditWorkspaceModal: React.FC<EditWorkspaceModalProps> = ({
       return;
     }
 
+    const finalDomain = selectedDomainKey === 'CUSTOM'
+      ? (customDomainText.trim() || 'CUSTOM')
+      : selectedDomainKey;
+
     setIsSubmitting(true);
     try {
       await onSave(workspace.id, {
         name: name.trim(),
-        domain,
+        domain: finalDomain,
       });
+      notify.success(`Đã cập nhật mô hình: ${getDomainLabel(finalDomain)}`);
       onClose();
     } catch {
       // Error handled in context/apiClient
@@ -79,7 +86,7 @@ export const EditWorkspaceModal: React.FC<EditWorkspaceModalProps> = ({
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="VD: CUSC Cần Thơ..."
+            placeholder="VD: Chi nhánh Hà Nội, Văn phòng TP.HCM, Trụ sở chính..."
             className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 shadow-xs box-border bg-white transition-all"
           />
         </div>
@@ -89,8 +96,8 @@ export const EditWorkspaceModal: React.FC<EditWorkspaceModalProps> = ({
             Lĩnh vực / Mô hình kinh doanh
           </label>
           <select
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
+            value={selectedDomainKey}
+            onChange={(e) => setSelectedDomainKey(e.target.value)}
             className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md bg-white text-slate-700 outline-none focus:border-blue-600 shadow-xs cursor-pointer box-border transition-all"
           >
             {DOMAIN_OPTIONS.map((opt) => (
@@ -100,6 +107,23 @@ export const EditWorkspaceModal: React.FC<EditWorkspaceModalProps> = ({
             ))}
           </select>
         </div>
+
+        {selectedDomainKey === 'CUSTOM' && (
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Tên loại mô hình mới <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={customDomainText}
+              onChange={(e) => setCustomDomainText(e.target.value)}
+              placeholder="VD: F&B / Nhà hàng, Logistics, Du lịch & Khách sạn..."
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 shadow-xs box-border bg-white transition-all"
+              autoFocus
+            />
+          </div>
+        )}
 
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-2">
           <Button

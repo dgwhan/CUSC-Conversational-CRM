@@ -39,33 +39,39 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
     }).format(val);
   };
 
+  const formatResponseTime = (mins: number) => {
+    if (!mins || mins <= 0) return 'Chưa có';
+    if (mins >= 60) return `${(mins / 60).toFixed(1)} giờ`;
+    return `${Math.round(mins)} phút`;
+  };
+
   const getWonConfig = () => {
     switch (domain) {
       case 'REAL_ESTATE':
         return {
-          title: 'Chốt Cọc / Giao Dịch',
-          icon: <Building2 size={22} className="text-emerald-600" />,
+          title: 'Chốt cọc thành công',
+          icon: <Building2 size={16} className="text-emerald-600" />,
         };
       case 'BEAUTY_SPA':
         return {
-          title: 'Chốt Liệu Trình Thành Công',
-          icon: <Sparkles size={22} className="text-emerald-600" />,
+          title: 'Chốt liệu trình',
+          icon: <Sparkles size={16} className="text-emerald-600" />,
         };
       case 'RETAIL':
         return {
-          title: 'Đơn Hàng Thành Công',
-          icon: <ShoppingBag size={22} className="text-emerald-600" />,
+          title: 'Đơn hàng thành công',
+          icon: <ShoppingBag size={16} className="text-emerald-600" />,
         };
       case 'B2B_SAAS':
         return {
-          title: 'Hợp Đồng Ký Kết',
-          icon: <CheckCircle2 size={22} className="text-emerald-600" />,
+          title: 'Hợp đồng ký kết',
+          icon: <CheckCircle2 size={16} className="text-emerald-600" />,
         };
       case 'EDUCATION':
       default:
         return {
-          title: 'Nhập Học Thành Công',
-          icon: <GraduationCap size={22} className="text-emerald-600" />,
+          title: 'Nhập học thành công',
+          icon: <GraduationCap size={16} className="text-emerald-600" />,
         };
     }
   };
@@ -74,92 +80,90 @@ export const MetricCardsGrid: React.FC<MetricCardsGridProps> = ({
   const wonCount = metrics.wonCount ?? metrics.enrolledCount ?? 0;
   const collectedValue = metrics.totalCollectedValue ?? metrics.totalCollectedTuition ?? 0;
   const estimatedValue = metrics.totalEstimatedValue ?? metrics.totalEstimatedTuition ?? 0;
-  const entityLabel = terminology?.entityName || 'Khách hàng';
-  const valLabel = terminology?.valueLabel || 'Giá trị dự kiến';
+
+  const rawEntityLabel = terminology?.entityName || 'Khách hàng';
+  const cleanEntityLabel = rawEntityLabel.split('/')[0].trim();
+  const rawValueLabel = terminology?.valueLabel || 'Giá trị dự kiến';
+  const cleanValueLabel = rawValueLabel.replace(/\s*\(VNĐ\)/gi, '').trim();
 
   const cards = [
     {
-      title: `Tổng ${entityLabel}`,
+      title: `Tổng ${cleanEntityLabel}`,
+      fullTitle: `Tổng ${rawEntityLabel}`,
       value: metrics.totalLeads.toLocaleString('vi-VN'),
       subtext: `${metrics.newLeadsGrowth >= 0 ? '+' : ''}${metrics.newLeadsGrowth}% so với kỳ trước`,
       isPositive: metrics.newLeadsGrowth >= 0,
-      icon: <Users size={22} className="text-blue-600" />,
-      bgIcon: 'bg-blue-50 border-blue-200',
-      badgeColor: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+      icon: <Users size={16} className="text-blue-600" />,
     },
     {
       title: wonConfig.title,
+      fullTitle: wonConfig.title,
       value: wonCount.toLocaleString('vi-VN'),
       subtext: `Tỷ lệ chuyển đổi: ${metrics.conversionRate}%`,
       isPositive: true,
       icon: wonConfig.icon,
-      bgIcon: 'bg-emerald-50 border-emerald-200',
-      badgeColor: 'text-emerald-700 bg-emerald-50 border-emerald-200',
     },
     {
-      title: 'Doanh Thu Thực Thu',
+      title: 'Doanh thu thực thu',
+      fullTitle: 'Doanh thu thực thu (Đã thanh toán)',
       value: formatCurrency(collectedValue),
       subtext: 'Đã hoàn tất thanh toán / ghi nhận',
       isPositive: true,
-      icon: <DollarSign size={22} className="text-amber-600" />,
-      bgIcon: 'bg-amber-50 border-amber-200',
-      badgeColor: 'text-amber-700 bg-amber-50 border-amber-200',
+      icon: <DollarSign size={16} className="text-amber-600" />,
     },
     {
-      title: `Phễu ${valLabel}`,
+      title: `Phễu ${cleanValueLabel}`,
+      fullTitle: `Phễu ${rawValueLabel}`,
       value: formatCurrency(estimatedValue),
       subtext: 'Quy mô tiềm năng đang chăm sóc',
       isPositive: true,
-      icon: <TrendingUp size={22} className="text-purple-600" />,
-      bgIcon: 'bg-purple-50 border-purple-200',
-      badgeColor: 'text-purple-700 bg-purple-50 border-purple-200',
+      icon: <TrendingUp size={16} className="text-purple-600" />,
     },
     {
-      title: 'Tốc Độ Phản Hồi Tin Nhắn',
-      value: metrics.avgResponseTimeMinutes > 0 ? `${metrics.avgResponseTimeMinutes} phút` : 'Chưa có dữ liệu',
+      title: 'Tốc độ phản hồi',
+      fullTitle: 'Tốc độ phản hồi khách hàng đầu tiên',
+      value: formatResponseTime(metrics.avgResponseTimeMinutes),
       subtext: metrics.avgResponseTimeMinutes > 0 ? 'Thời gian phản hồi khách đầu tiên' : 'Chưa ghi nhận tin nhắn phản hồi',
       isPositive: true,
-      icon: <Clock size={22} className="text-teal-600" />,
-      bgIcon: 'bg-teal-50 border-teal-200',
-      badgeColor: 'text-teal-700 bg-teal-50 border-teal-200',
+      icon: <Clock size={16} className="text-teal-600" />,
     },
     {
-      title: 'Tỷ Lệ Rơi Rụng / Thất Bại',
+      title: 'Tỷ lệ rơi rụng',
+      fullTitle: 'Tỷ lệ rơi rụng / Thất bại',
       value: `${metrics.dropOffRate}%`,
       subtext: 'Không phù hợp / Hủy nhu cầu',
       isPositive: metrics.dropOffRate < 20,
-      icon: <UserX size={22} className="text-rose-600" />,
-      bgIcon: 'bg-rose-50 border-rose-200',
-      badgeColor: metrics.dropOffRate < 20
-        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-        : 'text-rose-700 bg-rose-50 border-rose-200',
+      icon: <UserX size={16} className="text-rose-600" />,
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 mb-3.5">
       {cards.map((card, idx) => (
         <div
           key={idx}
-          className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+          className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all duration-150 flex flex-col justify-between"
         >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider line-clamp-1">
+          <div className="flex items-center justify-between gap-1.5 mb-2.5">
+            <span
+              className="text-xs font-medium text-slate-500 truncate"
+              title={card.fullTitle || card.title}
+            >
               {card.title}
             </span>
-            <div className={`p-2 rounded-lg border ${card.bgIcon}`}>
+            <div className="w-7 h-7 rounded-lg border border-slate-200/80 bg-slate-50/80 flex items-center justify-center shrink-0">
               {card.icon}
             </div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-slate-900 tracking-tight mb-1 truncate">
+            <div className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mb-1 truncate" title={card.value}>
               {card.value}
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500" title={card.subtext}>
               {card.isPositive ? (
-                <ArrowUpRight size={14} className="text-emerald-600 shrink-0" />
+                <ArrowUpRight size={13} className="text-emerald-600 shrink-0" />
               ) : (
-                <ArrowDownRight size={14} className="text-rose-600 shrink-0" />
+                <ArrowDownRight size={13} className="text-rose-600 shrink-0" />
               )}
               <span className="truncate">{card.subtext}</span>
             </div>

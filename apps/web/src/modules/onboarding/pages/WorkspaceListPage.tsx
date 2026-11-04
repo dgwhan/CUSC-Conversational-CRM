@@ -9,6 +9,7 @@ import {
   Building2,
 } from 'lucide-react';
 import type { WorkspaceItem } from '../../workspace/WorkspaceConfigContext.js';
+import { getDomainLabel } from '../../workspace/workspaceConfig.types.js';
 
 export interface WorkspaceListPageProps {
   workspaces: WorkspaceItem[];
@@ -39,51 +40,52 @@ export const WorkspaceListPage: React.FC<WorkspaceListPageProps> = ({
     if (!query) return true;
     return (
       matchesUnaccent(ws.name, searchQuery) ||
+      (ws.domain && matchesUnaccent(getDomainLabel(ws.domain), searchQuery)) ||
       (ws.domain && ws.domain.toLowerCase().includes(query))
     );
   });
 
   return (
-    <div className="workspace-flat-view w-full max-w-[1140px] mx-auto px-6 sm:px-10 py-5 pb-14">
-      {/* 1. Header */}
-      <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
+    <div className="workspace-flat-view w-full max-w-[1600px] mx-auto p-3 sm:p-4 min-h-full space-y-3.5 sm:space-y-4">
+      {/* 1. Header Đồng Bộ */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
         <div>
-          <h1 className="text-[22px] font-bold m-0 mb-1.5 text-slate-900 tracking-tight">
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 m-0">
             Không gian làm việc
           </h1>
-          <p className="text-[13.5px] text-slate-500 m-0">
-            Quản lý các tổ chức và không gian làm việc của bạn.
+          <p className="text-xs text-slate-500 m-0 mt-0.5 leading-relaxed">
+            Quản lý các tổ chức, phân quyền nhân sự và kênh kết nối của bạn.
           </p>
         </div>
 
-        {/* Tạo không gian làm việc */}
+        {/* Nút Tạo không gian làm việc */}
         <button
           type="button"
           onClick={onCreateNewWorkspace}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white border-none rounded-lg cursor-pointer transition-all shadow-sm hover:shadow"
+          className="h-8 px-3 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors shrink-0"
         >
-          <Plus size={15} />
+          <Plus size={14} />
           <span>Thêm không gian làm việc</span>
         </button>
       </div>
 
-      {/* Ô tìm kiếm đồng bộ chuẩ */}
-      <div className="mb-4">
+      {/* Ô tìm kiếm đồng bộ chuẩn */}
+      <div className="w-full">
         <SearchInput
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder="Tìm kiếm không gian làm việc (hỗ trợ không dấu)..."
-          size="md"
+          placeholder="Tìm kiếm không gian làm việc theo tên hoặc lĩnh vực..."
+          size="sm"
           className="w-full"
         />
       </div>
 
       {/* Thanh phụ: Tất cả không gian làm việc & Số lượng */}
-      <div className="flex items-center justify-between mb-3 px-1">
-        <span className="text-[12.5px] font-bold text-slate-800 uppercase tracking-wider">
+      <div className="flex items-center justify-between px-1">
+        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
           Tất cả không gian làm việc
         </span>
-        <span className="text-xs text-slate-500">
+        <span className="text-[11px] text-slate-500 font-medium">
           {filteredWorkspaces.length} không gian làm việc
         </span>
       </div>
@@ -91,20 +93,22 @@ export const WorkspaceListPage: React.FC<WorkspaceListPageProps> = ({
       {/* Trạng thái Loading */}
       {isLoading && (
         <div className="flex justify-center items-center py-10 text-slate-500 text-xs gap-2">
-          <Loader2 className="animate-spin text-blue-600" size={22} />
+          <Loader2 className="animate-spin text-blue-600" size={20} />
           <span>Đang tải danh sách không gian làm việc...</span>
         </div>
       )}
 
       {/* Trạng thái rỗng  */}
       {!isLoading && filteredWorkspaces.length === 0 && (
-        <div className="bg-white border border-dashed border-slate-300 rounded-xl py-14 px-6 text-center flex flex-col items-center gap-3">
-          <Building2 size={32} className="text-slate-400" />
+        <div className="bg-white border border-dashed border-slate-300 rounded-xl py-12 px-6 text-center flex flex-col items-center gap-3 shadow-2xs">
+          <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400">
+            <Building2 size={20} />
+          </div>
           <div>
-            <h3 className="text-sm font-semibold m-0 mb-1 text-slate-900">
+            <h3 className="text-xs font-bold m-0 mb-1 text-slate-900">
               {searchQuery ? 'Không tìm thấy không gian làm việc phù hợp' : 'Chưa có không gian làm việc nào'}
             </h3>
-            <p className="text-xs text-slate-500 m-0 max-w-md">
+            <p className="text-[11px] text-slate-500 m-0 max-w-md">
               {searchQuery
                 ? `Không có kết quả nào khớp với "${searchQuery}". Vui lòng thử từ khóa khác.`
                 : 'Hãy tạo không gian làm việc đầu tiên để bắt đầu kết nối kênh và quản lý đội ngũ tư vấn.'}
@@ -114,46 +118,48 @@ export const WorkspaceListPage: React.FC<WorkspaceListPageProps> = ({
             <button
               type="button"
               onClick={onCreateNewWorkspace}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white border-none rounded-lg cursor-pointer shadow-sm"
+              className="h-8 px-3 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
-              <Plus size={15} />
+              <Plus size={14} />
               <span>Tạo không gian làm việc</span>
             </button>
           )}
         </div>
       )}
 
+      {/* Danh sách thẻ Workspace */}
       {!isLoading && filteredWorkspaces.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-xs divide-y divide-slate-100 overflow-hidden">
+        <div className="bg-white border border-slate-200/80 rounded-xl shadow-2xs divide-y divide-slate-100 overflow-hidden">
           {filteredWorkspaces.map((ws) => {
             const isActive = ws.id === activeWorkspaceId;
 
             return (
               <div
                 key={ws.id}
-                className={`flex items-center justify-between p-4 sm:p-5 px-5 sm:px-6 gap-4 flex-wrap transition-colors hover:bg-slate-50/80 ${isActive ? 'border-l-[4px] border-l-blue-600 bg-blue-50/20' : 'border-l-[4px] border-l-transparent'
-                  }`}
+                className={`flex items-center justify-between p-3.5 sm:p-4 px-4 sm:px-5 gap-4 flex-wrap transition-colors hover:bg-slate-50/80 ${
+                  isActive ? 'border-l-[4px] border-l-blue-600 bg-blue-50/30' : 'border-l-[4px] border-l-transparent'
+                }`}
               >
                 {/* Tên & Lĩnh vực & Badges  */}
                 <div className="flex flex-col gap-1 min-w-[220px]">
-                  <span className="text-[14.5px] font-semibold text-slate-900">
+                  <span className="text-sm font-bold text-slate-900">
                     {ws.name}
                   </span>
 
                   {/* Lĩnh vực / Mô tả tổ chức */}
-                  <span className="text-xs text-slate-500">
-                    {ws.domain || 'Dịch vụ & Doanh nghiệp'}
+                  <span className="text-xs text-slate-500 font-medium">
+                    {getDomainLabel(ws.domain)}
                   </span>
 
                   {/* Badges */}
                   <div className="flex items-center gap-2 mt-0.5">
                     {ws.isOwner && (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-md border bg-blue-50 text-blue-700 border-blue-200">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md border bg-blue-50 text-blue-700 border-blue-200/80">
                         Chủ sở hữu
                       </span>
                     )}
                     {isActive && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/80">
                         <CheckCircle2 size={11} />
                         <span>Đang làm việc</span>
                       </span>
@@ -164,13 +170,13 @@ export const WorkspaceListPage: React.FC<WorkspaceListPageProps> = ({
                   </div>
                 </div>
 
-                {/*  Mở không gian làm việc  */}
-                <div className="flex items-center gap-3">
+                {/*  Nút thao tác */}
+                <div className="flex items-center gap-2">
                   {!isActive && (
                     <button
                       type="button"
                       onClick={() => onSelectWorkspace(ws.id)}
-                      className="bg-white border border-slate-300 hover:border-blue-600 hover:text-blue-600 text-slate-700 rounded-md px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors shadow-2xs"
+                      className="h-7 px-3 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs cursor-pointer transition-colors"
                       title="Kích hoạt làm việc trên không gian này"
                     >
                       Chọn
@@ -180,10 +186,10 @@ export const WorkspaceListPage: React.FC<WorkspaceListPageProps> = ({
                   <button
                     type="button"
                     onClick={() => onViewDetail(ws)}
-                    className="bg-transparent border-none text-blue-600 text-xs font-semibold cursor-pointer px-2 py-1 rounded-md hover:bg-blue-50/80 inline-flex items-center gap-1.5 transition-colors"
+                    className="h-7 px-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer border border-transparent hover:border-blue-200"
                   >
                     <span>Mở không gian làm việc</span>
-                    <ArrowUpRight size={14} />
+                    <ArrowUpRight size={13} />
                   </button>
                 </div>
               </div>

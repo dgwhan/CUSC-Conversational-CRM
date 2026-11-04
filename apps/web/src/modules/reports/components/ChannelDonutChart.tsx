@@ -60,15 +60,12 @@ export const ChannelDonutChart: React.FC<ChannelDonutChartProps> = ({ channels }
   };
 
   return (
-    <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200/80 shadow-xs flex flex-col h-full">
+      <div className="flex items-center justify-between mb-2.5">
         <div>
           <h3 className="text-base font-bold text-slate-800">
             Nguồn Kênh Tiếp Nhận
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Tỷ trọng hồ sơ từ Facebook, Zalo, TikTok & Hotline
-          </p>
         </div>
       </div>
       <div className="relative flex-1 min-h-[280px] flex items-center justify-center">
@@ -77,7 +74,7 @@ export const ChannelDonutChart: React.FC<ChannelDonutChartProps> = ({ channels }
             <Doughnut data={data} options={options} />
             {/* Center label inside Doughnut */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
-              <span className="text-2xl font-bold text-slate-900">{totalLeads}</span>
+              <span className="text-xl font-bold text-slate-900">{totalLeads}</span>
               <span className="text-xs text-slate-500 font-medium">Tổng tiếp nhận</span>
             </div>
           </>

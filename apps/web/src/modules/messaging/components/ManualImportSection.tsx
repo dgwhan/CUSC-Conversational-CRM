@@ -119,8 +119,8 @@ export const ManualImportSection: React.FC<ManualImportSectionProps> = ({
       <CardFooter>
         <Button
           variant="primary"
-          size="lg"
-          icon={<Send size={16} />}
+          size="sm"
+          icon={<Send size={14} />}
           loading={loading}
           onClick={onSubmit}
         >

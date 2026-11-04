@@ -215,14 +215,14 @@ export function Modal({
 
             {/* Tiêu đề & Mô tả */}
             {(title || description) && (
-              <div className="text-left space-y-2.5 mb-6">
+              <div className="text-left space-y-1.5 mb-5">
                 {title && (
-                  <h2 className="font-sans text-2xl font-bold tracking-tight text-text-primary">
+                  <h2 className="font-sans text-base sm:text-lg font-bold tracking-tight text-slate-900 m-0">
                     {title}
                   </h2>
                 )}
                 {description && (
-                  <div className="font-sans text-base text-text-secondary leading-relaxed">
+                  <div className="font-sans text-xs sm:text-sm text-slate-500 leading-relaxed m-0">
                     {description}
                   </div>
                 )}

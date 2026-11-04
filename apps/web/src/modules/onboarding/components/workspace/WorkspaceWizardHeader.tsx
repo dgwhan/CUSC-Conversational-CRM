@@ -37,12 +37,12 @@ export const WorkspaceWizardHeader: React.FC<WorkspaceWizardHeaderProps> = ({
       {/* Top Banner Tiêu đề Wizard */}
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 m-0">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 m-0">
             {isCreatingNewWorkspace
               ? 'Tạo Không gian làm việc & Kết nối Kênh'
-              : `Cấu hình Không gian làm việc: ${activeWorkspaceName || 'CUSC CRM'}`}
+              : `Cấu hình Không gian làm việc: ${activeWorkspaceName || 'Không gian làm việc'}`}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 m-0">
+          <p className="text-xs sm:text-[13px] text-slate-500 mt-1 m-0">
             {t('onboarding.welcomeDesc')}
           </p>
         </div>

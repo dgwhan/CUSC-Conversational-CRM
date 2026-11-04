@@ -32,7 +32,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
     const meta = resolveChannelInfo(channel);
     return (
       <span
-        className="absolute -bottom-0.5 -right-0.5 w-[18px] h-[18px] rounded-full text-white text-[8px] font-extrabold flex items-center justify-center border-2 border-white shadow-sm overflow-hidden"
+        className="absolute -bottom-0.5 -right-0.5 w-[20px] h-[20px] rounded-full text-white text-[10px] font-extrabold flex items-center justify-center border-2 border-white shadow-sm overflow-hidden"
         style={{ backgroundColor: meta.badgeBg }}
         title={meta.label}
       >
@@ -89,10 +89,10 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
           <div className="flex items-center gap-1.5 ml-1.5 shrink-0">
             {isOverdue && (
               <span
-                className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded leading-none shadow-xs"
+                className="inline-flex items-center gap-0.5 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded leading-none shadow-xs"
                 title={`Chưa phản hồi ${waitingMinutes} phút (vượt mốc cảnh báo ${alertThresholdMinutes} phút)`}
               >
-                <Clock size={9} className="text-rose-600 animate-pulse" />
+                <Clock size={10} className="text-rose-600 animate-pulse" />
                 <span>{waitingMinutes >= 60 ? `${Math.floor(waitingMinutes / 60)}h${waitingMinutes % 60}p` : `${waitingMinutes}p`}</span>
               </span>
             )}
@@ -116,14 +116,14 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
             {item.tags.slice(0, 2).map((tag: string, idx: number) => (
               <span
                 key={idx}
-                className="inline-flex items-center gap-0.5 text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200/80 px-1.5 py-0.5 rounded leading-none shrink-0"
+                className="inline-flex items-center gap-0.5 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200/80 px-1.5 py-0.5 rounded leading-none shrink-0"
               >
                 <Tag size={9} />
                 {tag}
               </span>
             ))}
             {item.tags.length > 2 && (
-              <span className="text-[10px] text-slate-400 font-medium shrink-0">
+              <span className="text-[11px] text-slate-400 font-medium shrink-0">
                 +{item.tags.length - 2}
               </span>
             )}
@@ -132,7 +132,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
           {/* Chỉ báo trạng thái đọc & Nhân viên phụ trách */}
           <div className="flex items-center gap-1.5 shrink-0 ml-auto">
             {hasUnread ? (
-              <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 min-w-[18px] text-center rounded-full leading-none shadow-sm shadow-red-500/20">
+              <span className="text-[11px] font-bold bg-red-500 text-white px-1.5 py-0.5 min-w-[18px] text-center rounded-full leading-none shadow-sm shadow-red-500/20">
                 {item.unreadCount}
               </span>
             ) : (
@@ -141,7 +141,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
 
             {item.assignedStaff ? (
               <span
-                className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded leading-none"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded leading-none"
                 title={`Phụ trách: ${item.assignedStaff.name}`}
               >
                 <UserCheck size={11} className="text-slate-500" />
@@ -149,7 +149,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
               </span>
             ) : (
               <span
-                className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded leading-none"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded leading-none"
                 title="Hội thoại chưa gán - Bạn có thể bấm Nhận việc"
               >
                 <UserX size={10} className="text-amber-600" />

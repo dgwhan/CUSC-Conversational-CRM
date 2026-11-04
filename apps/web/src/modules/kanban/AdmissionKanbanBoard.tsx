@@ -26,6 +26,8 @@ import {
   Sliders,
   Plus,
   Edit2,
+  Filter,
+  Layers,
 } from 'lucide-react';
 
 interface AdmissionKanbanBoardProps {
@@ -39,7 +41,7 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
 }) => {
   const { staffPresences, onPipelineChange, onNewMessage } = useRealtime();
   const { isOwner, isAgent, staffId } = useUserRole();
-  const { config, activeWorkspaceId } = useWorkspaceConfig();
+  const { config, activeWorkspaceId, activeWorkspace } = useWorkspaceConfig();
 
   const [candidates, setCandidates] = useState<KanbanCandidate[]>(INITIAL_KANBAN_CANDIDATES);
 
@@ -545,137 +547,187 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
 
   const conversionRate = totalLeads > 0 ? Math.round((wonCount / totalLeads) * 100) : 0;
 
+  const pageTitle = React.useMemo(() => {
+    const wsName = activeWorkspace?.name || config.workspaceName || '';
+    const rawPipeline = config.terminology?.pipelineName || 'Phễu Tuyển Sinh & Đào Tạo';
+    const pipelineName = rawPipeline.startsWith('Phễu')
+      ? rawPipeline
+      : `Phễu ${rawPipeline}`;
+
+    if (wsName) {
+      if (pipelineName.toLowerCase().includes(wsName.toLowerCase())) {
+        return pipelineName;
+      }
+      return `${pipelineName} - ${wsName}`;
+    }
+
+    return pipelineName;
+  }, [activeWorkspace?.name, config.workspaceName, config.terminology?.pipelineName]);
+
   return (
     <div className="kanban-pipeline-wrapper">
-      {/* 1. THANH CHỈ SỐ KPI TỔNG QUAN */}
-      <div className="kanban-kpi-banner">
-        <div className="kpi-metric-card">
-          <div className="kpi-icon-box total">
-            <Users size={18} />
+      {/* 0. HEADER TIÊU ĐỀ TRANG - Flat section chuẩn SaaS */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+        <div>
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+            {pageTitle}
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Quản lý và chuyển đổi {config.terminology.entityName.toLowerCase()} theo các giai đoạn quy trình
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs text-slate-500 shrink-0 self-start sm:self-auto">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Dữ liệu thời gian thực</span>
+        </div>
+      </div>
+
+      {/* 1. THANH CHỈ SỐ KPI TỔNG QUAN - Đồng bộ MetricCardsGrid chuẩn hệ thống */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 shrink-0">
+        {/* Card 1: Tổng khách hàng */}
+        <div className="bg-white rounded-xl p-3 sm:p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-1.5 mb-2">
+            <span className="text-xs font-medium text-slate-500 truncate" title={`Tổng ${config.terminology.entityName}`}>
+              Tổng {config.terminology.entityName.split('/')[0].trim()}
+            </span>
+            <div className="w-7 h-7 rounded-lg border border-slate-200/80 bg-slate-50/80 flex items-center justify-center shrink-0">
+              <Users size={16} className="text-blue-600" />
+            </div>
           </div>
-          <div className="kpi-metric-info">
-            <span className="kpi-label">Tổng {config.terminology.entityName}</span>
-            <span className="kpi-value">{totalLeads}</span>
+          <div className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+            {totalLeads}
           </div>
         </div>
 
-        <div className="kpi-metric-card">
-          <div className="kpi-icon-box new">
-            <Sparkles size={18} />
-          </div>
-          <div className="kpi-metric-info">
-            <span className="kpi-label">
+        {/* Card 2: Tiếp nhận mới */}
+        <div className="bg-white rounded-xl p-3 sm:p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-1.5 mb-2">
+            <span className="text-xs font-medium text-slate-500 truncate" title={firstStage?.name || 'Tiếp nhận Mới'}>
               {firstStage?.name || 'Tiếp nhận Mới'}
             </span>
-            <span className="kpi-value" style={{ color: '#0284c7' }}>{newLeadCount}</span>
+            <div className="w-7 h-7 rounded-lg border border-slate-200/80 bg-slate-50/80 flex items-center justify-center shrink-0">
+              <Sparkles size={16} className="text-sky-600" />
+            </div>
+          </div>
+          <div className="text-lg sm:text-xl font-bold text-sky-600 tracking-tight">
+            {newLeadCount}
           </div>
         </div>
 
-        <div className="kpi-metric-card">
-          <div className="kpi-icon-box tuition">
-            <DollarSign size={18} />
-          </div>
-          <div className="kpi-metric-info">
-            <span className="kpi-label">
+        {/* Card 3: Giá trị phễu dự kiến */}
+        <div className="bg-white rounded-xl p-3 sm:p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-1.5 mb-2">
+            <span className="text-xs font-medium text-slate-500 truncate" title={isOwner ? `${config.terminology.valueLabel} (Toàn DN)` : `${config.terminology.valueLabel} (Bạn chăm sóc)`}>
               {isOwner
-                ? `${config.terminology.valueLabel} (Toàn DN)`
-                : `${config.terminology.valueLabel} (Bạn Chăm Sóc)`}
+                ? `${config.terminology.valueLabel.replace(/\s*\(VNĐ\)/gi, '').trim()} (Toàn DN)`
+                : `${config.terminology.valueLabel.replace(/\s*\(VNĐ\)/gi, '').trim()} (Bạn chăm sóc)`}
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span className="kpi-value" style={{ color: '#0d9488' }}>
-                {formatCurrency(isOwner ? totalTuition : myTuition)}
-              </span>
-              {isAgent && (
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '2px',
-                    fontSize: '10px',
-                    color: '#64748b',
-                    background: '#f1f5f9',
-                    padding: '1px 5px',
-                    borderRadius: '4px',
-                  }}
-                  title="Theo chính sách bảo mật RBAC, tổng doanh số toàn doanh nghiệp chỉ hiển thị cho Chủ doanh nghiệp."
-                >
-                  <Lock size={10} />
-                  <span>Ẩn tổng trường</span>
-                </span>
-              )}
+            <div className="w-7 h-7 rounded-lg border border-slate-200/80 bg-slate-50/80 flex items-center justify-center shrink-0">
+              <DollarSign size={16} className="text-amber-600" />
             </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+              {formatCurrency(isOwner ? totalTuition : myTuition)}
+            </span>
+            {isAgent && (
+              <span
+                className="inline-flex items-center gap-1 text-[11px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md"
+                title="Theo chính sách bảo mật RBAC, tổng doanh số toàn doanh nghiệp chỉ hiển thị cho Chủ doanh nghiệp."
+              >
+                <Lock size={10} />
+                <span>Ẩn tổng trường</span>
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="kpi-metric-card">
-          <div className="kpi-icon-box conversion">
-            <Award size={18} />
-          </div>
-          <div className="kpi-metric-info">
-            <span className="kpi-label">Chốt Thành Công</span>
-            <div className="kpi-sub-row">
-              <span className="kpi-value" style={{ color: '#16a34a' }}>{wonCount}</span>
-              <span className="kpi-rate-badge">Tỷ lệ chốt: {conversionRate}%</span>
+        {/* Card 4: Chốt thành công */}
+        <div className="bg-white rounded-xl p-3 sm:p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-1.5 mb-2">
+            <span className="text-xs font-medium text-slate-500 truncate">
+              Chốt thành công
+            </span>
+            <div className="w-7 h-7 rounded-lg border border-slate-200/80 bg-slate-50/80 flex items-center justify-center shrink-0">
+              <Award size={16} className="text-emerald-600" />
             </div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-lg sm:text-xl font-bold text-emerald-600 tracking-tight">
+              {wonCount}
+            </span>
+            <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md">
+              Tỷ lệ chốt: {conversionRate}%
+            </span>
           </div>
         </div>
       </div>
 
-      {/* 2. THANH CÔNG CỤ TÌM KIẾM & BỘ LỌC */}
+      {/* 2. THANH CÔNG CỤ TÌM KIẾM & BỘ LỌC - Flat section */}
       <div className="kanban-toolbar">
         <div className="toolbar-left-group">
-          {/* Ô tìm kiếm đồng bộ chuẩ */}
+          {/* Ô tìm kiếm */}
           <div className="kanban-search-box" style={{ padding: '0', background: 'transparent', border: 'none' }}>
             <SearchInput
               value={searchQuery}
               onChange={setSearchQuery}
               placeholder="Tìm theo tên (không dấu), SĐT, email..."
-              size="md"
+              size="sm"
               className="w-full min-w-[260px]"
             />
           </div>
 
           {/* Lọc Kênh */}
-          <select
-            className="kanban-filter-select"
-            value={channelFilter}
-            onChange={(e) => setChannelFilter(e.target.value as 'ALL' | ChannelType)}
-          >
-            <option value="ALL">Tất cả nguồn kênh</option>
-            <option value="FACEBOOK">Facebook Messenger</option>
-            <option value="ZALO">Zalo OA</option>
-            <option value="ZALO_PERSONAL">Zalo Cá nhân (Tư vấn)</option>
-            <option value="TIKTOK">TikTok Channel</option>
-            <option value="MANUAL">Nhập trực tiếp / Hotline</option>
-          </select>
+          <div className="relative inline-flex items-center">
+            <Filter size={12} className="absolute left-2.5 text-slate-400 pointer-events-none" />
+            <select
+              className="kanban-filter-select pl-7"
+              value={channelFilter}
+              onChange={(e) => setChannelFilter(e.target.value as 'ALL' | ChannelType)}
+            >
+              <option value="ALL">Tất cả nguồn kênh</option>
+              <option value="FACEBOOK">Facebook Messenger</option>
+              <option value="ZALO">Zalo OA</option>
+              <option value="ZALO_PERSONAL">Zalo Cá nhân (Tư vấn)</option>
+              <option value="TIKTOK">TikTok Channel</option>
+              <option value="MANUAL">Nhập trực tiếp / Hotline</option>
+            </select>
+          </div>
 
           {/* Lọc Nhân viên */}
-          <select
-            className="kanban-filter-select"
-            value={staffFilter}
-            onChange={(e) => setStaffFilter(e.target.value)}
-          >
-            <option value="ALL">Tất cả nhân viên tư vấn</option>
-            {Object.values(staffPresences).map((staff) => (
-              <option key={staff.staffId} value={staff.staffId}>
-                {staff.name}
-              </option>
-            ))}
-          </select>
+          <div className="relative inline-flex items-center">
+            <Users size={12} className="absolute left-2.5 text-slate-400 pointer-events-none" />
+            <select
+              className="kanban-filter-select pl-7"
+              value={staffFilter}
+              onChange={(e) => setStaffFilter(e.target.value)}
+            >
+              <option value="ALL">Tất cả nhân viên tư vấn</option>
+              {Object.values(staffPresences).map((staff) => (
+                <option key={staff.staffId} value={staff.staffId}>
+                  {staff.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Lọc Sản phẩm / Khóa học theo catalog của workspace */}
-          <select
-            className="kanban-filter-select"
-            value={courseFilter}
-            onChange={(e) => setCourseFilter(e.target.value)}
-          >
-            <option value="ALL">Tất cả {config.terminology.productLabel.toLowerCase()}</option>
-            {config.productCatalog.map((prod) => (
-              <option key={prod.id} value={prod.name}>
-                {prod.name}
-              </option>
-            ))}
-          </select>
+          <div className="relative inline-flex items-center">
+            <Layers size={12} className="absolute left-2.5 text-slate-400 pointer-events-none" />
+            <select
+              className="kanban-filter-select pl-7"
+              value={courseFilter}
+              onChange={(e) => setCourseFilter(e.target.value)}
+            >
+              <option value="ALL">Tất cả {config.terminology.productLabel.toLowerCase()}</option>
+              {config.productCatalog.map((prod) => (
+                <option key={prod.id} value={prod.name}>
+                  {prod.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="toolbar-right-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -683,23 +735,22 @@ export const AdmissionKanbanBoard: React.FC<AdmissionKanbanBoardProps> = ({
           {onNavigateToSettings && isOwner && (
             <button
               type="button"
-              className="crm-btn crm-btn-secondary"
+              className="kanban-config-btn"
               onClick={onNavigateToSettings}
               title="Tùy biến các giai đoạn phễu và danh mục sản phẩm cho Workspace"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <Sliders size={14} />
+              <Sliders size={13} />
               <span>Cấu hình Phễu</span>
             </button>
           )}
 
           <button
             type="button"
-            className="btn btn-primary"
+            className="kanban-add-btn"
             onClick={() => setIsModalOpen(true)}
           >
-            <UserPlus size={15} />
-            <span>Thêm {config.terminology.entityName}</span>
+            <UserPlus size={14} />
+            <span>Thêm {config.terminology.entityName.split('/')[0].trim()}</span>
           </button>
         </div>
       </div>

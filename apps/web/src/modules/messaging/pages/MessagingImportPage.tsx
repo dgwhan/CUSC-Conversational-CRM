@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { TableProperties, FileSpreadsheet, PenLine, Database, Sheet } from 'lucide-react';
 import { Alert } from '../../../components/ui/Alert.js';
+import { Tabs, type TabItem } from '../../../components/ui/Tabs.js';
+import { useWorkspaceConfig } from '../../workspace/WorkspaceConfigContext.js';
 import { useMessageImport } from '../hooks/useMessageImport.js';
 import { SpreadsheetGrid } from '../components/SpreadsheetGrid.js';
 import { CsvImportSection } from '../components/CsvImportSection.js';
@@ -37,18 +39,51 @@ export const MessagingImportPage: React.FC = () => {
     updateManualRow,
   } = useMessageImport();
 
+  const { config } = useWorkspaceConfig();
+  const customerLabel = config?.terminology?.entityName || 'Khách Hàng';
+
   const handleImportGridRows = async (rows: ManualImportRow[]) => {
     await submitCustomRows(rows);
   };
 
+  const tabItems: TabItem<TabKey>[] = [
+    {
+      id: 'grid',
+      label: 'Bảng Tính In-App Grid (Ctrl+V)',
+      icon: <TableProperties size={14} />,
+    },
+    {
+      id: 'csv',
+      label: 'Import File CSV',
+      icon: <FileSpreadsheet size={14} />,
+    },
+    {
+      id: 'manual',
+      label: 'Nhập Tay Cơ Bản',
+      icon: <PenLine size={14} />,
+    },
+    {
+      id: 'gsheet',
+      label: 'Đồng Bộ Google Sheet',
+      icon: <Sheet size={14} />,
+    },
+    {
+      id: 'saved',
+      label: 'Tin Nhắn Đã Lưu (Database)',
+      icon: <Database size={14} />,
+    },
+  ];
+
   return (
-    <div className="crm-page-container">
-      {/* Page Title & Context */}
-      <div className="crm-page-header">
+    <div className="messaging-import-page w-full max-w-[1600px] mx-auto p-3 sm:p-4 min-h-full space-y-3.5 sm:space-y-4">
+      {/* 1. Header Đồng Bộ Hệ Thống */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
         <div>
-          <h1 className="crm-page-title">Quản Lý & Tiếp Nhận Tin Nhắn Tuyển Sinh</h1>
-          <p className="crm-page-description">
-            Bảng tính trực quan hỗ trợ copy/paste từ Google Sheets & Excel, kiểm thực nghiêm ngặt qua Zod và quản lý toàn bộ kho tin nhắn tư vấn đã lưu.
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 m-0">
+            Quản Lý & Tiếp Nhận Tin Nhắn
+          </h1>
+          <p className="text-xs text-slate-500 m-0 mt-0.5 leading-relaxed">
+            Bảng tính trực quan hỗ trợ copy/paste từ Google Sheets & Excel, kiểm thực nghiêm ngặt qua Zod và quản lý toàn bộ kho dữ liệu tin nhắn tư vấn {customerLabel.toLowerCase()}.
           </p>
         </div>
       </div>
@@ -59,53 +94,21 @@ export const MessagingImportPage: React.FC = () => {
           variant="danger"
           title="Thông báo lỗi"
           onClose={() => setErrorMessage(null)}
-          className="crm-page-alert"
+          className="mb-2"
         >
           {errorMessage}
         </Alert>
       )}
 
-      {/* Navigation Tab Bar */}
-      <div className="crm-tab-bar">
-        <button
-          className={`crm-tab-btn ${currentTab === 'grid' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('grid')}
-        >
-          <TableProperties size={16} />
-          <span>Bảng Tính In-App Grid (Ctrl+V)</span>
-        </button>
-        <button
-          className={`crm-tab-btn ${currentTab === 'csv' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('csv')}
-        >
-          <FileSpreadsheet size={16} />
-          <span>Import File CSV</span>
-        </button>
-        <button
-          className={`crm-tab-btn ${currentTab === 'manual' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('manual')}
-        >
-          <PenLine size={16} />
-          <span>Nhập Tay Cơ Bản</span>
-        </button>
-        <button
-          className={`crm-tab-btn ${currentTab === 'gsheet' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('gsheet')}
-        >
-          <Sheet size={16} />
-          <span>Đồng Bộ Google Sheet</span>
-        </button>
-        <button
-          className={`crm-tab-btn ${currentTab === 'saved' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('saved')}
-        >
-          <Database size={16} />
-          <span>Tin Nhắn Đã Lưu (Database)</span>
-        </button>
-      </div>
+      {/* 2. Thanh Tabs trượt gạch dưới hệ thống chuẩn */}
+      <Tabs<TabKey>
+        items={tabItems}
+        activeTab={currentTab}
+        onChange={setCurrentTab}
+      />
 
-      {/* Tab Panels */}
-      <div className="crm-tab-content">
+      {/* 3. Nội dung Tab đang chọn */}
+      <div className="w-full">
         {currentTab === 'grid' && (
           <SpreadsheetGrid
             onImportRows={handleImportGridRows}
@@ -149,11 +152,13 @@ export const MessagingImportPage: React.FC = () => {
         )}
       </div>
 
-      {/* Results Section */}
+      {/* 4. Results Section */}
       {result && currentTab !== 'saved' && (
-        <div className="crm-results-container" id="results">
-          <div className="crm-section-divider">
-            <span>KẾT QUẢ XỬ LÝ VÀ KIỂM THỰC</span>
+        <div className="space-y-3 pt-2" id="results">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Kết quả xử lý và kiểm thực
+            </span>
           </div>
 
           <ImportResultsSummary result={result} />

@@ -28,7 +28,7 @@ export type {
 
 const STORAGE_KEY = 'polarisx_crm_workspace_config_v1';
 
-const defaultEducationPreset = CLIENT_INDUSTRY_PRESETS.EDUCATION;
+const defaultEducationPreset = CLIENT_INDUSTRY_PRESETS.CUSTOM;
 const initialDefaultConfig: WorkspaceConfig = {
   workspaceId: 'ws-default-001',
   workspaceName: defaultEducationPreset.workspaceName,
@@ -40,7 +40,10 @@ const initialDefaultConfig: WorkspaceConfig = {
   unresponsiveAlertMinutes: 15,
 };
 
-const WorkspaceConfigContext = createContext<WorkspaceConfigContextType | undefined>(undefined);
+const CONTEXT_SYMBOL = Symbol.for('__polarisx_workspace_config_context__');
+const globalScope = typeof window !== 'undefined' ? (window as any) : globalThis;
+const WorkspaceConfigContext: React.Context<WorkspaceConfigContextType | undefined> =
+  globalScope[CONTEXT_SYMBOL] || (globalScope[CONTEXT_SYMBOL] = createContext<WorkspaceConfigContextType | undefined>(undefined));
 
 export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isOwner, staffId, staffName, ownerId, isAuthenticated, setRole } = useUserRole();
@@ -244,10 +247,43 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
   );
 };
 
-export const useWorkspaceConfig = () => {
+const defaultFallbackContext: WorkspaceConfigContextType = {
+  config: initialDefaultConfig,
+  isLoading: false,
+  applyPreset: async () => {},
+  updateConfig: async () => {},
+  addStage: async () => {},
+  updateStage: async () => {},
+  deleteStage: async () => {},
+  reorderStages: async () => {},
+  addProduct: async () => {},
+  updateProduct: async () => {},
+  deleteProduct: async () => {},
+  addCriteria: async () => {},
+  updateCriteria: async () => {},
+  deleteCriteria: async () => {},
+  resetToDefault: () => {},
+  staffMembers: [],
+  fetchStaffList: async () => [],
+  createStaffMember: async () => {},
+  updateStaffMember: async () => {},
+  toggleLockStaffMember: async () => {},
+  deleteStaffMember: async () => {},
+  myWorkspaces: [],
+  activeWorkspaceId: 'ws-default-001',
+  activeWorkspace: null,
+  isCurrentWorkspaceOwner: true,
+  switchWorkspace: async () => {},
+  fetchMyWorkspaces: async () => [],
+  createWorkspace: async () => null,
+  updateWorkspaceInfo: async () => ({} as any),
+  deleteWorkspace: async () => {},
+};
+
+export const useWorkspaceConfig = (): WorkspaceConfigContextType => {
   const context = useContext(WorkspaceConfigContext);
   if (!context) {
-    throw new Error('useWorkspaceConfig must be used within a WorkspaceConfigProvider');
+    return defaultFallbackContext;
   }
   return context;
 };

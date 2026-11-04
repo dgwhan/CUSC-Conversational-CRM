@@ -40,15 +40,14 @@ export const GoogleSheetIntegrationSection: React.FC<GoogleSheetIntegrationSecti
             </CardDescription>
           </div>
           <div className="crm-header-actions">
-            <a
-              href="https://docs.google.com/spreadsheets/create"
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-secondary btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<ExternalLink size={13} />}
+              onClick={() => window.open('https://docs.google.com/spreadsheets/create', '_blank')}
             >
-              <ExternalLink size={14} />
-              <span>Tạo Sheet Mới</span>
-            </a>
+              Tạo Sheet Mới
+            </Button>
           </div>
         </CardHeader>
 
@@ -92,8 +91,8 @@ export const GoogleSheetIntegrationSection: React.FC<GoogleSheetIntegrationSecti
         <CardFooter>
           <Button
             variant="primary"
-            size="lg"
-            icon={<RefreshCw size={16} />}
+            size="sm"
+            icon={<RefreshCw size={13} />}
             loading={loading}
             onClick={handleSubmit}
           >
@@ -122,7 +121,7 @@ export const GoogleSheetIntegrationSection: React.FC<GoogleSheetIntegrationSecti
                 Mỗi khi có tin nhắn mới từ Zalo OA, Facebook Messenger hay Webhook, worker CRM tự động append dòng dữ liệu mới vào Google Sheet thông qua <strong>Google Sheets API v4 (Service Account)</strong>.
               </p>
               <ul>
-                <li><CheckCircle2 size={13} className="text-success" /> Ban tuyển sinh xem dữ liệu trực quan trên Google Sheet bất cứ lúc nào.</li>
+                <li><CheckCircle2 size={13} className="text-success" /> Đội ngũ tư vấn xem dữ liệu trực quan trên Google Sheet bất cứ lúc nào.</li>
                 <li><CheckCircle2 size={13} className="text-success" /> Tận dụng bộ lọc, pivot table, biểu đồ và tính năng chia sẻ của Google.</li>
               </ul>
             </div>

@@ -185,8 +185,8 @@ export const WorkspaceDetailHeader: React.FC<WorkspaceDetailHeaderProps> = ({
           {!isActive && (
             <Button
               variant="secondary"
-              size="md"
-              icon={<CheckCircle2 size={14} className="text-blue-600" />}
+              size="sm"
+              icon={<CheckCircle2 size={13} className="text-blue-600" />}
               onClick={() => onSelectWorkspace(workspace.id)}
             >
               Chọn làm việc
@@ -195,8 +195,8 @@ export const WorkspaceDetailHeader: React.FC<WorkspaceDetailHeaderProps> = ({
 
           <Button
             variant="primary"
-            size="md"
-            icon={<MessageSquare size={14} />}
+            size="sm"
+            icon={<MessageSquare size={13} />}
             onClick={() => onGoToInbox(workspace.id)}
           >
             Vào Hộp thư
@@ -205,8 +205,8 @@ export const WorkspaceDetailHeader: React.FC<WorkspaceDetailHeaderProps> = ({
           {workspace.isOwner && onEditWorkspace && (
             <Button
               variant="secondary"
-              size="md"
-              icon={<Edit2 size={14} />}
+              size="sm"
+              icon={<Edit2 size={13} />}
               onClick={onEditWorkspace}
               title="Chỉnh sửa tên và thông tin Không gian làm việc"
             >
@@ -216,8 +216,8 @@ export const WorkspaceDetailHeader: React.FC<WorkspaceDetailHeaderProps> = ({
 
           <Button
             variant="secondary"
-            size="md"
-            icon={<LogOut size={14} className={workspace.isOwner && !canOwnerLeave ? 'text-slate-400' : 'text-red-600'} />}
+            size="sm"
+            icon={<LogOut size={13} className={workspace.isOwner && !canOwnerLeave ? 'text-slate-400' : 'text-red-600'} />}
             onClick={onLeaveWorkspace}
             disabled={workspace.isOwner && !canOwnerLeave}
             title={
@@ -237,8 +237,8 @@ export const WorkspaceDetailHeader: React.FC<WorkspaceDetailHeaderProps> = ({
           {workspace.isOwner && onDeleteWorkspace && (
             <Button
               variant="secondary"
-              size="md"
-              icon={<Trash2 size={14} className="text-red-600" />}
+              size="sm"
+              icon={<Trash2 size={13} className="text-red-600" />}
               onClick={onDeleteWorkspace}
               title="Xóa Không gian làm việc này"
               className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"

@@ -98,7 +98,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       <div className="flex flex-col min-w-0">
                         <span className="truncate max-w-[160px]">{att.name}</span>
                         {att.size && (
-                          <span className="text-[10px] opacity-75">{att.size}</span>
+                          <span className="text-[11px] opacity-75">{att.size}</span>
                         )}
                       </div>
                     </div>
@@ -110,13 +110,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Meta footer: Channel Tag (nếu đa kênh), Thời gian gửi, Icon đã xem */}
           <div
-            className={`flex items-center gap-1.5 mt-1 text-[10px] font-medium ${
+            className={`flex items-center gap-1.5 mt-1 text-[11px] font-medium ${
               isOutbound ? 'justify-end text-blue-100' : 'justify-start text-slate-400'
             }`}
           >
             {hasMultipleChannels && (
               <span
-                className={`px-1 py-0.2 rounded text-[9px] font-semibold ${
+                className={`px-1.5 py-0.2 rounded text-[10px] font-semibold ${
                   isZaloChannel
                     ? 'bg-sky-100 text-sky-800'
                     : 'bg-blue-100 text-blue-800'

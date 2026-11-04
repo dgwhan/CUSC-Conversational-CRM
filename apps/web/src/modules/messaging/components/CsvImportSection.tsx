@@ -115,8 +115,8 @@ export const CsvImportSection: React.FC<CsvImportSectionProps> = ({
       <CardFooter>
         <Button
           variant="primary"
-          size="lg"
-          icon={<Send size={16} />}
+          size="sm"
+          icon={<Send size={14} />}
           loading={loading}
           onClick={onSubmit}
         >

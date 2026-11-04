@@ -45,9 +45,9 @@ export function Button({
   };
 
   const sizeClasses: Record<string, string> = {
-    sm: "text-xs px-2.5 py-1 h-[30px] gap-1.5",
-    md: "text-xs px-3.5 py-1.5 h-[36px] gap-1.5",
-    lg: "text-sm px-4 py-2 h-[42px] gap-2",
+    sm: "text-xs px-2.5 py-1 h-8 gap-1.5",
+    md: "text-xs px-3.5 py-1.5 h-9 gap-1.5",
+    lg: "text-sm px-4 py-2 h-10 gap-2",
   };
 
   const classes =

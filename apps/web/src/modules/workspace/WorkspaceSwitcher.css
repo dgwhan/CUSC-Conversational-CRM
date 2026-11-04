@@ -1,4 +1,4 @@
-/* Workspace Switcher Styling */
+/* Workspace Switcher Styling - Modern System UI Standard */
 .ws-switcher-container {
   position: relative;
   display: inline-flex;
@@ -6,31 +6,33 @@
 }
 
 .ws-switcher-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(168, 171, 173, 0.06);
-  border: 1px solid rgba(17, 130, 236, 0.466);
+  gap: 7px;
+  background: var(--color-surface-subtle, #f8fafc);
+  border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 9999px;
-  padding: 4px 10px 4px 6px;
-  color: #e2e8f0;
+  padding: 0 10px;
+  height: 32px;
+  box-sizing: border-box;
+  color: var(--color-text-main, #0f172a);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   user-select: none;
 }
 
 .ws-switcher-btn:hover,
 .ws-switcher-btn.active {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .ws-switcher-icon-wrap {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4f46e5, #06b6d4);
+  background: linear-gradient(135deg, #0284c7, #2563eb);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -50,7 +52,7 @@
   font-size: 12px;
   font-weight: 600;
   color: #0f172a;
-  max-width: 130px;
+  max-width: 170px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -65,19 +67,19 @@
 }
 
 .ws-badge.badge-owner {
-  background: rgba(168, 85, 247, 0.2);
-  color: #c393f7;
-  border: 1px solid rgba(168, 85, 247, 0.35);
+  background: rgba(168, 85, 247, 0.12);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.25);
 }
 
 .ws-badge.badge-staff {
-  background: rgba(59, 130, 246, 0.2);
-  color: #93c5fd;
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.25);
 }
 
 .ws-chevron {
-  color: #94a3b8;
+  color: #64748b;
   transition: transform 0.2s ease;
   margin-left: 2px;
 }
@@ -91,11 +93,11 @@
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  width: 290px;
-  background: #f4f6fa;
-  border: 1px solid #1e293b;
+  width: 300px;
+  background: #ffffff;
+  border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
   z-index: 1000;
   overflow: hidden;
   animation: wsDropdownFadeIn 0.15s ease-out;
@@ -117,8 +119,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  border-bottom: 1px solid #1e293b;
-  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
 }
 
 .ws-header-title {
@@ -127,7 +129,7 @@
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #94a3b8;
+  color: #64748b;
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
@@ -142,12 +144,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s;
+  transition: color 0.15s, background 0.15s;
 }
 
 .ws-refresh-btn:hover {
-  color: #cbd5e1;
-  background: rgba(255, 255, 255, 0.05);
+  color: #0f172a;
+  background: #e2e8f0;
 }
 
 .ws-list {
@@ -171,12 +173,12 @@
 }
 
 .ws-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: #f8fafc;
 }
 
 .ws-item.selected {
-  background: rgba(174, 211, 245, 0.164);
-  border-color: rgba(90, 91, 184, 0.3);
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 .ws-item-left {
@@ -191,11 +193,11 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #312e81, #1e1b4b);
-  border: 1px solid rgba(99, 102, 241, 0.4);
-  color: #c7d2fe;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -203,9 +205,9 @@
 }
 
 .ws-item.selected .ws-item-avatar {
-  background: linear-gradient(135deg, #4f46e5, #06b6d4);
-  color: #ffffff;
-  border-color: #6366f1;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
 }
 
 .ws-item-details {
@@ -216,10 +218,14 @@
 .ws-item-name {
   font-size: 12px;
   font-weight: 600;
-  color: #768394;
+  color: #0f172a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ws-item.selected .ws-item-name {
+  color: #0f172a;
 }
 
 .ws-item-sub {
@@ -232,22 +238,23 @@
 .ws-role-tag {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 9px;
-  font-weight: 600;
-  padding: 1px 4px;
-  border-radius: 3px;
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
 }
 
 .ws-role-tag.owner {
-  background: rgba(168, 85, 247, 0.15);
-  color: #c084fc;
+  background: rgba(168, 85, 247, 0.12);
+  color: #9333ea;
 }
 
 .ws-role-tag.staff {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
 }
 
 .ws-owner-text {
@@ -259,7 +266,7 @@
 }
 
 .ws-item-check {
-  color: #10b981;
+  color: #2563eb;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -274,8 +281,8 @@
 
 .ws-dropdown-footer {
   padding: 8px 12px;
-  border-top: 1px solid #1e293b;
-  background: rgba(255, 255, 255, 0.2);
+  border-top: 1px solid #f1f5f9;
+  background: #f8fafc;
 }
 
 .ws-footer-tip {

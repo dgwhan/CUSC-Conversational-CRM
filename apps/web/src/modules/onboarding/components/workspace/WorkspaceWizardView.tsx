@@ -87,7 +87,7 @@ export const WorkspaceWizardView: React.FC<WorkspaceWizardViewProps> = ({
   }
 
   const activeWorkspaceName =
-    activeConfiguringWs?.name || state.business.companyName || 'CUSC CRM';
+    activeConfiguringWs?.name || state.business.companyName || 'Không gian làm việc';
 
   return (
     <div className="onboarding-page-container">

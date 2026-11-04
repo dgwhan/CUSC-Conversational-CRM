@@ -5,11 +5,6 @@ import {
   Download,
   Printer,
   RotateCw,
-  Building2,
-  GraduationCap,
-  Sparkles,
-  ShoppingBag,
-  Briefcase,
 } from 'lucide-react';
 import type { TimeRangeFilter } from '../reports.types.js';
 
@@ -33,14 +28,14 @@ export const ReportsFilterBar: React.FC<ReportsFilterBarProps> = ({
   onRefresh,
   onExportCsv,
   isLoading = false,
-  domain,
-  workspaceName,
+  domain: _domain,
+  workspaceName: _workspaceName,
 }) => {
   const timeRanges: { id: TimeRangeFilter; label: string }[] = [
     { id: 'today', label: 'Hôm nay' },
     { id: 'yesterday', label: 'Hôm qua' },
-    { id: '7days', label: '7 Ngày qua' },
-    { id: '30days', label: '30 Ngày qua' },
+    { id: '7days', label: '7 Ngày' },
+    { id: '30days', label: '30 Ngày' },
     { id: 'thisMonth', label: 'Tháng này' },
     { id: 'quarter', label: 'Quý này' },
     { id: 'year', label: 'Năm nay' },
@@ -51,83 +46,42 @@ export const ReportsFilterBar: React.FC<ReportsFilterBarProps> = ({
     window.print();
   };
 
-  const getDomainBadge = () => {
-    switch (domain) {
-      case 'REAL_ESTATE':
-        return {
-          label: 'Bất Động Sản',
-          icon: <Building2 size={13} className="text-amber-600" />,
-          cls: 'bg-amber-50 text-amber-700 border-amber-200',
-        };
-      case 'BEAUTY_SPA':
-        return {
-          label: 'Spa & Làm Đẹp',
-          icon: <Sparkles size={13} className="text-pink-600" />,
-          cls: 'bg-pink-50 text-pink-700 border-pink-200',
-        };
-      case 'RETAIL':
-        return {
-          label: 'Bán Lẻ',
-          icon: <ShoppingBag size={13} className="text-emerald-600" />,
-          cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        };
-      case 'B2B_SAAS':
-        return {
-          label: 'B2B & SaaS',
-          icon: <Briefcase size={13} className="text-purple-600" />,
-          cls: 'bg-purple-50 text-purple-700 border-purple-200',
-        };
-      case 'EDUCATION':
-      default:
-        return {
-          label: 'Tuyển Sinh & Đào Tạo',
-          icon: <GraduationCap size={13} className="text-blue-600" />,
-          cls: 'bg-blue-50 text-blue-700 border-blue-200',
-        };
-    }
-  };
-
-  const domainBadge = getDomainBadge();
-
   return (
-    <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-      {/* Time range buttons */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-xs font-semibold text-slate-500 mr-1.5 flex items-center gap-1">
-          <Calendar size={14} className="text-slate-400" /> Chu kỳ:
+    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 mb-3.5">
+      {/* 1. Flat Segmented Control: Chu kỳ thời gian (Tô xanh khi selected như Sidebar) */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 xl:pb-0 scrollbar-none">
+        <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5 shrink-0 mr-0.5">
+          <Calendar size={14} className="text-slate-400" />
+          <span>Chu kỳ:</span>
         </span>
-        {timeRanges.map((r) => (
-          <button
-            key={r.id}
-            type="button"
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              selectedRange === r.id
-                ? 'bg-blue-600 text-white shadow-xs font-semibold'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80'
-            }`}
-            onClick={() => onRangeChange(r.id)}
-          >
-            {r.label}
-          </button>
-        ))}
+        <div className="inline-flex items-center p-0.5 bg-slate-200/70 rounded-lg border border-slate-200/80 shrink-0">
+          {timeRanges.map((r) => {
+            const isActive = selectedRange === r.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => onRangeChange(r.id)}
+                className={`px-3 py-1 text-xs rounded-md transition-all whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-600 font-semibold shadow-2xs border border-blue-200/80'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 font-medium'
+                }`}
+              >
+                {r.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Filter by Channel + Actions + Domain Badge */}
-      <div className="flex flex-wrap items-center gap-2.5">
-        {domain && (
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border ${domainBadge.cls}`}
-            title={`Mô hình hoạt động: ${workspaceName || domainBadge.label}`}
-          >
-            {domainBadge.icon}
-            <span>{domainBadge.label}</span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-1.5">
-          <Filter size={14} className="text-slate-400" />
+      {/* 2. Cụm bộ lọc kênh & Thao tác đồng bộ chuẩn SaaS phẳng (Flat Section) */}
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        {/* Dropdown Kênh tiếp nhận */}
+        <div className="relative inline-flex items-center">
+          <Filter size={13} className="absolute left-2.5 text-slate-400 pointer-events-none" />
           <select
-            className="text-xs border border-slate-200 rounded-lg py-1.5 px-2.5 bg-slate-50 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+            className="h-8 pl-7 pr-8 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-700 shadow-2xs focus:outline-hidden focus:border-slate-300 cursor-pointer appearance-none"
             value={selectedChannel}
             onChange={(e) => onChannelChange(e.target.value)}
           >
@@ -138,34 +92,38 @@ export const ReportsFilterBar: React.FC<ReportsFilterBarProps> = ({
             <option value="MANUAL">Nhập tay / Hotline</option>
             <option value="WEBSITE">Website / Form</option>
           </select>
+          <div className="absolute right-2.5 pointer-events-none text-slate-400 text-[11px]">▼</div>
         </div>
 
+        {/* Nút Làm mới */}
         <button
           type="button"
           onClick={onRefresh}
           disabled={isLoading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50"
+          className="h-8 px-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
           title="Tải lại dữ liệu mới nhất"
         >
-          <RotateCw size={13} className={isLoading ? 'animate-spin' : ''} />
-          Làm mới
+          <RotateCw size={13} className={isLoading ? 'animate-spin text-blue-600' : 'text-slate-500'} />
+          <span>Làm mới</span>
         </button>
 
+        {/* Nút Xuất Excel/CSV đồng bộ chuẩn hệ thống */}
         <button
           type="button"
           onClick={onExportCsv}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
+          className="h-8 px-3 inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-2xs transition-colors cursor-pointer"
           title="Xuất bảng số liệu ra file Excel / CSV"
         >
-          <Download size={13} />
-          Xuất Excel/CSV
+          <Download size={13} className="text-slate-500" />
+          <span>Xuất Excel/CSV</span>
         </button>
 
+        {/* Nút In */}
         <button
           type="button"
           onClick={handlePrint}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-          title="In hoặc lưu dạng PDF báo cáo"
+          className="h-8 w-8 inline-flex items-center justify-center text-slate-500 hover:text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-2xs transition-colors cursor-pointer"
+          title="In hoặc lưu PDF"
         >
           <Printer size={13} />
         </button>

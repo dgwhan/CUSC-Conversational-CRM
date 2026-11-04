@@ -143,9 +143,9 @@ export const SavedMessagesTable: React.FC = () => {
             </div>
 
             <div className="crm-channel-filter">
-              <Filter size={15} className="filter-icon" />
+              <Filter size={14} className="filter-icon" />
               <select
-                className="form-select form-select-sm"
+                className="h-8 pl-8 pr-4 text-xs font-medium border border-slate-300 rounded-lg bg-white text-slate-800 shadow-2xs focus:outline-hidden focus:border-blue-500 cursor-pointer"
                 value={channelFilter}
                 onChange={(e) => {
                   setChannelFilter(e.target.value);

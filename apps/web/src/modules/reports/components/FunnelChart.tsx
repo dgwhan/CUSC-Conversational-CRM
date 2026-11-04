@@ -82,18 +82,15 @@ export const FunnelChart: React.FC<FunnelChartProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200/80 shadow-xs flex flex-col h-full">
+      <div className="flex items-center justify-between mb-2.5">
         <div>
           <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
             {pipelineName || 'Phễu Chuyển Đổi'}
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Phân bổ số lượng {displayEntity} qua từng giai đoạn trong quy trình
-          </p>
         </div>
       </div>
-      <div className="relative flex-1 min-h-[300px]">
+      <div className="relative flex-1 min-h-[250px]">
         {stages.length > 0 ? (
           <Bar data={data} options={options} />
         ) : (

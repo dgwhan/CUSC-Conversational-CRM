@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Tabs } from '../../../components/ui/index.js';
 import { useWorkspaceConfig, type WorkspaceItem } from '../../workspace/WorkspaceConfigContext.js';
+import { getDomainLabel } from '../../workspace/workspaceConfig.types.js';
 import type { ChannelKey, DiscoveredPageDto } from '../types.js';
 import { OAuthSimulationModal } from '../components/OAuthSimulationModal.js';
 import {
@@ -319,54 +320,40 @@ export const WorkspaceDetailPage: React.FC<WorkspaceDetailPageProps> = ({
     onBack();
   };
 
-  const getDomainLabel = (domain?: string) => {
-    const d = (domain || '').toUpperCase();
-    if (d.includes('EDUCATION') || d.includes('GIÁO DỤC')) {
-      return 'Giáo dục & Tuyển sinh';
-    }
-    if (d.includes('RETAIL') || d.includes('BÁN LẺ')) {
-      return 'Bán lẻ & Thương mại';
-    }
-    return domain || 'Dịch vụ & Doanh nghiệp';
-  };
-
   const domainLabel = getDomainLabel(workspace.domain);
 
   return (
-    <div className="workspace-flat-detail w-full max-w-[1140px] mx-auto px-4 sm:px-6 md:px-8 py-2 pb-16 bg-white">
-      {/* 1. Header chi tiết Workspace & Dãy nút thao tác (Tách component) */}
-      <div className="pb-6 border-b border-slate-200">
-        <WorkspaceDetailHeader
-          workspace={workspace}
-          isActive={isActive}
-          domainLabel={domainLabel}
-          canOwnerLeave={canOwnerLeave}
-          onBack={onBack}
-          onSelectWorkspace={onSelectWorkspace}
-          onGoToInbox={onGoToInbox}
-          onLeaveWorkspace={handleLeaveWorkspace}
-          onEditWorkspace={() => setIsEditModalOpen(true)}
-          onSaveWorkspaceName={async (newName) => {
-            await handleSaveWorkspaceInfo(workspace.id, {
-              name: newName,
-              domain: workspace.domain,
-            });
-          }}
-          onDeleteWorkspace={myWorkspaces.length > 1 ? () => setIsDeleteModalOpen(true) : undefined}
-        />
+    <div className="workspace-flat-detail w-full max-w-[1600px] mx-auto p-3 sm:p-4 min-h-full space-y-3.5 sm:space-y-4">
+      {/* 1. Header chi tiết Workspace & Dãy nút thao tác */}
+      <WorkspaceDetailHeader
+        workspace={workspace}
+        isActive={isActive}
+        domainLabel={domainLabel}
+        canOwnerLeave={canOwnerLeave}
+        onBack={onBack}
+        onSelectWorkspace={onSelectWorkspace}
+        onGoToInbox={onGoToInbox}
+        onLeaveWorkspace={handleLeaveWorkspace}
+        onEditWorkspace={() => setIsEditModalOpen(true)}
+        onSaveWorkspaceName={async (newName) => {
+          await handleSaveWorkspaceInfo(workspace.id, {
+            name: newName,
+            domain: workspace.domain,
+          });
+        }}
+        onDeleteWorkspace={myWorkspaces.length > 1 ? () => setIsDeleteModalOpen(true) : undefined}
+      />
 
-        {/* 2. Thanh Tabs hệ thống chuẩn */}
-        <Tabs<'overview' | 'channels' | 'members'>
-          className="mt-6 -mb-6"
-          items={[
-            { id: 'overview', label: 'Tổng quan' },
-            { id: 'channels', label: 'Kênh kết nối', count: channels.length },
-            { id: 'members', label: 'Thành viên', count: effectiveStaffList.length },
-          ]}
-          activeTab={activeTab}
-          onChange={setActiveTab}
-        />
-      </div>
+      {/* 2. Thanh Tabs trượt gạch dưới hệ thống chuẩn */}
+      <Tabs<'overview' | 'channels' | 'members'>
+        items={[
+          { id: 'overview', label: 'Tổng quan' },
+          { id: 'channels', label: 'Kênh kết nối', count: channels.length },
+          { id: 'members', label: 'Thành viên', count: effectiveStaffList.length },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* 3. Tab 1: Tổng quan */}
       {activeTab === 'overview' && (

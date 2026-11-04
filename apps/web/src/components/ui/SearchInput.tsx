@@ -116,9 +116,9 @@ export const SearchInput: React.FC<SearchInputProps> = ({
   }, [shortcutHint, disabled]);
 
   const heightClasses: Record<string, string> = {
-    sm: 'py-1 pl-8 pr-7 text-[12px] h-[30px]',
-    md: 'py-1.5 pl-8 pr-8 text-xs h-[36px]',
-    lg: 'py-2 pl-9 pr-9 text-sm h-[42px]',
+    sm: 'py-1 pl-8 pr-7 text-xs h-8',
+    md: 'py-1.5 pl-8 pr-8 text-xs h-9',
+    lg: 'py-2 pl-9 pr-9 text-sm h-10',
   };
 
   const iconSizes: Record<string, number> = {
@@ -169,7 +169,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
         )}
 
         {!isLoading && !currentValue && shortcutHint && (
-          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-none pointer-events-none">
+          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[11px] font-mono font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-none pointer-events-none">
             {shortcutHint}
           </kbd>
         )}

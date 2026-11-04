@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import type { WorkspaceItem, WorkspaceConfig, BusinessDomain } from '../workspaceConfig.types.js';
+import { CLIENT_INDUSTRY_PRESETS } from '../workspacePresets.js';
 import { USER_ROLES, type UserRole } from '../../auth/userRole.types.js';
 import { apiClient } from '../../../lib/api-client.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
@@ -65,11 +66,28 @@ export const useWorkspaceManager = ({
         // Nếu chưa chọn active workspace hoặc workspace hiện tại không nằm trong danh sách, chọn cái đầu tiên
         const currentActive = localStorage.getItem(ACTIVE_WORKSPACE_KEY);
         const match = normalized.find((w) => w.id === currentActive);
-        const selectedId = match ? match.id : normalized[0].id;
+        const selectedWs = match || normalized[0];
+        const selectedId = selectedWs.id;
 
         setActiveWorkspaceId(selectedId);
         apiClient.setActiveWorkspaceId(selectedId);
         localStorage.setItem(ACTIVE_WORKSPACE_KEY, selectedId);
+
+        // Luôn đồng bộ tên và ID theo workspace đang được chọn
+        if (selectedWs) {
+          setConfig((prev) => {
+            if (prev.workspaceId === selectedWs.id && prev.workspaceName === selectedWs.name) {
+              return prev;
+            }
+            return {
+              ...prev,
+              workspaceId: selectedWs.id,
+              workspaceName: selectedWs.name,
+              ...(selectedWs.domain ? { domain: selectedWs.domain as BusinessDomain } : {}),
+            };
+          });
+        }
+
         return normalized;
       }
     } catch (err) {
@@ -97,6 +115,45 @@ export const useWorkspaceManager = ({
     setActiveWorkspaceId(targetWsId);
     apiClient.setActiveWorkspaceId(targetWsId);
     localStorage.setItem(ACTIVE_WORKSPACE_KEY, targetWsId);
+
+    // Đồng bộ cấu hình và tên workspace ngay lập tức
+    if (targetWs) {
+      const cachedConfigStr = localStorage.getItem(`polarisx_crm_workspace_config_v1_ws_${targetWs.id}`);
+      if (cachedConfigStr) {
+        try {
+          const parsed = JSON.parse(cachedConfigStr);
+          if (parsed && parsed.pipelineStages && parsed.pipelineStages.length >= 2) {
+            setConfig({
+              ...parsed,
+              workspaceId: targetWs.id,
+              workspaceName: targetWs.name,
+              ...(targetWs.domain ? { domain: targetWs.domain as BusinessDomain } : {}),
+            });
+          }
+        } catch {
+          // Fallback to updating basic info
+          setConfig((prev) => ({
+            ...prev,
+            workspaceId: targetWs.id,
+            workspaceName: targetWs.name,
+            ...(targetWs.domain ? { domain: targetWs.domain as BusinessDomain } : {}),
+          }));
+        }
+      } else {
+        const domainKey = (targetWs.domain in CLIENT_INDUSTRY_PRESETS ? targetWs.domain : 'CUSTOM') as BusinessDomain;
+        const preset = CLIENT_INDUSTRY_PRESETS[domainKey] || CLIENT_INDUSTRY_PRESETS.CUSTOM;
+        setConfig((prev) => ({
+          ...prev,
+          workspaceId: targetWs.id,
+          workspaceName: targetWs.name,
+          domain: domainKey,
+          terminology: { ...preset.terminology },
+          pipelineStages: preset.pipelineStages.map((s) => ({ ...s })),
+          productCatalog: preset.productCatalog.map((p) => ({ ...p })),
+          criteria: preset.criteria.map((c) => ({ ...c })),
+        }));
+      }
+    }
 
     setIsLoading(true);
     try {

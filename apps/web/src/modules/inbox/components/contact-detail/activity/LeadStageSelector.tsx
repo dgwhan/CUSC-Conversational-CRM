@@ -70,7 +70,7 @@ export const LeadStageSelector: React.FC<LeadStageSelectorProps> = ({
           Giai đoạn khách hàng tiềm năng
         </span>
         <span
-          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
             !isLead
               ? 'bg-slate-100 text-slate-500 border border-slate-200'
               : currentStage.isWon
@@ -112,8 +112,8 @@ export const LeadStageSelector: React.FC<LeadStageSelectorProps> = ({
         {/* Dropdown Menu Popover */}
         {isOpen && (
           <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-50 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100">
-            <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
-              Chọn giai đoạn tuyển sinh
+            <div className="px-2 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
+              Chọn giai đoạn phễu
             </div>
 
             {availableStages.map((stage) => {

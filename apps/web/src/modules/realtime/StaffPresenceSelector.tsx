@@ -65,21 +65,12 @@ export const StaffPresenceSelector: React.FC<{ compact?: boolean }> = ({ compact
 
   return (
     <div className="staff-presence-wrapper" ref={containerRef}>
-      {/* Nút bật tắt âm thanh Ting ting */}
-      <button
-        type="button"
-        className={`presence-sound-toggle-btn ${soundActive ? 'active' : 'muted'}`}
-        onClick={() => setSoundActive(!soundActive)}
-        title={soundActive ? 'Chuông thông báo Ting ting đang bật' : 'Chuông thông báo đang tắt'}
-      >
-        {soundActive ? <Volume2 size={15} /> : <VolumeX size={15} />}
-      </button>
+
 
       {/* Nút chính hiển thị trạng thái nhân viên */}
       <button
         type="button"
         className="staff-presence-button"
-        style={{ backgroundColor: current.bg, borderColor: `${current.color}40` }}
         onClick={() => setIsOpen(!isOpen)}
         title="Bấm để đổi trạng thái trực tuyến của bạn"
       >
@@ -88,11 +79,11 @@ export const StaffPresenceSelector: React.FC<{ compact?: boolean }> = ({ compact
           style={{ backgroundColor: current.color }}
         />
         {!compact && (
-          <span className="presence-status-label" style={{ color: current.color }}>
+          <span className="presence-status-label">
             {current.label}
           </span>
         )}
-        <ChevronDown size={13} style={{ color: current.color }} />
+        <ChevronDown size={13} className="presence-chevron" style={{ color: '#94a3b8' }} />
       </button>
 
       {/* Menu dropdown chọn trạng thái */}
@@ -139,6 +130,15 @@ export const StaffPresenceSelector: React.FC<{ compact?: boolean }> = ({ compact
           </div>
 
           <div className="presence-dropdown-footer">
+            <button
+              type="button"
+              className="quick-simulate-btn"
+              onClick={() => setSoundActive(!soundActive)}
+              style={{ marginBottom: '6px' }}
+            >
+              {soundActive ? <Volume2 size={13} /> : <VolumeX size={13} />}
+              <span>{soundActive ? 'Chuông thông báo: Đang bật' : 'Chuông thông báo: Đang tắt'}</span>
+            </button>
             <button
               type="button"
               className="quick-simulate-btn"

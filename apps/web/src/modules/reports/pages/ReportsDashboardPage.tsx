@@ -1,12 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  BarChart3,
-  Sparkles,
-  Building2,
-  GraduationCap,
-  ShoppingBag,
-  Briefcase,
-} from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { apiClient } from '../../../lib/api-client.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useWorkspaceConfig } from '../../workspace/WorkspaceConfigContext.js';
@@ -28,7 +21,7 @@ import type {
 } from '../reports.types.js';
 
 export const ReportsDashboardPage: React.FC = () => {
-  const { config, activeWorkspaceId } = useWorkspaceConfig();
+  const { config, activeWorkspaceId, activeWorkspace } = useWorkspaceConfig();
   const [selectedRange, setSelectedRange] = useState<TimeRangeFilter>('30days');
   const [selectedChannel, setSelectedChannel] = useState<string>('ALL');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -50,18 +43,32 @@ export const ReportsDashboardPage: React.FC = () => {
   const wonLabel = useMemo(() => {
     switch (currentDomain) {
       case 'REAL_ESTATE':
-        return 'Chốt Cọc / Hợp Đồng';
+        return 'Chốt Cọc';
       case 'BEAUTY_SPA':
         return 'Chốt Liệu Trình';
       case 'RETAIL':
-        return 'Đơn Hàng Thành Công';
+        return 'Đơn Hàng';
       case 'B2B_SAAS':
-        return 'Ký Kết Hợp Đồng';
+        return 'Hợp Đồng';
       case 'EDUCATION':
       default:
-        return 'Nhập Học Thành Công';
+        return 'Nhập Học';
     }
   }, [currentDomain]);
+
+  const pageTitle = useMemo(() => {
+    const rawName = activeWorkspace?.name || config.workspaceName || '';
+
+    if (rawName) {
+      return `Báo Cáo & Thống Kê - ${rawName}`;
+    }
+
+    const pipelineClean = (currentTerminology.pipelineName || 'Tuyển Sinh')
+      .replace(/^Phễu\s*/i, '')
+      .trim();
+
+    return `Báo Cáo & Thống Kê ${pipelineClean || 'Tuyển Sinh'}`;
+  }, [activeWorkspace?.name, config.workspaceName, currentTerminology.pipelineName]);
 
   // Sinh các mốc thời gian với số liệu mặc định 0 nếu chưa có dữ liệu giao dịch
   const generateTrendData = useCallback((range: TimeRangeFilter): TrendDataPoint[] => {
@@ -254,7 +261,7 @@ export const ReportsDashboardPage: React.FC = () => {
     const funnelStages: FunnelStageReport[] = stages.map((s, idx) => ({
       id: s.id,
       name: s.name,
-      label: `${idx + 1}. ${s.name}`,
+      label: s.name.match(/^\d+\./) ? s.name : `${idx + 1}. ${s.name}`,
       subtitle: s.subtitle,
       count: stageMap[s.id] || 0,
       color: s.color || '#0284c7',
@@ -387,7 +394,7 @@ export const ReportsDashboardPage: React.FC = () => {
 
     const term = currentTerminology;
     let csvContent = '\uFEFF'; // UTF-8 BOM để Excel hiển thị đúng dấu tiếng Việt
-    csvContent += `BÁO CÁO THỐNG KÊ DOANH NGHIỆP - POLARISX CRM (${config.workspaceName || currentDomain})\n`;
+    csvContent += `BÁO CÁO THỐNG KÊ DOANH NGHIỆP - POLARISX CRM (${pageTitle})\n`;
     csvContent += `Thời gian xuất: ${new Date().toLocaleString('vi-VN')}\n`;
     csvContent += `Chu kỳ lọc: ${selectedRange} | Kênh: ${selectedChannel}\n\n`;
 
@@ -437,45 +444,19 @@ export const ReportsDashboardPage: React.FC = () => {
     notify.success('Đã tải xuống file CSV báo cáo thống kê thành công!', 'Xuất báo cáo');
   };
 
-  const getDomainIcon = () => {
-    switch (currentDomain) {
-      case 'REAL_ESTATE':
-        return <Building2 size={20} />;
-      case 'BEAUTY_SPA':
-        return <Sparkles size={20} />;
-      case 'RETAIL':
-        return <ShoppingBag size={20} />;
-      case 'B2B_SAAS':
-        return <Briefcase size={20} />;
-      case 'EDUCATION':
-      default:
-        return <GraduationCap size={20} />;
-    }
-  };
-
   return (
-    <div className="crm-reports-page min-h-screen bg-slate-50/50 p-4 sm:p-6 lg:p-8">
-      {/* Header khu vực báo cáo */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+    <div className="crm-reports-page min-h-full bg-slate-50/50 p-3 sm:p-4 max-w-[1600px] mx-auto">
+      {/* Header khu vực báo cáo - Flat section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-blue-600 text-white shadow-xs">
-              {getDomainIcon()}
-            </span>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Báo Cáo & Thống Kê {config.workspaceName || currentTerminology.pipelineName}
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                Phân tích lưu lượng {currentTerminology.entityName.toLowerCase()}, hiệu suất phễu chuyển đổi và xếp hạng doanh số
-              </p>
-            </div>
-          </div>
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+            {pageTitle}
+          </h1>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs self-start sm:self-auto">
-          <Sparkles size={14} className="text-amber-500" />
-          <span>Dữ liệu thời gian thực đồng bộ từ Cơ sở dữ liệu</span>
+        <div className="flex items-center gap-2 text-xs text-slate-500 shrink-0 self-start sm:self-auto">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Dữ liệu thời gian thực</span>
         </div>
       </div>
 
@@ -489,11 +470,11 @@ export const ReportsDashboardPage: React.FC = () => {
         onExportCsv={handleExportCsv}
         isLoading={isLoading}
         domain={currentDomain}
-        workspaceName={config.workspaceName}
+        workspaceName={activeWorkspace?.name || config.workspaceName}
       />
 
       {reportsData ? (
-        <div className="space-y-6">
+        <div className="space-y-3.5">
           {/* 1. Hàng thẻ chỉ số đo lường chính (KPI Cards) */}
           <MetricCardsGrid
             metrics={reportsData.overview}
@@ -502,7 +483,7 @@ export const ReportsDashboardPage: React.FC = () => {
           />
 
           {/* 2. Biểu đồ Phễu Chuyển Đổi & Biểu đồ Nguồn Kênh */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
             <div className="lg:col-span-2">
               <FunnelChart
                 stages={reportsData.funnelStages}
@@ -516,7 +497,7 @@ export const ReportsDashboardPage: React.FC = () => {
           </div>
 
           {/* 3. Biểu đồ Xu hướng Tăng Trưởng & Phổ Biến Sản Phẩm */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
             <div className="lg:col-span-2">
               <LeadTrendChart
                 trends={reportsData.trends}
@@ -534,7 +515,7 @@ export const ReportsDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 4. Bảng Xếp Hạng & Hiệu Suất Tư Vấn Viên / Sales */}
+          {/* 4. Bảng xếp hạng */}
           <div>
             <StaffLeaderboard
               staffList={reportsData.staffList}

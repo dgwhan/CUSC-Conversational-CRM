@@ -93,15 +93,12 @@ export const CoursePopularityChart: React.FC<CoursePopularityChartProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200/80 shadow-xs flex flex-col h-full">
+      <div className="flex items-center justify-between mb-2.5">
         <div>
           <h3 className="text-base font-bold text-slate-800">
             {displayLabel} Thu Hút Nhất
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Xếp hạng mức độ quan tâm của {displayEntity} theo từng danh mục
-          </p>
         </div>
       </div>
       <div className="relative flex-1 min-h-[280px]">

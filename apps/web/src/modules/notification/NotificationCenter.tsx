@@ -169,30 +169,30 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
       case 'CRITICAL':
         return {
           icon: <ShieldAlert size={16} className="text-red-500" />,
-          bg: 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/60',
-          badgeClass: 'bg-red-600 text-white',
+          bg: 'bg-red-50/50 border-l-2 border-l-red-500',
+          badgeClass: 'bg-red-100 text-red-700 border border-red-200',
           label: 'Nguy cấp',
         };
       case 'URGENT':
         return {
           icon: <AlertCircle size={16} className="text-orange-500" />,
-          bg: 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/60',
-          badgeClass: 'bg-orange-500 text-white',
+          bg: 'bg-orange-50/50 border-l-2 border-l-orange-500',
+          badgeClass: 'bg-orange-100 text-orange-700 border border-orange-200',
           label: 'Khẩn cấp',
         };
       case 'WARNING':
         return {
           icon: <AlertTriangle size={16} className="text-amber-500" />,
-          bg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60',
-          badgeClass: 'bg-amber-500 text-white',
+          bg: 'bg-amber-50/50 border-l-2 border-l-amber-500',
+          badgeClass: 'bg-amber-100 text-amber-700 border border-amber-200',
           label: 'Cảnh báo',
         };
       case 'INFO':
       default:
         return {
           icon: <Info size={16} className="text-blue-500" />,
-          bg: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60',
-          badgeClass: 'bg-blue-500 text-white',
+          bg: 'bg-blue-50/40 border-l-2 border-l-blue-500',
+          badgeClass: 'bg-blue-100 text-blue-700 border border-blue-200',
           label: 'Thông tin',
         };
     }
@@ -202,52 +202,59 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
     filter === 'UNREAD' ? notifications.filter((n) => !n.isRead) : notifications;
 
   return (
-    <div className="relative inline-block" ref={containerRef}>
-      {/* Icon Chuông thông báo trên Header */}
+    <div className="relative inline-flex items-center" ref={containerRef}>
+      {/* Icon Chuông thông báo trên Header chuẩn Pill hệ thống */}
       <button
         type="button"
-        className={`relative p-2 rounded-lg transition-colors flex items-center justify-center ${
+        className={`relative h-8 px-2.5 rounded-full border transition-all flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer ${
           isOpen
-            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+            ? 'bg-blue-50 border-blue-300 text-blue-600 shadow-xs'
+            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900'
         }`}
         onClick={() => {
           setIsOpen(!isOpen);
           if (!isOpen) fetchNotifications();
         }}
-        title="Hộp lưu thông báo hệ thống"
+        title="Thông báo Workspace"
         aria-label="Thông báo"
       >
-        <Bell size={18} className={unreadCount > 0 ? 'animate-pulse text-blue-600 dark:text-blue-400' : ''} />
+        <Bell size={15} className={unreadCount > 0 ? 'text-blue-600' : 'text-slate-500'} />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm animate-bounce">
+          <span className="min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-xs">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Popover / Dropdown Hộp thông báo */}
+      {/* Popover / Dropdown Hộp thông báo chuẩn Light Theme CRM */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[580px] animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute left-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden flex flex-col max-h-[580px] animate-in fade-in zoom-in-95 duration-150">
           {/* Header */}
-          <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-850 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bell size={16} className="text-blue-600 dark:text-blue-400" />
-              <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
-                Thông báo Workspace
-              </h3>
-              {unreadCount > 0 && (
-                <span className="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-300 rounded-full">
-                  {unreadCount} mới
-                </span>
-              )}
+          <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                <Bell size={15} />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <h3 className="font-semibold text-slate-800 text-xs">
+                    Thông báo Workspace
+                  </h3>
+                  {unreadCount > 0 && (
+                    <span className="px-1.5 py-0.2 text-[11px] font-semibold bg-red-100 text-red-600 rounded-full">
+                      {unreadCount} mới
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 truncate">Kênh liên kết & hội thoại</p>
+              </div>
             </div>
             <div className="flex items-center gap-1">
               {unreadCount > 0 && (
                 <button
                   type="button"
                   onClick={handleMarkAllAsRead}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-blue-100/50 dark:hover:bg-blue-900/30"
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline flex items-center gap-1 px-1.5 py-1 rounded hover:bg-blue-50 transition-colors"
                   title="Đánh dấu tất cả là đã đọc"
                 >
                   <CheckCheck size={13} />
@@ -257,22 +264,23 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-200/50 dark:hover:bg-gray-800"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors"
+                title="Đóng"
               >
-                <X size={14} />
+                <X size={15} />
               </button>
             </div>
           </div>
 
           {/* Filter Tabs */}
-          <div className="px-4 py-1.5 bg-gray-50 dark:bg-gray-850/60 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2 text-xs">
+          <div className="px-4 py-1.5 bg-slate-50/60 border-b border-slate-200 flex items-center gap-2 text-xs">
             <button
               type="button"
               onClick={() => setFilter('ALL')}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
                 filter === 'ALL'
-                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-300 shadow-xs'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                  ? 'bg-white text-blue-600 shadow-xs border border-slate-200 font-semibold'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/60'
               }`}
             >
               Tất cả ({notifications.length})
@@ -280,10 +288,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
             <button
               type="button"
               onClick={() => setFilter('UNREAD')}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
                 filter === 'UNREAD'
-                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-300 shadow-xs'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                  ? 'bg-white text-blue-600 shadow-xs border border-slate-200 font-semibold'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/60'
               }`}
             >
               Chưa đọc ({unreadCount})
@@ -291,19 +299,21 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
           </div>
 
           {/* List items */}
-          <div className="overflow-y-auto flex-1 divide-y divide-gray-100 dark:divide-gray-800">
+          <div className="overflow-y-auto flex-1 divide-y divide-slate-100 bg-white">
             {isLoading && notifications.length === 0 ? (
-              <div className="p-8 text-center text-sm text-gray-500">
+              <div className="p-8 text-center text-xs text-slate-500">
                 <div className="inline-block animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full mb-2"></div>
                 <div>Đang tải thông báo...</div>
               </div>
             ) : filteredNotifications.length === 0 ? (
-              <div className="p-8 text-center">
-                <Bell size={28} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <div className="py-10 px-6 text-center">
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                  <Bell size={22} />
+                </div>
+                <p className="text-xs font-semibold text-slate-700">
                   Không có thông báo nào
                 </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <p className="text-[11px] text-slate-400 mt-1 max-w-[240px] mx-auto leading-relaxed">
                   Mọi cập nhật về trạng thái kênh và khách hàng sẽ xuất hiện tại đây.
                 </p>
               </div>
@@ -316,8 +326,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
                     onClick={() => handleItemClick(item)}
                     className={`p-3.5 transition-colors cursor-pointer relative group flex gap-3 ${
                       item.isRead
-                        ? 'bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-850/60 opacity-80 hover:opacity-100'
-                        : `${config.bg} hover:brightness-95`
+                        ? 'bg-white hover:bg-slate-50'
+                        : `${config.bg} hover:brightness-98`
                     }`}
                   >
                     {/* Severity Icon */}
@@ -327,13 +337,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
                     <div className="flex-1 min-w-0 pr-6">
                       <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                         <span
-                          className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.2 rounded ${config.badgeClass}`}
+                          className={`text-[11px] font-semibold uppercase tracking-wider px-1.5 py-0.2 rounded ${config.badgeClass}`}
                         >
                           {config.label}
                         </span>
                         <h4
-                          className={`text-xs font-semibold truncate ${
-                            item.isRead ? 'text-gray-800 dark:text-gray-200' : 'text-gray-900 dark:text-white font-bold'
+                          className={`text-xs truncate ${
+                            item.isRead ? 'text-slate-700 font-medium' : 'text-slate-900 font-bold'
                           }`}
                           title={item.title}
                         >
@@ -341,14 +351,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
                         </h4>
                       </div>
 
-                      <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
                         {item.content}
                       </p>
 
-                      <div className="flex items-center gap-2 mt-2 text-[11px] text-gray-400 dark:text-gray-500">
+                      <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-400">
                         <span>{getRelativeTimeString(item.createdAt)}</span>
                         {item.actionUrl && (
-                          <span className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 font-medium hover:underline">
+                          <span className="inline-flex items-center gap-0.5 text-blue-600 font-medium hover:underline">
                             <span>Chi tiết</span>
                             <ExternalLink size={10} />
                           </span>
@@ -364,7 +374,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
                       <button
                         type="button"
                         onClick={(e) => handleDeleteNotification(item, e)}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 rounded transition-opacity"
+                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 rounded transition-opacity"
                         title="Xóa thông báo"
                       >
                         <Trash2 size={13} />
@@ -378,8 +388,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="px-4 py-2 bg-gray-50 dark:bg-gray-850/80 border-t border-gray-100 dark:border-gray-800 text-center">
-              <span className="text-[11px] text-gray-400 dark:text-gray-500">
+            <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-center">
+              <span className="text-[11px] text-slate-400">
                 Hiển thị {filteredNotifications.length} thông báo gần nhất
               </span>
             </div>

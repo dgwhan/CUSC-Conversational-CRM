@@ -68,18 +68,8 @@ export const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
   ];
 
   return (
-    <div className="pt-6">
-      {/* 1. Header đề mục */}
-      <div className="mb-4">
-        <h2 className="text-base font-bold text-slate-900 m-0">
-          Thành viên
-        </h2>
-        <p className="text-xs text-slate-500 mt-1 m-0">
-          Quản lý những người có quyền truy cập vào không gian làm việc này.
-        </p>
-      </div>
-
-      {/* 2. Global Page Toolbar & Search System */}
+    <div className="space-y-3.5 pt-1">
+      {/* 1. Global Page Toolbar & Search System */}
       <PageToolbar
         search={
           <SearchInput
@@ -90,7 +80,7 @@ export const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
             }}
             placeholder="Tìm kiếm thành viên theo tên, email hoặc số điện thoại... (Nhấn /)"
             shortcutHint="/"
-            size="md"
+            size="sm"
           />
         }
         filters={
@@ -101,15 +91,15 @@ export const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
               setMemberPage(1);
             }}
             options={roleFilterOptions}
-            size="md"
+            size="sm"
           />
         }
         actions={
           isOwner && (
             <Button
               variant="primary"
-              size="md"
-              icon={<Plus size={14} />}
+              size="sm"
+              icon={<Plus size={13} />}
               onClick={() => setIsInviteModalOpen(true)}
             >
               Mời thành viên
@@ -118,8 +108,8 @@ export const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
         }
       />
 
-      {/* 3. Bảng danh sách thành viên */}
-      <div className="border border-slate-200/80 rounded-xl overflow-x-auto bg-white shadow-2xs">
+      {/* 2. Bảng danh sách thành viên */}
+      <div className="border border-slate-200 rounded-lg overflow-x-auto bg-white shadow-2xs">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
