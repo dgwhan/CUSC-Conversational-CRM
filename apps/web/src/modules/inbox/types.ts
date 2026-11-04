@@ -96,6 +96,8 @@ export interface CustomerProfile {
 
 export interface AssignedStaff {
   id: string;
+  memberId?: string;
+  email?: string | null;
   name: string;
   avatar: string;
   role: string;

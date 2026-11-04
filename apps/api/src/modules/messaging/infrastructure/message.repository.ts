@@ -68,6 +68,8 @@ export class MessageRepository implements OnModuleInit {
         offset?: number;
         channel?: Channel | string;
         search?: string;
+        staffId?: string;
+        role?: 'OWNER' | 'STAFF';
     }): Promise<{ items: any[]; total: number }> {
         const safeWorkspaceId = normalizeWorkspaceId(options?.workspaceId);
         const normalizedChannel = normalizeChannel(options?.channel);
@@ -80,6 +82,28 @@ export class MessageRepository implements OnModuleInit {
                     { channelAccount: { workspaceId: safeWorkspaceId } },
                     { conversation: { workspaceId: safeWorkspaceId } },
                 ],
+            });
+        }
+
+        // Nếu là role STAFF, chỉ xem hội thoại được phân công cho mình (OWNER xem được tất cả)
+        if (options?.role === 'STAFF' && options?.staffId) {
+            const memberIds: string[] = [];
+            try {
+                const members = await this.prisma.workspaceMember.findMany({
+                    where: { userId: options.staffId },
+                    select: { id: true },
+                });
+                members.forEach((m) => memberIds.push(m.id));
+            } catch { }
+
+            andConditions.push({
+                conversation: {
+                    OR: [
+                        { assignedMember: { userId: options.staffId } },
+                        ...(memberIds.length > 0 ? [{ assignedMemberId: { in: memberIds } }] : []),
+                        { customer: { channelIdentities: { path: ['assignedStaffId'], equals: options.staffId } } },
+                    ],
+                },
             });
         }
 

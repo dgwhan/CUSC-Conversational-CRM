@@ -12,6 +12,7 @@ import { AssignProductModal } from '../../../../components/common/AssignProductM
 import { notify } from '../../../../components/feedback/toastEmitter.js';
 import { LogPersonalZaloModal } from '../modals/LogPersonalZaloModal.js';
 import { useWorkspaceConfig } from '../../../workspace/WorkspaceConfigContext.js';
+import { useUserRole } from '../../../auth/index.js';
 import {
   ContactHeader,
   ChannelIdentitiesSection,
@@ -59,6 +60,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   onCloseMobile,
 }) => {
   const { config } = useWorkspaceConfig();
+  const { isOwner } = useUserRole();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isLogZaloModalOpen, setIsLogZaloModalOpen] = useState(false);
   const [isAssignProductModalOpen, setIsAssignProductModalOpen] = useState(false);
@@ -160,6 +162,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           assignedStaff={assignedStaff}
           staffList={staffList}
           onAssignStaff={onAssignStaff}
+          isOwner={isOwner}
         />
 
         {/* D. TRẠNG THÁI / GIAI ĐOẠN PHỄU TUYỂN SINH (Status List) */}

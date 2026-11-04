@@ -211,8 +211,23 @@ class ApiClient {
 
     // Tự động đính kèm Bearer token nếu đã có
     const token = this.getAccessToken();
+    let userRole = '';
+    let currentStaffId = '';
+    if (typeof window !== 'undefined') {
+      try {
+        userRole = localStorage.getItem('polarisx_crm_user_role') || '';
+        const savedSession = localStorage.getItem('polarisx_crm_auth_session') || localStorage.getItem('cusc_crm_auth_session');
+        if (savedSession) {
+          const parsed = JSON.parse(savedSession);
+          currentStaffId = parsed?.user?.id || parsed?.staff?.id || '';
+        }
+      } catch { }
+    }
+
     const defaultHeaders: Record<string, string> = {
       ...(this.activeWorkspaceId ? { 'x-workspace-id': this.activeWorkspaceId } : {}),
+      ...(userRole ? { 'x-user-role': userRole } : {}),
+      ...(currentStaffId ? { 'x-staff-id': currentStaffId } : {}),
       ...(restOptions.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };

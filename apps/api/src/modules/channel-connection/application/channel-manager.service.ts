@@ -414,6 +414,67 @@ export class ChannelManagerService {
   }
 
   /**
+   * Kiểm tra quyền của nhân viên (STAFF) khi gửi phản hồi:
+   * Chỉ cho phép phản hồi các hội thoại được phân công cho mình (trả về lỗi 403 nếu không thuộc quyền).
+   */
+  async verifyStaffCanReply(
+    input: {
+      conversationId?: string;
+      channelAccountId?: string;
+      recipientId: string;
+      workspaceId?: string;
+    },
+    staffId: string,
+  ): Promise<void> {
+    if (!staffId) return;
+
+    let conv: any = null;
+    if (input.conversationId && UUID_REGEX.test(input.conversationId)) {
+      conv = await this.prisma.conversation.findUnique({
+        where: { id: input.conversationId },
+        include: {
+          assignedMember: true,
+          customer: true,
+        },
+      });
+    }
+
+    if (!conv && input.recipientId) {
+      conv = await this.prisma.conversation.findFirst({
+        where: {
+          ...(input.channelAccountId ? { channelAccountId: input.channelAccountId } : {}),
+          customer: {
+            OR: [
+              { channelIdentities: { path: ['facebook'], equals: input.recipientId } },
+              { channelIdentities: { path: ['zalo', 'id'], equals: input.recipientId } },
+              { channelIdentities: { path: ['socialId'], equals: input.recipientId } },
+            ],
+          },
+        },
+        include: {
+          assignedMember: true,
+          customer: true,
+        },
+      });
+    }
+
+    if (conv) {
+      const isAssigned =
+        conv.assignedMember?.userId === staffId ||
+        conv.assignedMemberId === staffId ||
+        conv.assignedMember?.id === staffId ||
+        (conv.customer?.channelIdentities as any)?.assignedStaffId === staffId ||
+        (conv.customer?.channelIdentities as any)?.assignedMemberId === staffId;
+
+      if (!isAssigned) {
+        throw new ForbiddenException(
+          'Bạn chỉ có thể phản hồi các cuộc hội thoại được phân công cho mình (403 Forbidden).',
+        );
+      }
+    }
+  }
+
+  /**
    * Gửi tin nhắn Outbound tới khách hàng qua Zalo OA API, Zalo Cá nhân, hoặc Facebook Graph API
    */
   async sendMessage(input: SendMessageInput): Promise<SendMessageResult> {

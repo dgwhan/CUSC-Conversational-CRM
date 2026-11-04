@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Optional, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Optional, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { RealtimeService } from '../../realtime/realtime.service.js';
@@ -15,6 +15,8 @@ export interface GetCustomersParams {
     limitStr?: string;
     leadStatus?: string;
     leadStage?: string;
+    role?: string;
+    staffId?: string;
 }
 
 export class UpdateCustomerDto {
@@ -72,6 +74,29 @@ export class CustomerService {
 
         if (leadStage && leadStage.trim()) {
             where.leadStage = leadStage.trim();
+        }
+
+        // Role STAFF: Chỉ xem khách hàng được phân công cho mình (OWNER xem toàn bộ)
+        if (params.role === 'STAFF' && params.staffId) {
+            const memberIds: string[] = [];
+            try {
+                const members = await this.prisma.workspaceMember.findMany({
+                    where: { userId: params.staffId },
+                    select: { id: true },
+                });
+                members.forEach((m) => memberIds.push(m.id));
+            } catch { }
+
+            where.AND = [
+                ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
+                {
+                    OR: [
+                        { conversations: { some: { assignedMember: { userId: params.staffId } } } },
+                        ...(memberIds.length > 0 ? [{ conversations: { some: { assignedMemberId: { in: memberIds } } } }] : []),
+                        { channelIdentities: { path: ['assignedStaffId'], equals: params.staffId } },
+                    ],
+                },
+            ];
         }
 
         let fallbackFilterNeeded = false;
@@ -190,7 +215,10 @@ export class CustomerService {
     /**
      * Retrieve single customer details by ID (including conversations, notes, identities)
      */
-    async getCustomerById(id: string) {
+    async getCustomerById(
+        id: string,
+        caller?: { role?: string; staffId?: string; workspaceId?: string },
+    ) {
         let customer: any = null;
 
         if (UUID_REGEX.test(id)) {
@@ -262,19 +290,79 @@ export class CustomerService {
             throw new NotFoundException('Khách hàng không tồn tại hoặc đã bị xóa');
         }
 
+        // Role STAFF: nếu vào khách hàng của người khác sẽ trả về lỗi 403 Forbidden
+        if (caller?.role === 'STAFF' && caller?.staffId) {
+            const isAssigned = this.isCustomerAssignedToStaff(customer, caller.staffId);
+            if (!isAssigned) {
+                throw new ForbiddenException(
+                    'Bạn không có quyền xem thông tin khách hàng của người khác (403 Forbidden).',
+                );
+            }
+        }
+
         return this.mapCustomerDto(customer);
+    }
+
+    /**
+     * Kiểm tra xem khách hàng có thuộc quyền phụ trách của nhân sự hay không
+     */
+    isCustomerAssignedToStaff(customer: any, staffId: string): boolean {
+        if (!customer || !staffId) return false;
+        const identities = (customer.channelIdentities as any) || {};
+        if (
+            identities.assignedStaffId === staffId ||
+            identities.assignedMemberId === staffId
+        ) {
+            return true;
+        }
+        if (Array.isArray(customer.conversations)) {
+            for (const conv of customer.conversations) {
+                if (
+                    conv.assignedMember?.userId === staffId ||
+                    conv.assignedMemberId === staffId ||
+                    conv.assignedMember?.id === staffId
+                ) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
      * Update customer profile, recruitment pipeline stage, and lead qualification status.
      * Automatically broadcasts real-time pipeline changes to connected staff.
      */
-    async updateCustomer(id: string, body: UpdateCustomerDto, headerWsId?: string) {
+    async updateCustomer(
+        id: string,
+        body: UpdateCustomerDto,
+        headerWsId?: string,
+        caller?: { role?: string; staffId?: string },
+    ) {
+        // Role STAFF: không tự phân công cho người khác
+        if (caller?.role === 'STAFF') {
+            if (body.assignedStaffId !== undefined || body.assignedMemberId !== undefined) {
+                throw new ForbiddenException(
+                    'Nhân viên không có quyền tự phân công khách hàng cho người khác (403 Forbidden).',
+                );
+            }
+        }
+
         let existing = await this.findExistingCustomer(id, body.conversationId, body);
 
         // Upsert fallback: Provision new Customer if not found in database
         if (!existing) {
             return this.provisionNewCustomer(id, body, headerWsId);
+        }
+
+        // Role STAFF: chỉ được chỉnh sửa các trạng thái lead thuộc khách hàng mình phụ trách, nếu vào của người khác sẽ trả về lỗi 403
+        if (caller?.role === 'STAFF' && caller?.staffId) {
+            const isAssigned = this.isCustomerAssignedToStaff(existing, caller.staffId);
+            if (!isAssigned) {
+                throw new ForbiddenException(
+                    'Bạn chỉ được chỉnh sửa các trạng thái lead thuộc khách hàng mình phụ trách (403 Forbidden).',
+                );
+            }
         }
 
         const currentIdentities = (existing.channelIdentities as any) || {};
@@ -712,7 +800,7 @@ export class CustomerService {
             try {
                 existing = await this.prisma.customer.findUnique({
                     where: { id },
-                    include: { conversations: { include: { channelAccount: true }, take: 1, orderBy: { lastMessageAt: 'desc' } } },
+                    include: { conversations: { include: { channelAccount: true, assignedMember: true }, take: 3, orderBy: { lastMessageAt: 'desc' } } },
                 });
             } catch {
                 existing = null;
@@ -726,7 +814,7 @@ export class CustomerService {
                 try {
                     existing = await this.prisma.customer.findUnique({
                         where: { id: strippedUuid },
-                        include: { conversations: { include: { channelAccount: true }, take: 1, orderBy: { lastMessageAt: 'desc' } } },
+                        include: { conversations: { include: { channelAccount: true, assignedMember: true }, take: 3, orderBy: { lastMessageAt: 'desc' } } },
                     });
                 } catch {
                     existing = null;
@@ -765,7 +853,7 @@ export class CustomerService {
                                 ],
                             },
                             orderBy: { updatedAt: 'desc' },
-                            include: { conversations: { include: { channelAccount: true }, take: 1, orderBy: { lastMessageAt: 'desc' } } },
+                            include: { conversations: { include: { channelAccount: true, assignedMember: true }, take: 3, orderBy: { lastMessageAt: 'desc' } } },
                         });
                     } catch {
                         existing = null;
@@ -796,7 +884,7 @@ export class CustomerService {
                         ],
                     },
                     orderBy: { updatedAt: 'desc' },
-                    include: { conversations: { include: { channelAccount: true }, take: 1, orderBy: { lastMessageAt: 'desc' } } },
+                    include: { conversations: { include: { channelAccount: true, assignedMember: true }, take: 3, orderBy: { lastMessageAt: 'desc' } } },
                 });
             } catch {
                 existing = null;

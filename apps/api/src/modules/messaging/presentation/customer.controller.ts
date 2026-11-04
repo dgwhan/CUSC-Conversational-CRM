@@ -8,6 +8,8 @@ import {
     Headers,
     Query,
     Optional,
+    ForbiddenException,
+    Req,
 } from '@nestjs/common';
 import { CustomerService, UpdateCustomerDto } from '../application/customer.service.js';
 import { RealtimeService } from '../../realtime/realtime.service.js';
@@ -39,13 +41,19 @@ export class CustomerController {
     @Get()
     async getCustomers(
         @Headers('x-workspace-id') headerWsId?: string,
+        @Headers('x-user-role') headerUserRole?: string,
+        @Headers('x-staff-id') headerStaffId?: string,
         @Query('workspaceId') queryWsId?: string,
         @Query('search') search?: string,
         @Query('page') pageStr?: string,
         @Query('limit') limitStr?: string,
         @Query('leadStatus') leadStatus?: string,
         @Query('leadStage') leadStage?: string,
+        @Req() req?: any,
     ) {
+        const role = ((req?.user?.role || headerUserRole || 'OWNER') as string).toUpperCase();
+        const staffId = req?.user?.id || headerStaffId;
+
         return this.customerService.getCustomers({
             rawWsId: queryWsId || headerWsId,
             search,
@@ -53,45 +61,76 @@ export class CustomerController {
             limitStr,
             leadStatus,
             leadStage,
+            role,
+            staffId,
         });
     }
 
     /**
      * Retrieve single customer details by ID (including conversations, notes, identities)
+     * Role STAFF: nếu vào khách hàng của người khác sẽ trả về lỗi 403 Forbidden
      */
     @Get(':id')
     async getCustomerById(
         @Param('id') id: string,
-        @Headers('x-workspace-id') _headerWsId?: string,
-        @Query('workspaceId') _queryWsId?: string,
+        @Headers('x-workspace-id') headerWsId?: string,
+        @Headers('x-user-role') headerUserRole?: string,
+        @Headers('x-staff-id') headerStaffId?: string,
+        @Query('workspaceId') queryWsId?: string,
+        @Req() req?: any,
     ) {
-        return this.customerService.getCustomerById(id);
+        const role = ((req?.user?.role || headerUserRole || 'OWNER') as string).toUpperCase();
+        const staffId = req?.user?.id || headerStaffId;
+
+        return this.customerService.getCustomerById(id, {
+            role,
+            staffId,
+            workspaceId: queryWsId || headerWsId,
+        });
     }
 
     /**
      * Đồng bộ phân công nhân sự (staff / workspace_member) cho cuộc hội thoại
-     * Đảm bảo toàn vẹn tham chiếu với bảng workspace_members
+     * Role OWNER toàn quyền, Role STAFF không tự phân công cho người khác (trả về 403)
      */
     @Patch('conversations/:conversationId/assign')
     async assignConversation(
         @Param('conversationId') conversationId: string,
         @Body() body: { staffId?: string | null; staffName?: string | null },
         @Headers('x-workspace-id') headerWsId?: string,
+        @Headers('x-user-role') headerUserRole?: string,
+        @Req() req?: any,
     ) {
+        const role = ((req?.user?.role || headerUserRole || '') as string).toUpperCase();
+        if (role === 'STAFF') {
+            throw new ForbiddenException(
+                'Nhân viên không có quyền phân công cuộc hội thoại cho người khác (403 Forbidden).',
+            );
+        }
         return this.customerService.assignConversation(conversationId, body.staffId, body.staffName, headerWsId);
     }
 
     /**
      * Update customer profile, recruitment pipeline stage, and lead qualification status.
-     * Automatically broadcasts real-time pipeline changes to connected staff.
+     * Role OWNER: toàn quyền chỉnh sửa bất kỳ khách hàng nào
+     * Role STAFF: chỉ được chỉnh sửa khách hàng mình phụ trách (nếu vào của người khác trả về lỗi 403)
      */
     @Patch(':id')
     async updateCustomer(
         @Param('id') id: string,
         @Body() body: UpdateCustomerDto,
         @Headers('x-workspace-id') headerWsId?: string,
+        @Headers('x-user-role') headerUserRole?: string,
+        @Headers('x-staff-id') headerStaffId?: string,
+        @Req() req?: any,
     ) {
-        return this.customerService.updateCustomer(id, body, headerWsId);
+        const role = ((req?.user?.role || headerUserRole || 'OWNER') as string).toUpperCase();
+        const staffId = req?.user?.id || headerStaffId;
+
+        return this.customerService.updateCustomer(id, body, headerWsId, {
+            role,
+            staffId,
+        });
     }
 
     /**

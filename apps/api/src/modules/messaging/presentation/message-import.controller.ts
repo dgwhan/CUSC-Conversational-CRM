@@ -37,12 +37,17 @@ export class MessageImportController {
         @Query('search') search?: string,
         @Query('workspaceId') queryWorkspaceId?: string,
         @Headers('x-workspace-id') headerWorkspaceId?: string,
+        @Headers('x-user-role') headerUserRole?: string,
+        @Headers('x-staff-id') headerStaffId?: string,
+        @Req() req?: any,
     ) {
         const page = Math.max(1, parseInt(pageStr || '1', 10) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(limitStr || '20', 10) || 20));
         const offset = (page - 1) * limit;
 
         const effectiveWorkspaceId = queryWorkspaceId || headerWorkspaceId;
+        const effectiveRole = ((req?.user?.role || headerUserRole || 'OWNER') as string).toUpperCase() as 'OWNER' | 'STAFF';
+        const effectiveStaffId = req?.user?.id || headerStaffId;
 
         try {
             const { items, total } = await this.messageRepo.findMany({
@@ -51,6 +56,8 @@ export class MessageImportController {
                 offset,
                 channel,
                 search,
+                role: effectiveRole,
+                staffId: effectiveStaffId,
             });
 
             return {

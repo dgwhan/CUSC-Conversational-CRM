@@ -9,6 +9,7 @@ import { UserRoleProvider, useUserRole } from './modules/auth/index.js';
 import { RealtimeProvider } from './modules/realtime/RealtimeContext.js';
 import { WorkspaceConfigProvider } from './modules/workspace/WorkspaceConfigContext.js';
 import { AuthPage } from './features/auth/pages/AuthPage.js';
+import { AppSkeleton } from './components/ui/AppSkeleton.js';
 
 // Lazy load CRM internal pages and components for high performance initial load
 
@@ -149,13 +150,7 @@ function CRMMainContent() {
       {/* Khung hiển thị Toast Thông Báo */}
       <ToastContainer />
 
-      <Suspense
-        fallback={
-          <div className="flex min-h-screen items-center justify-center bg-slate-50 font-sans text-sm text-slate-500">
-            Đang tải dữ liệu...
-          </div>
-        }
-      >
+      <Suspense fallback={<AppSkeleton />}>
         {/* Màn hình chính hoặc màn hình lỗi */}
         {renderCurrentView()}
       </Suspense>
