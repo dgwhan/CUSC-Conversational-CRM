@@ -28,7 +28,7 @@ export type {
 
 const STORAGE_KEY = 'polarisx_crm_workspace_config_v1';
 
-const defaultEducationPreset = CLIENT_INDUSTRY_PRESETS.CUSTOM;
+const defaultEducationPreset = CLIENT_INDUSTRY_PRESETS.EDUCATION;
 const initialDefaultConfig: WorkspaceConfig = {
   workspaceId: 'ws-default-001',
   workspaceName: defaultEducationPreset.workspaceName,

@@ -43,79 +43,36 @@ const COLOR_SWATCHES = [
 ];
 
 function generateDefaultProfiles(activeConfig: WorkspaceConfig): ConfigProfileItem[] {
+  const eduPreset = CLIENT_INDUSTRY_PRESETS.EDUCATION;
   return [
     {
       id: 'cfg-default-education',
-      name: activeConfig.workspaceName ? `Cấu hình ${activeConfig.workspaceName}` : 'Cấu hình Giáo dục & Tuyển sinh',
-      domain: activeConfig.domain || 'EDUCATION',
-      config: JSON.parse(JSON.stringify(activeConfig)),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'cfg-preset-real-estate',
-      name: 'Mẫu Cấu hình Bất động sản & Dự án',
-      domain: 'REAL_ESTATE',
+      name: activeConfig.workspaceName || 'Tuyển sinh',
+      domain: 'EDUCATION',
       config: {
-        workspaceId: 'cfg-preset-real-estate',
-        workspaceName: 'Mẫu Bất động sản',
-        domain: 'REAL_ESTATE',
-        terminology: { ...CLIENT_INDUSTRY_PRESETS.REAL_ESTATE.terminology },
-        pipelineStages: CLIENT_INDUSTRY_PRESETS.REAL_ESTATE.pipelineStages.map((s) => ({ ...s })),
-        productCatalog: CLIENT_INDUSTRY_PRESETS.REAL_ESTATE.productCatalog.map((p) => ({ ...p })),
-        criteria: CLIENT_INDUSTRY_PRESETS.REAL_ESTATE.criteria.map((c) => ({ ...c })),
-        unresponsiveAlertMinutes: 15,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'cfg-preset-spa',
-      name: 'Mẫu Cấu hình Thẩm mỹ viện & Spa',
-      domain: 'BEAUTY_SPA',
-      config: {
-        workspaceId: 'cfg-preset-spa',
-        workspaceName: 'Mẫu Thẩm mỹ viện & Spa',
-        domain: 'BEAUTY_SPA',
-        terminology: { ...CLIENT_INDUSTRY_PRESETS.BEAUTY_SPA.terminology },
-        pipelineStages: CLIENT_INDUSTRY_PRESETS.BEAUTY_SPA.pipelineStages.map((s) => ({ ...s })),
-        productCatalog: CLIENT_INDUSTRY_PRESETS.BEAUTY_SPA.productCatalog.map((p) => ({ ...p })),
-        criteria: CLIENT_INDUSTRY_PRESETS.BEAUTY_SPA.criteria.map((c) => ({ ...c })),
-        unresponsiveAlertMinutes: 15,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'cfg-preset-saas',
-      name: 'Mẫu Cấu hình B2B SaaS & Phần mềm',
-      domain: 'B2B_SAAS',
-      config: {
-        workspaceId: 'cfg-preset-saas',
-        workspaceName: 'Mẫu B2B SaaS',
-        domain: 'B2B_SAAS',
-        terminology: { ...CLIENT_INDUSTRY_PRESETS.B2B_SAAS.terminology },
-        pipelineStages: CLIENT_INDUSTRY_PRESETS.B2B_SAAS.pipelineStages.map((s) => ({ ...s })),
-        productCatalog: CLIENT_INDUSTRY_PRESETS.B2B_SAAS.productCatalog.map((p) => ({ ...p })),
-        criteria: CLIENT_INDUSTRY_PRESETS.B2B_SAAS.criteria.map((c) => ({ ...c })),
-        unresponsiveAlertMinutes: 15,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'cfg-preset-retail',
-      name: 'Mẫu Cấu hình Bán lẻ & Thương mại',
-      domain: 'RETAIL',
-      config: {
-        workspaceId: 'cfg-preset-retail',
-        workspaceName: 'Mẫu Bán lẻ',
-        domain: 'RETAIL',
-        terminology: { ...CLIENT_INDUSTRY_PRESETS.RETAIL.terminology },
-        pipelineStages: CLIENT_INDUSTRY_PRESETS.RETAIL.pipelineStages.map((s) => ({ ...s })),
-        productCatalog: CLIENT_INDUSTRY_PRESETS.RETAIL.productCatalog.map((p) => ({ ...p })),
-        criteria: CLIENT_INDUSTRY_PRESETS.RETAIL.criteria.map((c) => ({ ...c })),
-        unresponsiveAlertMinutes: 15,
+        workspaceId: activeConfig.workspaceId || 'ws-default-001',
+        workspaceName: activeConfig.workspaceName || 'Tuyển sinh',
+        domain: 'EDUCATION',
+        workingHours: activeConfig.workingHours || eduPreset.workingHours,
+        terminology: {
+          entityName: activeConfig.terminology?.entityName || eduPreset.terminology.entityName,
+          pipelineName: activeConfig.terminology?.pipelineName || eduPreset.terminology.pipelineName,
+          productLabel: activeConfig.terminology?.productLabel || eduPreset.terminology.productLabel,
+          valueLabel: activeConfig.terminology?.valueLabel || eduPreset.terminology.valueLabel,
+        },
+        pipelineStages:
+          activeConfig.pipelineStages && activeConfig.pipelineStages.length > 0
+            ? activeConfig.pipelineStages.map((s) => ({ ...s }))
+            : eduPreset.pipelineStages.map((s) => ({ ...s })),
+        productCatalog:
+          activeConfig.productCatalog && activeConfig.productCatalog.length > 0
+            ? activeConfig.productCatalog.map((p) => ({ ...p }))
+            : eduPreset.productCatalog.map((p) => ({ ...p })),
+        criteria:
+          activeConfig.criteria && activeConfig.criteria.length > 0
+            ? activeConfig.criteria.map((c) => ({ ...c }))
+            : eduPreset.criteria.map((c) => ({ ...c })),
+        unresponsiveAlertMinutes: activeConfig.unresponsiveAlertMinutes ?? 15,
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -142,7 +99,13 @@ export const WorkspaceSettingsPage: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Xóa bỏ tất cả các mẫu preset không dùng đến (Bất động sản, Spa, SaaS, Bán lẻ)
+          const cleaned = parsed.filter(
+            (p: ConfigProfileItem) => !p.id.startsWith('cfg-preset-')
+          );
+          if (cleaned.length > 0) {
+            return cleaned;
+          }
         }
       }
     } catch {
@@ -154,14 +117,16 @@ export const WorkspaceSettingsPage: React.FC = () => {
   const [activeProfileId, setActiveProfileId] = useState<string>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_ACTIVE_KEY);
-      if (saved) return saved;
+      if (saved && !saved.startsWith('cfg-preset-')) return saved;
     } catch {
       // Fallback
     }
     return 'cfg-default-education';
   });
 
-  const [selectedProfileId, setSelectedProfileId] = useState<string>('cfg-default-education');
+  const [selectedProfileId, setSelectedProfileId] = useState<string>(() => {
+    return 'cfg-default-education';
+  });
 
   // Active profile object for detail view
   const currentProfile = profiles.find((p) => p.id === selectedProfileId) || profiles[0] || {
@@ -187,6 +152,19 @@ export const WorkspaceSettingsPage: React.FC = () => {
       console.warn('Failed to persist active config profile ID:', e);
     }
   }, [activeProfileId]);
+
+  // Tự động đồng bộ hóa cấu hình đang kích hoạt lên toàn bộ UI hệ thống nếu chưa đồng bộ
+  useEffect(() => {
+    if (activeProfileId && profiles.length > 0) {
+      const activeProf = profiles.find((p) => p.id === activeProfileId) || profiles[0];
+      if (activeProf && (config.domain !== activeProf.domain || config.workspaceName !== activeProf.config.workspaceName)) {
+        updateConfig({
+          ...activeProf.config,
+          domain: (activeProf.domain in CLIENT_INDUSTRY_PRESETS ? activeProf.domain : 'CUSTOM') as BusinessDomain,
+        });
+      }
+    }
+  }, [activeProfileId, profiles]);
 
   // Modals for Config Profile Management
   const [isCreateConfigModalOpen, setIsCreateConfigModalOpen] = useState(false);
