@@ -168,17 +168,28 @@ export class StaffManagementService {
 
         // Kiểm tra xem email này đã tồn tại trong bảng users/staff chưa
         const userDelegate = (this.prisma as any)?.user || (this.prisma as any)?.staff;
-        const existing = userDelegate
+        let existing = userDelegate
           ? await userDelegate.findUnique({
               where: { email: normalizedEmail },
             })
           : null;
 
-        // RÀNG BUỘC: Chỉ thành công khi tài khoản đã có trong hệ thống DB
+        // Nếu tài khoản chưa có trong hệ thống, tự động tạo tài khoản user mới
         if (!existing) {
-          throw new NotFoundException(
-            `Tài khoản với email "${normalizedEmail}" chưa tồn tại trong hệ thống. Vui lòng yêu cầu thành viên đăng ký tài khoản trước khi mời vào Workspace.`
-          );
+          const rawPassword = dto.password?.trim() || 'Staff123!';
+          const passwordHash = await argon2.hash(rawPassword);
+          existing = await userDelegate.create({
+            data: {
+              email: normalizedEmail,
+              fullName: dto.fullName?.trim() || normalizedEmail.split('@')[0],
+              phoneNumber: dto.phoneNumber?.trim() || null,
+              passwordHash,
+              status: 'ACTIVE',
+              tokenVersion: 0,
+              mustChangePassword: false,
+            },
+          });
+          this.logger.log(`Tự động tạo tài khoản cho nhân viên mới "${normalizedEmail}". Mật khẩu khởi tạo: ${rawPassword}`);
         }
 
         if (existing.id === resolvedOwner) {

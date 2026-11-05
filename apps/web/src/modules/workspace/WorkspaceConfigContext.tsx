@@ -8,6 +8,7 @@ import { CLIENT_INDUSTRY_PRESETS } from './workspacePresets.js';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import { useUserRole } from '../auth/UserRoleContext.js';
 import { USER_ROLES } from '../auth/userRole.types.js';
+import { apiClient } from '../../lib/api-client/index.js';
 import {
   useWorkspaceCatalog,
   useWorkspaceStaffManagement,
@@ -89,7 +90,7 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
     if (!wsToFetch) return;
 
     try {
-      const res = await fetch(`/api/workspaces/${wsToFetch}/config`, {
+      const data = await apiClient.get<WorkspaceConfig>(`/workspaces/${wsToFetch}/config`, {
         headers: {
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
@@ -97,14 +98,11 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
         },
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.pipelineStages?.length >= 2) {
-          saveConfig(data);
-        }
+      if (data && data.pipelineStages?.length >= 2) {
+        saveConfig(data);
       }
     } catch (err) {
-      console.warn('Could not sync workspace config from backend:', err);
+      console.error('Lỗi đồng bộ cấu hình từ Backend:', err);
     }
   }, [effectiveOwnerId, staffId, config.workspaceId]);
 
@@ -154,24 +152,15 @@ export const WorkspaceConfigProvider: React.FC<{ children: React.ReactNode }> = 
     saveConfig(updated);
 
     try {
-      const res = await fetch('/api/workspaces/current/config', {
-        method: 'PUT',
+      const remoteConfig = await apiClient.put<WorkspaceConfig>('/workspaces/current/config', patch, {
         headers: {
-          'Content-Type': 'application/json',
           'x-user-role': USER_ROLES.OWNER,
           'x-owner-id': effectiveOwnerId,
           'x-staff-id': staffId || '',
           'x-workspace-id': workspaceManager.activeWorkspaceId || config.workspaceId || '',
         },
-        body: JSON.stringify(patch),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Lỗi máy chủ (${res.status})`);
-      }
-
-      const remoteConfig: WorkspaceConfig = await res.json();
       if (remoteConfig && remoteConfig.pipelineStages?.length >= 2) {
         saveConfig(remoteConfig);
       }
