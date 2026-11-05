@@ -26,6 +26,7 @@ import { registerRequestSchema } from "../dto/register/register-request.dto.js";
 import type { RegisterRequestDto } from "../dto/register/register-request.dto.js";
 import type { RegisterResponseDto } from "../dto/register/register-response.dto.js";
 import { ZodValidationPipe } from "../../../../common/pipes/zod-validation.pipe.js";
+import { RateLimit } from "../../../../common/decorators/rate-limit.decorator.js";
 import type { AuthUser } from "../../domain/types/auth-user.js";
 
 const REFRESH_COOKIE_NAME = "refresh_token";
@@ -51,6 +52,7 @@ export class AuthController {
         private readonly configService: ConfigService,
     ) { }
 
+    @RateLimit({ limit: 10, ttlMs: 60000 })
     @Post("login")
     @HttpCode(HttpStatus.OK)
     async login(
@@ -79,6 +81,7 @@ export class AuthController {
         return result.response;
     }
 
+    @RateLimit({ limit: 10, ttlMs: 60000 })
     @Post("register")
     @HttpCode(HttpStatus.CREATED)
     async register(

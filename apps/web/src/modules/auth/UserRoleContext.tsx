@@ -89,8 +89,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setRoleState('');
       setWorkspaceOwnerId('');
       try {
-        localStorage.removeItem(SESSION_STORAGE_KEY);
-        localStorage.removeItem('polarisx_crm_user_role');
+        localStorage.clear();
       } catch { }
       notify.warning('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', 'Phiên làm việc');
     };
@@ -167,10 +166,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setRoleState(USER_ROLES.EMPTY);
     setWorkspaceOwnerId('');
     try {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-      localStorage.removeItem('cusc_crm_auth_session');
-      localStorage.removeItem('polarisx_crm_user_role');
-      localStorage.removeItem('cusc_crm_user_role');
+      localStorage.clear();
     } catch { }
     apiClient.post('/auth/logout').catch(() => { });
     notify.info('Đã đăng xuất khỏi hệ thống.', 'Phiên làm việc');

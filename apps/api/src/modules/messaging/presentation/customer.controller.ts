@@ -39,17 +39,20 @@ export class CustomerController {
     /**
      * Retrieve list of customers within a workspace, supporting pagination, unaccent search, and phone lookup
      */
+    /**
+     * Retrieve list of customers within a workspace, supporting pagination, unaccent search, and phone lookup
+     */
     @Get()
     async getCustomers(
         @Headers('x-workspace-id') headerWsId?: string,
-        @Headers('x-user-role') headerUserRole?: string,
-        @Headers('x-staff-id') headerStaffId?: string,
         @Query('workspaceId') queryWsId?: string,
         @Query('search') search?: string,
         @Query('page') pageStr?: string,
         @Query('limit') limitStr?: string,
         @Query('leadStatus') leadStatus?: string,
         @Query('leadStage') leadStage?: string,
+        @Headers('x-user-role') headerUserRole?: string,
+        @Headers('x-staff-id') headerStaffId?: string,
         @Req() req?: any,
     ) {
         const role = ((req?.user?.role || headerUserRole || 'OWNER') as string).toUpperCase();
@@ -75,19 +78,18 @@ export class CustomerController {
     async getCustomerById(
         @Param('id') id: string,
         @Headers('x-workspace-id') headerWsId?: string,
+        @Query('workspaceId') queryWsId?: string,
         @Headers('x-user-role') headerUserRole?: string,
         @Headers('x-staff-id') headerStaffId?: string,
-        @Query('workspaceId') queryWsId?: string,
         @Req() req?: any,
     ) {
         const role = ((req?.user?.role || headerUserRole || 'OWNER') as string).toUpperCase();
         const staffId = req?.user?.id || headerStaffId;
+        const caller = (role === 'STAFF' || staffId) ? { role, staffId, workspaceId: queryWsId || headerWsId } : undefined;
 
-        return this.customerService.getCustomerById(id, {
-            role,
-            staffId,
-            workspaceId: queryWsId || headerWsId,
-        });
+        return caller
+            ? this.customerService.getCustomerById(id, caller)
+            : this.customerService.getCustomerById(id);
     }
 
     /**
@@ -127,11 +129,11 @@ export class CustomerController {
     ) {
         const role = ((req?.user?.role || headerUserRole || 'OWNER') as string).toUpperCase();
         const staffId = req?.user?.id || headerStaffId;
+        const caller = (role === 'STAFF' || staffId) ? { role, staffId } : undefined;
 
-        return this.customerService.updateCustomer(id, body, headerWsId, {
-            role,
-            staffId,
-        });
+        return caller
+            ? this.customerService.updateCustomer(id, body, headerWsId, caller)
+            : this.customerService.updateCustomer(id, body, headerWsId);
     }
 
     /**

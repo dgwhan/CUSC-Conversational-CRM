@@ -7,6 +7,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ZodValidationPipe } from '../../../../common/pipes/zod-validation.pipe.js';
+import { RateLimit } from '../../../../common/decorators/rate-limit.decorator.js';
 import { PasswordRecoveryService } from '../../application/services/password-recovery.service.js';
 import { PasswordRecoveryVerificationService } from '../../application/services/password-recovery-verification.service.js';
 import {
@@ -32,6 +33,7 @@ export class PasswordRecoveryController {
     private readonly verificationService: PasswordRecoveryVerificationService,
   ) {}
 
+  @RateLimit({ limit: 5, ttlMs: 60000 })
   @Post('request')
   @HttpCode(HttpStatus.ACCEPTED)
   async requestOtp(
@@ -43,6 +45,7 @@ export class PasswordRecoveryController {
     return ACCEPTED_RESPONSE;
   }
 
+  @RateLimit({ limit: 5, ttlMs: 60000 })
   @Post('verify')
   @HttpCode(HttpStatus.OK)
   // Xác minh OTP thành công và cấp phát resetToken cho bước đặt lại mật khẩu.
@@ -58,6 +61,7 @@ export class PasswordRecoveryController {
     );
   }
 
+  @RateLimit({ limit: 5, ttlMs: 60000 })
   @Post('reset')
   @HttpCode(HttpStatus.OK)
   // Đặt lại mật khẩu mới với token đã được cấp, kiểm tra tính nguyên tử và thu hồi phiên cũ.

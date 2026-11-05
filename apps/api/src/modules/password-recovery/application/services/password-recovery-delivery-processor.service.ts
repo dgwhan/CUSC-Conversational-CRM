@@ -75,7 +75,20 @@ export class PasswordRecoveryDeliveryProcessor
         await this.deliver(delivery);
       }
     } catch (error: unknown) {
-      this.logger.error(`Password recovery delivery batch failed: ${error instanceof Error ? error.stack : String(error)}`);
+      const message = error instanceof Error ? error.message : String(error);
+      if (
+        message.includes("Can't reach database server") ||
+        message.includes('ECONNREFUSED') ||
+        message.includes('P1001')
+      ) {
+        this.logger.warn(
+          'Không thể kết nối đến máy chủ PostgreSQL (localhost:5432). Vui lòng khởi động Docker / dịch vụ PostgreSQL.',
+        );
+      } else {
+        this.logger.error(
+          `Password recovery delivery batch failed: ${error instanceof Error ? error.stack : String(error)}`,
+        );
+      }
     } finally {
       this.running = false;
     }
