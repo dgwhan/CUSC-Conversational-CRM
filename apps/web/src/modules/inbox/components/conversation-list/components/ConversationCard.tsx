@@ -5,6 +5,7 @@ import {
   UserCheck,
   UserX,
   Clock,
+  Moon,
 } from 'lucide-react';
 import type { ConversationItem, ChannelType } from '../../../types.js';
 import { formatConversationTime, getUnresponsiveStatus } from '../../../utils/index.js';
@@ -26,6 +27,18 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
 }) => {
   const hasUnread = item.unreadCount > 0;
   const { isOverdue, waitingMinutes } = getUnresponsiveStatus(item, alertThresholdMinutes);
+  const isOutOfOffice = Boolean(
+    item.tags?.some((t) => {
+      const lower = String(t || '').toLowerCase();
+      return (
+        lower.includes('ngoài giờ') ||
+        lower.includes('ngoai_gio') ||
+        lower.includes('hẹn tư vấn') ||
+        lower.includes('sáng mai') ||
+        lower.includes('hôm sau')
+      );
+    }),
+  );
 
   // Helper render channel badge overlay on avatar
   const renderChannelBadge = (channel: ChannelType) => {
@@ -57,6 +70,8 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
       className={`relative flex items-start gap-3 p-3 transition-colors cursor-pointer border-l-[3px] ${
         isSelected
           ? 'bg-blue-50/70 border-l-blue-600'
+          : isOutOfOffice
+          ? 'bg-amber-50/20 border-l-amber-500 hover:bg-amber-50/50'
           : isOverdue
           ? 'bg-rose-50/30 border-l-rose-500 hover:bg-rose-50/60'
           : hasUnread
@@ -94,6 +109,15 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
               >
                 <Clock size={10} className="text-rose-600 animate-pulse" />
                 <span>{waitingMinutes >= 60 ? `${Math.floor(waitingMinutes / 60)}h${waitingMinutes % 60}p` : `${waitingMinutes}p`}</span>
+              </span>
+            )}
+            {isOutOfOffice && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-800 bg-amber-100/90 border border-amber-300 px-1.5 py-0.5 rounded leading-none shadow-xs"
+                title="Tin nhắn đến ngoài giờ làm việc - Cần tư vấn trao đổi trong ngày hôm sau"
+              >
+                <Moon size={9} className="text-amber-700" />
+                <span>Hẹn sáng mai</span>
               </span>
             )}
             <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">

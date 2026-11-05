@@ -135,6 +135,21 @@ export function useConversationFilter({
             return false;
           }
         }
+        if (statusFilter === 'OUT_OF_OFFICE') {
+          const isOutOfOffice = item.tags?.some((t) => {
+            const lower = String(t || '').toLowerCase();
+            return (
+              lower.includes('ngoài giờ') ||
+              lower.includes('ngoai_gio') ||
+              lower.includes('hẹn tư vấn') ||
+              lower.includes('sáng mai') ||
+              lower.includes('hôm sau')
+            );
+          });
+          if (!isOutOfOffice) {
+            return false;
+          }
+        }
         if (statusFilter === 'ASSIGNED_TO_ME' && item.assignedStaff?.id !== staffId) {
           return false;
         }

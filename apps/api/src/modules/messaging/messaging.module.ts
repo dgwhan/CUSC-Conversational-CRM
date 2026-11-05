@@ -1,7 +1,10 @@
-import { Logger, Module, Provider } from '@nestjs/common';
+import { Logger, Module, Provider, forwardRef } from '@nestjs/common';
 import { PrismaModule } from '../../platform/database/prisma.module.js';
 import { RealtimeModule } from '../realtime/realtime.module.js';
 import { AuditModule } from '../audit/audit.module.js';
+import { WorkspaceConfigModule } from '../workspace-config/workspace-config.module.js';
+import { ChannelConnectionModule } from '../channel-connection/channel-connection.module.js';
+import { WorkingHoursService } from './application/working-hours.service.js';
 import { ChannelAdapterRegistry, CHANNEL_ADAPTERS } from './application/channel-adapter.registry.js';
 import { ReceiveInboundMessage } from './application/receive-inbound-message.usecase.js';
 import { ProcessMessageReceived } from './application/process-message-received.usecase.js';
@@ -66,7 +69,13 @@ const adaptersProvider: Provider = {
 };
 
 @Module({
-    imports: [PrismaModule, RealtimeModule, AuditModule],
+    imports: [
+        PrismaModule,
+        RealtimeModule,
+        AuditModule,
+        WorkspaceConfigModule,
+        forwardRef(() => ChannelConnectionModule),
+    ],
     controllers: [WebhookController, MessageImportController, CustomerController, ContactController],
     providers: [
         MessageRepository,
@@ -77,6 +86,7 @@ const adaptersProvider: Provider = {
         ContactMergeService,
         CustomerService,
         CustomerTagService,
+        WorkingHoursService,
         DefaultCustomerGateway,
         DefaultClassificationGateway,
         ManualImportAdapter,
@@ -96,6 +106,7 @@ const adaptersProvider: Provider = {
         ContactMergeService,
         CustomerService,
         CustomerTagService,
+        WorkingHoursService,
         INBOUND_QUEUE,
         CHANNEL_ADAPTERS,
         CUSTOMER_GATEWAY,

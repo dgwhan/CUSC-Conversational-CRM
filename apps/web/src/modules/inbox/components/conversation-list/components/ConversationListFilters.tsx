@@ -143,6 +143,9 @@ export const ConversationListFilters: React.FC<ConversationListFiltersProps> = (
               ⚠️ Chưa phản hồi (&gt; {alertThresholdMinutes} phút)
             </option>
           )}
+          <option value="OUT_OF_OFFICE">
+            🌙 Ngoài giờ - Cần tư vấn hôm sau
+          </option>
           <option value="ASSIGNED_TO_ME">{t('inbox.filterAssignedToMe')}</option>
           <option value="UNASSIGNED">{t('inbox.filterUnassigned')}</option>
         </select>

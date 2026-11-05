@@ -1,4 +1,5 @@
-import { Injectable, Logger, BadRequestException, Optional, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Optional, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { randomBytes } from 'node:crypto';
 // @ts-ignore
 import { Zalo, LoginQRCallbackEventType, ThreadType } from 'zca-js';
@@ -7,6 +8,8 @@ import { RealtimeService } from '../../realtime/realtime.service.js';
 import { TokenEncryptionService } from '../infrastructure/token-encryption.service.js';
 import { NotificationService } from '../../notification/notification.service.js';
 import { NotificationType, NotificationSeverity } from '@prisma/client';
+import { WorkingHoursService } from '../../messaging/application/working-hours.service.js';
+import { Channel } from '../../messaging/domain/channel.js';
 
 export interface ZcaSafetyConfig {
   enabled: boolean;
@@ -36,6 +39,7 @@ export interface QrLoginSession {
 @Injectable()
 export class ZcaPersonalService implements OnModuleInit {
   private readonly logger = new Logger(ZcaPersonalService.name);
+  private _workingHoursServiceInstance?: WorkingHoursService;
 
   // Bộ nhớ lưu các phiên quét mã QR đăng nhập
   private readonly qrSessions = new Map<string, QrLoginSession>();
@@ -49,7 +53,26 @@ export class ZcaPersonalService implements OnModuleInit {
     @Optional() private readonly realtime?: RealtimeService,
     @Optional() private readonly encryption?: TokenEncryptionService,
     @Optional() private readonly notificationService?: NotificationService,
+    @Optional()
+    @Inject(forwardRef(() => WorkingHoursService))
+    private readonly injectedWorkingHoursService?: any,
+    @Optional() private readonly moduleRef?: ModuleRef,
   ) {}
+
+  private get workingHoursService(): WorkingHoursService | undefined {
+    if (this._workingHoursServiceInstance) return this._workingHoursServiceInstance;
+    if (this.injectedWorkingHoursService) {
+      this._workingHoursServiceInstance = this.injectedWorkingHoursService;
+      return this._workingHoursServiceInstance;
+    }
+    if (this.moduleRef) {
+      try {
+        this._workingHoursServiceInstance = this.moduleRef.get(WorkingHoursService, { strict: false });
+        return this._workingHoursServiceInstance;
+      } catch {}
+    }
+    return undefined;
+  }
 
   /**
    * Tự động phục hồi phiên kết nối Zalo Cá nhân và khởi chạy Listener khi server khởi động
@@ -1008,6 +1031,23 @@ export class ZcaPersonalService implements OnModuleInit {
         this.logger.log(`[zca-js] Đã phát sự kiện Realtime Socket message:received cho tin nhắn Zalo (${customerName})`);
       } catch (err) {
         this.logger.warn(`[zca-js] Lỗi realtime broadcast: ${(err as Error).message}`);
+      }
+    }
+
+    // 6. XỬ LÝ TIN NHẮN ĐẾN NGOÀI KHUNG GIỜ LÀM VIỆC (OUT-OF-OFFICE AUTO-REPLY & TAG CONVERSATION)
+    if (!isSelf && this.workingHoursService && (dbConv?.id || customerZaloId)) {
+      try {
+        await this.workingHoursService.processInboundOutOfOffice({
+          messageId: externalMessageId,
+          conversationId: dbConv?.id || `conv_${customerZaloId}`,
+          channel: Channel.ZALO,
+          senderExternalId: customerZaloId,
+          channelAccountId: channelAccount.id,
+          workspaceId: channelAccount.workspaceId,
+          sentAt,
+        });
+      } catch (err) {
+        this.logger.warn(`[zca-js] Lỗi xử lý ngoài giờ làm việc: ${(err as Error).message}`);
       }
     }
   }

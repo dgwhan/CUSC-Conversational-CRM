@@ -5,7 +5,9 @@ import {
   BadRequestException,
   Optional,
   Inject,
+  forwardRef,
 } from '@nestjs/common';
+import { WorkingHoursService } from '../../messaging/application/working-hours.service.js';
 import { CUSTOMER_GATEWAY } from '../../messaging/domain/customer-gateway.port.js';
 import type { CustomerGateway } from '../../messaging/domain/customer-gateway.port.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
@@ -43,6 +45,9 @@ export class ChannelSyncService {
     @Optional() private readonly realtime?: RealtimeService,
     @Optional() private readonly zcaService?: ZcaPersonalService,
     @Optional() @Inject(CUSTOMER_GATEWAY) private readonly customerGateway?: CustomerGateway,
+    @Optional()
+    @Inject(forwardRef(() => WorkingHoursService))
+    private readonly workingHoursService?: WorkingHoursService,
   ) {}
 
   /**
@@ -326,6 +331,23 @@ export class ChannelSyncService {
               newStage: 'STAGE_NEW',
               updatedBy: isPersonal ? 'Zalo Personal Sync' : 'Zalo OA Sync',
             });
+          }
+
+          // Xử lý ngoài giờ làm việc nếu tin nhắn mới nhất đến sau giờ làm việc
+          if (this.workingHoursService && created.length > 0) {
+            try {
+              await this.workingHoursService.processInboundOutOfOffice({
+                messageId: created[0].id,
+                conversationId: dbConv?.id || convKey,
+                channel: Channel.ZALO,
+                senderExternalId: customerZaloId,
+                channelAccountId: account.id,
+                workspaceId: targetWsId,
+                sentAt: lastMsgTime,
+              });
+            } catch (err) {
+              this.logger.warn(`[Sync] Lỗi xử lý ngoài giờ làm việc Zalo: ${(err as Error).message}`);
+            }
           }
         }
       }

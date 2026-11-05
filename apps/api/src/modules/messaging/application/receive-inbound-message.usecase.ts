@@ -9,6 +9,7 @@ import { RealtimeService } from "../../realtime/realtime.service.js";
 import { PrismaService } from "../../../platform/database/prisma.service.js";
 import { CUSTOMER_GATEWAY } from "../domain/customer-gateway.port.js";
 import type { CustomerGateway } from "../domain/customer-gateway.port.js";
+import { WorkingHoursService } from "./working-hours.service.js";
 import {
     resolveTagMappings,
     CRM_SYSTEM_TAGS,
@@ -30,6 +31,7 @@ export class ReceiveInboundMessage {
         @Optional() private readonly realtime?: RealtimeService,
         @Optional() private readonly prisma?: PrismaService,
         @Optional() @Inject(CUSTOMER_GATEWAY) private readonly customers?: CustomerGateway,
+        @Optional() private readonly workingHoursService?: WorkingHoursService,
     ) { }
 
     async execute(req: RawWebhookRequest & { channel: Channel }): Promise<void> {
@@ -236,6 +238,24 @@ export class ReceiveInboundMessage {
                             newStage: dbCustomer.leadStage || 'STAGE_NEW',
                             updatedBy: `Webhook ${event.channel}`,
                         });
+                    }
+
+                    // TỰ ĐỘNG XỬ LÝ NGOÀI GIỜ LÀM VIỆC: GỬI LỜI NHẮN & ĐÁNH DẤU HỘI THOẠI HÔM SAU TƯ VẤN
+                    if (!isOutbound && this.workingHoursService) {
+                        const targetConvId = item.conversationId || conversationId;
+                        try {
+                            await this.workingHoursService.processInboundOutOfOffice({
+                                messageId: item.id,
+                                conversationId: targetConvId,
+                                channel: event.channel,
+                                senderExternalId: customerExternalId || event.senderExternalId,
+                                externalAccountId: event.externalAccountId,
+                                workspaceId: event.workspaceId || dbCustomer?.workspaceId || null,
+                                sentAt: new Date(event.sentAt),
+                            });
+                        } catch (err) {
+                            this.logger.warn(`Could not handle working hours out-of-office logic: ${(err as Error).message}`);
+                        }
                     }
                 }
             }

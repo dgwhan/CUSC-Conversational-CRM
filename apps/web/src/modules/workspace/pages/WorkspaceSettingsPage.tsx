@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useWorkspaceConfig } from '../WorkspaceConfigContext.js';
 import { useUserRole } from '../../auth/UserRoleContext.js';
-import type { PipelineStageConfig, BusinessDomain, WorkspaceConfig } from '../workspaceConfig.types.js';
+import type { PipelineStageConfig, BusinessDomain, WorkspaceConfig, WorkingHoursConfig } from '../workspaceConfig.types.js';
 import { CLIENT_INDUSTRY_PRESETS } from '../workspacePresets.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { EmptyState, Modal, Tabs, type TabItem } from '../../../components/ui/index.js';
@@ -23,7 +23,9 @@ import { CreateConfigModal } from '../components/settings/modals/CreateConfigMod
 import { EditConfigModal } from '../components/settings/modals/EditConfigModal.js';
 import { DeleteConfigModal } from '../components/settings/modals/DeleteConfigModal.js';
 
-type SettingsTabId = 'stages' | 'catalog' | 'terminology' | 'criteria' | 'alerts';
+import { WorkingHoursTab } from '../components/settings/WorkingHoursTab.js';
+
+type SettingsTabId = 'stages' | 'catalog' | 'terminology' | 'criteria' | 'alerts' | 'workingHours';
 
 const STORAGE_PROFILES_KEY = 'polarisx_crm_config_profiles_v1';
 const STORAGE_ACTIVE_KEY = 'polarisx_crm_active_profile_id_v1';
@@ -568,6 +570,14 @@ export const WorkspaceSettingsPage: React.FC = () => {
     );
   };
 
+  const handleSaveWorkingHours = (newWorkingHours: WorkingHoursConfig) => {
+    updateCurrentProfileConfig((prev) => ({
+      ...prev,
+      workingHours: newWorkingHours,
+    }));
+    notify.success('Đã lưu cấu hình khung giờ làm việc và phản hồi ngoài giờ!');
+  };
+
   // Tab definitions
   const tabItems: TabItem<SettingsTabId>[] = [
     {
@@ -588,6 +598,10 @@ export const WorkspaceSettingsPage: React.FC = () => {
       id: 'criteria',
       label: 'Tiêu chí phân loại',
       count: currentProfile.config.criteria.length,
+    },
+    {
+      id: 'workingHours',
+      label: 'Giờ làm việc & Tự động trả lời',
     },
     {
       id: 'alerts',
@@ -1170,6 +1184,16 @@ export const WorkspaceSettingsPage: React.FC = () => {
         </div>
       )}
 
+      {/* 8. Tab Khung Giờ Làm Việc & Tự Động Trả Lời */}
+      {activeTab === 'workingHours' && (
+        <WorkingHoursTab
+          workingHours={currentProfile.config.workingHours}
+          isOwner={isOwner}
+          isLoading={isLoading}
+          onSave={handleSaveWorkingHours}
+        />
+      )}
+
       {/* ========================================================
           MODAL 1: THÊM GIAI ĐOẠN PHỄU MỚI
           ======================================================== */}
@@ -1280,6 +1304,8 @@ export const WorkspaceSettingsPage: React.FC = () => {
         </form>
       </Modal>
 
+
+
       {/* ========================================================
           MODAL 2: CHỈNH SỬA GIAI ĐOẠN PHỄU
           ======================================================== */}
@@ -1358,6 +1384,8 @@ export const WorkspaceSettingsPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+
 
       {/* ========================================================
           MODAL 3: THÊM SẢN PHẨM / DỊCH VỤ MỚI
@@ -1458,6 +1486,8 @@ export const WorkspaceSettingsPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+
 
       {/* ========================================================
           MODAL 4: THÊM TIÊU CHÍ PHÂN LOẠI MỚI

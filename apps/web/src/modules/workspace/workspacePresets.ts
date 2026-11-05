@@ -1,9 +1,11 @@
 import type { WorkspaceConfig, BusinessDomain } from './workspaceConfig.types.js';
+import { getDefaultWorkingHoursConfig } from './workspaceConfig.types.js';
 
 export const CLIENT_INDUSTRY_PRESETS: Record<BusinessDomain, Omit<WorkspaceConfig, 'workspaceId'>> = {
   EDUCATION: {
     workspaceName: 'Tuyển Sinh & Đào Tạo',
     domain: 'EDUCATION',
+    workingHours: getDefaultWorkingHoursConfig(),
     terminology: {
       entityName: 'Thí sinh / Học viên',
       pipelineName: 'Phễu Tuyển Sinh & Đào Tạo',
@@ -150,6 +152,7 @@ export const CLIENT_INDUSTRY_PRESETS: Record<BusinessDomain, Omit<WorkspaceConfi
   REAL_ESTATE: {
     workspaceName: 'Sàn Bất Động Sản Đất Vàng & Cenland',
     domain: 'REAL_ESTATE',
+    workingHours: getDefaultWorkingHoursConfig(),
     terminology: {
       entityName: 'Khách mua / Nhà đầu tư',
       pipelineName: 'Phễu Bán Hàng & Chốt Cọc Bất Động Sản',
@@ -262,6 +265,7 @@ export const CLIENT_INDUSTRY_PRESETS: Record<BusinessDomain, Omit<WorkspaceConfi
   BEAUTY_SPA: {
     workspaceName: 'Viện Thẩm Mỹ & Spa Chăm Sóc Da Royal',
     domain: 'BEAUTY_SPA',
+    workingHours: getDefaultWorkingHoursConfig(),
     terminology: {
       entityName: 'Khách hàng / Quý cô',
       pipelineName: 'Phễu Chăm Sóc & Đặt Lịch Liệu Trình Spa',
@@ -374,6 +378,7 @@ export const CLIENT_INDUSTRY_PRESETS: Record<BusinessDomain, Omit<WorkspaceConfi
   B2B_SAAS: {
     workspaceName: 'Công Ty Giải Pháp Phần Mềm CRM & AI Cloud',
     domain: 'B2B_SAAS',
+    workingHours: getDefaultWorkingHoursConfig(),
     terminology: {
       entityName: 'Doanh nghiệp / Khách tiềm năng',
       pipelineName: 'Phễu Bán Hàng B2B Doanh Nghiệp',
@@ -466,6 +471,7 @@ export const CLIENT_INDUSTRY_PRESETS: Record<BusinessDomain, Omit<WorkspaceConfi
   RETAIL: {
     workspaceName: 'Chuỗi Bán Lẻ Thời Trang & Phụ Kiện UrbanStyle',
     domain: 'RETAIL',
+    workingHours: getDefaultWorkingHoursConfig(),
     terminology: {
       entityName: 'Khách mua hàng',
       pipelineName: 'Phễu Chốt Đơn & Vận Chuyển Hàng',
@@ -558,6 +564,7 @@ export const CLIENT_INDUSTRY_PRESETS: Record<BusinessDomain, Omit<WorkspaceConfi
   CUSTOM: {
     workspaceName: 'Doanh Nghiệp Tùy Chỉnh Của Bạn',
     domain: 'CUSTOM',
+    workingHours: getDefaultWorkingHoursConfig(),
     terminology: {
       entityName: 'Khách hàng',
       pipelineName: 'Phễu Chăm Sóc & Bán Hàng Tùy Biến',

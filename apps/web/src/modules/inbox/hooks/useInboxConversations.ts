@@ -566,6 +566,11 @@ export const useInboxConversations = ({
                     ? (msg as any).customerAvatar
                     : existing.customer.avatarUrl),
             },
+            tags: Array.isArray((msg as any).tags) && (msg as any).tags.length > 0
+              ? Array.from(new Set([...existing.tags, ...(msg as any).tags]))
+              : (msg as any).outOfOfficeTag
+                ? Array.from(new Set([...existing.tags, (msg as any).outOfOfficeTag]))
+                : existing.tags,
             messages: updatedMessages,
           };
 
@@ -612,7 +617,11 @@ export const useInboxConversations = ({
           lastMessageAt: 'Vừa xong',
           lastCustomerMessageAt: msg.direction === 'INBOUND' ? sentAtIso : null,
           unreadCount: 1,
-          tags: defaultTags,
+          tags: Array.isArray((msg as any).tags) && (msg as any).tags.length > 0
+            ? Array.from(new Set([...defaultTags, ...(msg as any).tags]))
+            : (msg as any).outOfOfficeTag
+              ? Array.from(new Set([...defaultTags, (msg as any).outOfOfficeTag]))
+              : defaultTags,
           status: 'OPEN',
           customer: {
             id: `cust-${Date.now()}`,

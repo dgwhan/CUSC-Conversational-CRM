@@ -4,7 +4,10 @@ import {
   NotFoundException,
   BadRequestException,
   Optional,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { TokenEncryptionService } from '../infrastructure/token-encryption.service.js';
 import { ZcaPersonalService } from './zca-personal.service.js';
@@ -39,14 +42,33 @@ export interface SendMessageResult {
 @Injectable()
 export class MessageDispatcherService {
   private readonly logger = new Logger(MessageDispatcherService.name);
+  private _zcaServiceInstance?: ZcaPersonalService;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: TokenEncryptionService,
     @Optional() private readonly messageRepo?: MessageRepository,
     @Optional() private readonly realtime?: RealtimeService,
-    @Optional() private readonly zcaService?: ZcaPersonalService,
+    @Optional()
+    @Inject(forwardRef(() => ZcaPersonalService))
+    private readonly injectedZcaService?: any,
+    @Optional() private readonly moduleRef?: ModuleRef,
   ) {}
+
+  private get zcaService(): ZcaPersonalService | undefined {
+    if (this._zcaServiceInstance) return this._zcaServiceInstance;
+    if (this.injectedZcaService) {
+      this._zcaServiceInstance = this.injectedZcaService;
+      return this._zcaServiceInstance;
+    }
+    if (this.moduleRef) {
+      try {
+        this._zcaServiceInstance = this.moduleRef.get(ZcaPersonalService, { strict: false });
+        return this._zcaServiceInstance;
+      } catch {}
+    }
+    return undefined;
+  }
 
   /**
    * Gửi tin nhắn phản hồi đa kênh (Facebook Graph API, Zalo OpenAPI, Zalo Cá nhân zca-js)

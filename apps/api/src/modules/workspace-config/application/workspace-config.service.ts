@@ -6,7 +6,7 @@ import type {
   ProductItemConfig,
   LeadQualificationCriteria,
 } from '../../../contracts/workspace-config.js';
-import { WorkspaceConfigSchema } from '../../../contracts/workspace-config.js';
+import { WorkspaceConfigSchema, getDefaultWorkingHoursConfig } from '../../../contracts/workspace-config.js';
 import { INDUSTRY_PRESETS } from '../domain/workspace-config.presets.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { WorkspaceLifecycleService } from './workspace-lifecycle.service.js';
@@ -66,6 +66,7 @@ export class WorkspaceConfigService {
       productCatalog: preset.productCatalog.map((p) => ({ ...p })),
       criteria: preset.criteria.map((c) => ({ ...c })),
       unresponsiveAlertMinutes: 15,
+      workingHours: (preset as any).workingHours || getDefaultWorkingHoursConfig(),
     };
     this.workspaceConfigs.set(workspaceId, defaultConfig);
     return defaultConfig;
@@ -205,6 +206,7 @@ export class WorkspaceConfigService {
               unresponsiveAlertMinutes: typeof (dbConfig as any).unresponsiveAlertMinutes === 'number'
                 ? (dbConfig as any).unresponsiveAlertMinutes
                 : (typeof term.unresponsiveAlertMinutes === 'number' ? term.unresponsiveAlertMinutes : 15),
+              workingHours: (dbConfig as any).workingHours || term.workingHours || getDefaultWorkingHoursConfig(),
             };
             this.workspaceConfigs.set(workspaceId, config);
             if (finalWsId && finalWsId !== workspaceId) {
@@ -251,6 +253,9 @@ export class WorkspaceConfigService {
       unresponsiveAlertMinutes: patch.unresponsiveAlertMinutes !== undefined
         ? patch.unresponsiveAlertMinutes
         : (current.unresponsiveAlertMinutes ?? 15),
+      workingHours: patch.workingHours
+        ? { ...(current.workingHours || getDefaultWorkingHoursConfig()), ...patch.workingHours }
+        : (current.workingHours || getDefaultWorkingHoursConfig()),
     };
 
     // Kiểm tra tính hợp lệ qua Zod
@@ -286,6 +291,7 @@ export class WorkspaceConfigService {
           const termPayload = {
             ...validation.data.terminology,
             unresponsiveAlertMinutes: validation.data.unresponsiveAlertMinutes,
+            workingHours: validation.data.workingHours,
           };
 
           if (existing) {

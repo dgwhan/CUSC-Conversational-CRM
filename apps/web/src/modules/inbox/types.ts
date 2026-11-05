@@ -134,7 +134,7 @@ export interface QuickReplyItem {
 
 export type ConversationChannelFilter = 'ALL' | ChannelType;
 
-export type ConversationStatusFilter = 'ALL' | 'UNREAD' | 'UNRESPONSIVE' | 'ASSIGNED_TO_ME' | 'UNASSIGNED';
+export type ConversationStatusFilter = 'ALL' | 'UNREAD' | 'UNRESPONSIVE' | 'OUT_OF_OFFICE' | 'ASSIGNED_TO_ME' | 'UNASSIGNED';
 
 export interface ConversationListColumnProps {
   conversations: ConversationItem[];
