@@ -52,8 +52,8 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
   });
 
   return (
-    <aside className="pancake-col-left w-[320px] min-w-[300px] max-w-[340px] border-r border-slate-200 bg-white flex flex-col h-full shrink-0 select-none">
-      <div className="p-3.5 pb-2.5 border-b border-slate-200 flex flex-col gap-2.5 bg-white shrink-0">
+    <aside className="pancake-col-left w-[300px] min-w-[300px] max-w-[300px] border-r border-slate-200/80 bg-slate-50/50 flex flex-col h-full shrink-0 select-none">
+      <div className="p-3 pb-2.5 border-b border-slate-200/80 flex flex-col gap-2.5 bg-white shrink-0">
         <ConversationListHeader
           totalCount={conversations.length}
           totalUnread={totalUnread}
@@ -77,7 +77,7 @@ export const ConversationListColumn: React.FC<ConversationListColumnProps> = ({
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+      <div className="flex-1 overflow-y-auto divide-y divide-slate-100/80 custom-scrollbar scrollbar-thin">
         {filteredConversations.length === 0 ? (
           <EmptyConversationList />
         ) : (

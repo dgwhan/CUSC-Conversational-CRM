@@ -17,16 +17,16 @@ const pool = new pg.Pool({ connectionString });
 
 const accounts = [
   {
-    email: 'owner@polarisx.com',
-    password: 'ownerPolarisX123!',
+    email: 'owner@gmail.com',
+    password: 'Owner123!',
     workspaceRole: 'OWNER',
-    fullName: 'Owner PolarisX',
+    fullName: 'Owner',
   },
   {
-    email: 'staff@polarisx.com',
-    password: 'staffPolarisX123!',
+    email: 'staff@gmail.com',
+    password: 'Staff123!',
     workspaceRole: 'STAFF',
-    fullName: 'Staff PolarisX',
+    fullName: 'Staff',
   },
 ];
 
@@ -34,7 +34,7 @@ const client = await pool.connect();
 
 try {
   await client.query(`ALTER TYPE "workspace_member_role" ADD VALUE IF NOT EXISTS 'STAFF'`);
-} catch {}
+} catch { }
 
 try {
   await client.query('BEGIN');

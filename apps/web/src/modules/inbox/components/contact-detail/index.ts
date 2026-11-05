@@ -11,5 +11,6 @@ export * from './activity/index.js';
 export * from './tags/index.js';
 export * from './courses/index.js';
 export * from './notes/index.js';
+export * from './score/LeadIntentScoreSection.js';
 export * from './channel-identities/index.js';
 export * from './pipeline/index.js';

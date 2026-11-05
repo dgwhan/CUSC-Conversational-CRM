@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 import { Button } from '../../../../../components/ui/Button.js';
+import { Modal } from '../../../../../components/ui/Modal.js';
 
 interface ContactTagsSectionProps {
   tags: string[];
@@ -15,6 +16,7 @@ export const ContactTagsSection: React.FC<ContactTagsSectionProps> = ({
 }) => {
   const [newTagInput, setNewTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
+  const [isExplainModalOpen, setIsExplainModalOpen] = useState(false);
 
   const displayTags =
     Array.isArray(tags)
@@ -36,31 +38,27 @@ export const ContactTagsSection: React.FC<ContactTagsSectionProps> = ({
     setIsAddingTag(false);
   };
 
-  // Màu pastel luân phiên theo hashtag hoặc tên
-  const getTagColorClass = (tag: string) => {
-    const lower = tag.toLowerCase();
-    if (lower === 'lead' || lower.includes('tiềm năng')) {
-      return 'bg-amber-50 text-amber-700 border-amber-200/80';
-    }
-    if (lower.includes('vip') || lower.includes('quan trọng') || lower.includes('priority')) {
-      return 'bg-purple-50 text-purple-700 border-purple-200/80';
-    }
-    if (lower.includes('học bổng') || lower.includes('đăng ký')) {
-      return 'bg-emerald-50 text-emerald-700 border-emerald-200/80';
-    }
-    return 'bg-sky-50 text-sky-700 border-sky-200/80';
-  };
-
   return (
     <div className="p-4 bg-white space-y-2.5">
       <div className="flex items-center justify-between">
-        <h4 className="m-0 text-xs font-bold text-slate-800 uppercase tracking-wider">
-          Nhãn Phân Loại ({displayTags.length})
-        </h4>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <h4 className="m-0 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Nhãn Phân Loại ({displayTags.length})
+          </h4>
+          <button
+            type="button"
+            onClick={() => setIsExplainModalOpen(true)}
+            className="inline-flex items-center justify-center p-0.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer rounded"
+            title="Xem giải thích nhãn phân loại"
+            aria-label="Giải thích nhãn phân loại"
+          >
+            <AlertCircle size={13} />
+          </button>
+        </div>
         {!isAddingTag && (
           <button
             type="button"
-            className="text-xs font-semibold text-blue-600 hover:text-blue-700 cursor-pointer bg-transparent border-0 p-0 transition-colors"
+            className="text-xs font-medium text-blue-600 hover:text-blue-700 cursor-pointer bg-transparent border-0 p-0 transition-colors"
             onClick={() => setIsAddingTag(true)}
           >
             + Thêm nhãn
@@ -70,20 +68,20 @@ export const ContactTagsSection: React.FC<ContactTagsSectionProps> = ({
 
       {/* Form nhập nhãn mới */}
       {isAddingTag && (
-        <form onSubmit={handleSubmit} className="flex items-center gap-1.5 pt-1">
+        <form onSubmit={handleSubmit} className="flex items-center gap-1.5 pt-0.5">
           <input
             type="text"
             value={newTagInput}
             onChange={(e) => setNewTagInput(e.target.value)}
-            placeholder="Tên nhãn (VD: VIP, Học bổng...)"
+            placeholder="Tên nhãn..."
             autoFocus
-            className="h-7 px-2.5 text-xs border border-blue-500 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 flex-1"
+            className="h-7 px-2 text-xs border border-blue-500 rounded bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 flex-1"
           />
           <Button
             type="submit"
             variant="primary"
             size="sm"
-            className="h-7 px-2.5 text-xs"
+            className="h-7 px-2 text-xs"
           >
             Thêm
           </Button>
@@ -99,8 +97,8 @@ export const ContactTagsSection: React.FC<ContactTagsSectionProps> = ({
         </form>
       )}
 
-      {/* Danh sách nhãn hình viên thuốc pastel */}
-      <div className="flex flex-wrap gap-2 items-center pt-0.5">
+      {/* Danh sách nhãn muted tag */}
+      <div className="flex flex-wrap gap-1.5 items-center">
         {displayTags.length === 0 && !isAddingTag && (
           <span className="text-xs text-slate-400 italic">
             Chưa có nhãn phân loại nào
@@ -110,14 +108,12 @@ export const ContactTagsSection: React.FC<ContactTagsSectionProps> = ({
         {displayTags.map((tag, idx) => (
           <span
             key={idx}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border shadow-xs transition-colors ${getTagColorClass(
-              tag
-            )}`}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200/80 transition-colors"
           >
             <span>{tag}</span>
             <button
               type="button"
-              className="p-0.5 hover:bg-black/10 rounded-full transition-colors cursor-pointer leading-none"
+              className="p-0.5 hover:bg-black/10 rounded transition-colors cursor-pointer leading-none text-slate-400 hover:text-slate-700"
               onClick={() => onRemoveTag(tag)}
               title={`Xóa nhãn ${tag}`}
             >
@@ -126,6 +122,49 @@ export const ContactTagsSection: React.FC<ContactTagsSectionProps> = ({
           </span>
         ))}
       </div>
+
+      {/* Modal Giải thích Nhãn Phân Loại */}
+      <Modal
+        isOpen={isExplainModalOpen}
+        onClose={() => setIsExplainModalOpen(false)}
+        title="Nhãn Phân Loại Khách Hàng (Tags)"
+        size="md"
+        showCloseButton={true}
+        primaryAction={{
+          label: 'Đã hiểu',
+          onClick: () => setIsExplainModalOpen(false),
+          variant: 'primary',
+        }}
+      >
+        <div className="space-y-3.5 text-xs text-slate-600 leading-relaxed">
+          <div className="space-y-1">
+            <h5 className="m-0 font-semibold text-slate-900 text-xs">
+              1. Mục đích của nhãn phân loại
+            </h5>
+            <p className="m-0 text-slate-600">
+              Nhãn giúp phân nhóm nhanh khách hàng theo nguồn gốc chiến dịch (Facebook Ads, Web Form, Sự kiện), phân loại ưu tiên hoặc đặc điểm kinh doanh riêng.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <h5 className="m-0 font-semibold text-slate-900 text-xs">
+              2. Gắn nhãn tự động & Thủ công
+            </h5>
+            <p className="m-0 text-slate-600">
+              Hệ thống tự động gắn các nhãn chiến dịch khi đồng bộ từ Meta hoặc Zalo. Tư vấn viên cũng có thể bấm "+ Thêm nhãn" để tạo bất kỳ nhãn ghi nhớ nào.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <h5 className="m-0 font-semibold text-slate-900 text-xs">
+              3. Tối giản giao diện & Xóa nhãn
+            </h5>
+            <p className="m-0 text-slate-600">
+              Toàn bộ nhãn được thiết kế tối giản trung tính, tránh gây rối mắt. Bạn có thể bấm biểu tượng [x] trên từng nhãn để xóa bất kỳ lúc nào.
+            </p>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

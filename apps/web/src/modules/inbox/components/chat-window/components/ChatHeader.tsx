@@ -41,7 +41,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   const { isOverdue, waitingMinutes } = getUnresponsiveStatus(conversation, alertThresholdMinutes);
 
   return (
-    <div className="h-[60px] px-4 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
+    <div className="h-14 px-4 border-b border-slate-200/80 bg-white flex items-center justify-between shrink-0">
       {/* Thông tin khách hàng & kênh */}
       <div className="flex items-center gap-3 min-w-0">
         {onBackToList && (
@@ -59,13 +59,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         <Avatar
           src={conversation.customer.avatarUrl}
           name={conversation.customer.fullName}
-          size={38}
-          className="border border-slate-200 shadow-sm shrink-0"
+          size={36}
+          className="border border-slate-200/80 shrink-0"
         />
 
         <div className="min-w-0">
           <h3
-            className="text-[14px] font-bold text-slate-900 truncate leading-snug m-0"
+            className="text-sm font-semibold text-slate-900 truncate leading-snug m-0"
             title={conversation.customer.fullName}
           >
             {conversation.customer.fullName}
@@ -97,21 +97,21 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         {/* Cảnh báo tin nhắn chưa phản hồi quá n phút */}
         {isOverdue && (
           <div
-            className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full animate-pulse shadow-xs"
+            className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200/80 rounded-md"
             title={`Khách hàng đã chờ ${waitingMinutes} phút chưa có phản hồi từ nhân viên`}
           >
-            <Clock size={12} className="text-rose-600" />
-            <span>Chưa phản hồi {waitingMinutes >= 60 ? `${Math.floor(waitingMinutes / 60)}h${waitingMinutes % 60}p` : `${waitingMinutes}p`}</span>
+            <Clock size={12} className="text-rose-500" />
+            <span>Chờ {waitingMinutes >= 60 ? `${Math.floor(waitingMinutes / 60)}h${waitingMinutes % 60}p` : `${waitingMinutes}p`}</span>
           </div>
         )}
 
         {/* Badge 24h Meta (Facebook Messenger) */}
         {conversation.channel === 'FACEBOOK' && (
           <div
-            className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full border ${
+            className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md border ${
               isWithin24Hours
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : 'bg-amber-50 text-amber-700 border-amber-200'
+                ? 'bg-slate-50 text-slate-700 border-slate-200/80'
+                : 'bg-amber-50 text-amber-700 border-amber-200/80'
             }`}
             title={
               isWithin24Hours
@@ -121,8 +121,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           >
             {isWithin24Hours ? (
               <>
-                <Clock size={12} className="text-emerald-600" />
-                <span>{t('inbox.chatHeader.meta24hValid')} ~{hoursRemaining}h</span>
+                <Clock size={12} className="text-slate-500" />
+                <span>24h Meta (~{hoursRemaining}h)</span>
               </>
             ) : (
               <>
@@ -133,15 +133,15 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </div>
         )}
 
-        {/* Phân công nhân viên: Chủ cơ sở chọn bất kỳ ai, Tư vấn viên chỉ thấy nút Claim */}
+        {/* Phân công nhân viên */}
         {isOwner ? (
           <div className="relative inline-flex items-center">
-            <UserCheck size={13} className="absolute left-2 text-slate-400 pointer-events-none" />
+            <UserCheck size={13} className="absolute left-2.5 text-slate-400 pointer-events-none" />
             <select
-              className="h-8 pl-7 pr-3 text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:bg-white transition-colors cursor-pointer"
+              className="h-8 pl-8 pr-3 text-xs font-medium text-slate-700 bg-slate-50/80 border border-slate-200/80 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:bg-white transition-colors cursor-pointer"
               value={conversation.assignedStaff?.id || ''}
               onChange={(e) => onAssignStaff(e.target.value)}
-              title="Chủ doanh nghiệp: Phân công cho bất kỳ tư vấn viên nào"
+              title="Phân công tư vấn viên"
             >
               <option value="">{t('inbox.chatHeader.unassigned')}</option>
               {conversation.assignedStaff?.id && !staffList.some((st) => st.id === conversation.assignedStaff?.id) && (
@@ -159,9 +159,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         ) : (
           <div>
             {conversation.assignedStaff?.id === staffId ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <UserCheck size={12} className="text-emerald-600" />
-                <span>Bạn đang phụ trách</span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md bg-slate-50 text-slate-700 border border-slate-200/80">
+                <UserCheck size={12} className="text-blue-600" />
+                <span>Bạn phụ trách</span>
               </span>
             ) : !conversation.assignedStaff ? (
               <Button
@@ -172,10 +172,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 onClick={() => onAssignStaff(staffId)}
                 title="Nhận cuộc hội thoại này để bắt đầu tư vấn"
               >
-                Nhận việc (Claim)
+                Nhận việc
               </Button>
             ) : (
-              <span className="text-[11px] font-medium text-slate-500 px-2 py-1 bg-slate-50 border border-slate-200 rounded-md">
+              <span className="text-xs font-medium text-slate-500 px-2.5 py-1 bg-slate-50 border border-slate-200/80 rounded-md">
                 Phụ trách: {conversation.assignedStaff.name}
               </span>
             )}
@@ -186,7 +186,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         {onToggleProfile && (
           <button
             type="button"
-            className="md:hidden inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md transition-colors cursor-pointer"
+            className="lg:hidden inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 rounded-md transition-colors cursor-pointer"
             onClick={onToggleProfile}
             title="Xem thông tin chi tiết hồ sơ khách hàng"
           >
@@ -198,4 +198,3 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     </div>
   );
 };
-

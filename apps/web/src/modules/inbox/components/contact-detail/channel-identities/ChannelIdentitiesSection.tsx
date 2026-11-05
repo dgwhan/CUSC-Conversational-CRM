@@ -4,6 +4,7 @@ import type { ChannelIdentityItem } from '../../../types.js';
 import { notify } from '../../../../../components/feedback/toastEmitter.js';
 import { resolveChannelInfo } from '../../../../../lib/channel-meta.js';
 import { apiClient } from '../../../../../lib/api-client.js';
+import { Modal } from '../../../../../components/ui/Modal.js';
 
 export interface ChannelIdentitiesSectionProps {
   identities: ChannelIdentityItem[];
@@ -35,6 +36,7 @@ export const ChannelIdentitiesSection: React.FC<ChannelIdentitiesSectionProps> =
   const [internalCopied, setInternalCopied] = useState<string | null>(null);
   const [isUnmerging, setIsUnmerging] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isExplainModalOpen, setIsExplainModalOpen] = useState(false);
   const [mergeLogs, setMergeLogs] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -99,18 +101,27 @@ export const ChannelIdentitiesSection: React.FC<ChannelIdentitiesSectionProps> =
   };
 
   return (
-    <section className="p-4 border-b border-slate-200">
+    <section className="p-4 bg-white space-y-2.5">
       {/* Header đề mục */}
-      <div className="flex items-center justify-between mb-2.5">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <h3 className="text-[13px] font-semibold text-slate-800 m-0">
-            Định danh kênh hội thoại
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider m-0">
+            Định Danh Kênh
           </h3>
-          <span className="text-[11px] font-medium px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">
-            Đã gộp đa kênh
+          <button
+            type="button"
+            onClick={() => setIsExplainModalOpen(true)}
+            className="inline-flex items-center justify-center p-0.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer rounded"
+            title="Xem giải thích định danh đa kênh"
+            aria-label="Giải thích định danh đa kênh"
+          >
+            <AlertCircle size={13} />
+          </button>
+          <span className="text-[10px] font-medium px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">
+            Đa kênh
           </span>
         </div>
-        <span className="text-[11px] text-slate-500 font-medium">
+        <span className="text-[11px] text-slate-400 font-normal">
           {identities.length} kênh
         </span>
       </div>
@@ -289,6 +300,49 @@ export const ChannelIdentitiesSection: React.FC<ChannelIdentitiesSectionProps> =
           </div>
         </div>
       )}
+
+      {/* Modal Giải thích Định Danh Đa Kênh */}
+      <Modal
+        isOpen={isExplainModalOpen}
+        onClose={() => setIsExplainModalOpen(false)}
+        title="Định Danh Kênh & Hợp Nhất Đa Kênh"
+        size="md"
+        showCloseButton={true}
+        primaryAction={{
+          label: 'Đã hiểu',
+          onClick: () => setIsExplainModalOpen(false),
+          variant: 'primary',
+        }}
+      >
+        <div className="space-y-3.5 text-xs text-slate-600 leading-relaxed">
+          <div className="space-y-1">
+            <h5 className="m-0 font-semibold text-slate-900 text-xs">
+              1. Hợp nhất đa kênh (Omni-channel)
+            </h5>
+            <p className="m-0 text-slate-600">
+              Khi khách hàng nhắn tin từ Facebook Messenger và Zalo (OA hoặc Cá nhân), nếu phát hiện trùng số điện thoại, hệ thống sẽ tự động liên kết thành một hồ sơ duy nhất.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <h5 className="m-0 font-semibold text-slate-900 text-xs">
+              2. Mã định danh nền tảng (External ID)
+            </h5>
+            <p className="m-0 text-slate-600">
+              Mỗi tài khoản mạng xã hội có một mã định danh kỹ thuật riêng biệt. Bạn có thể sao chép mã này để đối soát sự kiện webhook hoặc tra cứu nhật ký hệ thống.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <h5 className="m-0 font-semibold text-slate-900 text-xs">
+              3. Hoàn tác gộp (Tách hồ sơ)
+            </h5>
+            <p className="m-0 text-slate-600">
+              Trong trường hợp hai người dùng khác nhau chia sẻ chung một số điện thoại, quản lý có thể nhấn "Tách lại hồ sơ" để hoàn nguyên thành 2 khách hàng độc lập.
+            </p>
+          </div>
+        </div>
+      </Modal>
     </section>
   );
 };

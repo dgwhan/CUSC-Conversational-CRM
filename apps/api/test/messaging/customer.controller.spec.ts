@@ -107,6 +107,7 @@ describe('CustomerController', () => {
                     updatedBy: 'Tư vấn viên Lan',
                 }),
                 undefined, // headerWsId
+                expect.anything(),
             );
 
             expect(result.leadStatus).toBe('POTENTIAL');
@@ -138,6 +139,7 @@ describe('CustomerController', () => {
                     leadStage: 'STAGE_QUALIFIED',
                 }),
                 undefined,
+                expect.anything(),
             );
             expect(result.leadStatus).toBe('POTENTIAL');
         });

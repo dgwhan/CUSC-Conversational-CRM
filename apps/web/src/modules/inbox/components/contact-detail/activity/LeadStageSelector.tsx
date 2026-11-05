@@ -89,20 +89,20 @@ export const LeadStageSelector: React.FC<LeadStageSelectorProps> = ({
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className="w-full h-9 px-3 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 hover:border-slate-300 rounded-lg flex items-center justify-between transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full h-8 px-2.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 hover:border-slate-300 rounded-md flex items-center justify-between transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <div className="flex items-center gap-2 min-w-0">
             <span
               className="w-2 h-2 rounded-full shrink-0"
               style={{ backgroundColor: currentPalette.dot }}
             />
-            <span className="text-xs font-semibold text-slate-800 truncate">
+            <span className="text-xs font-medium text-slate-800 truncate">
               {currentStage.name}
             </span>
           </div>
 
           <ChevronDown
-            size={14}
+            size={13}
             className={`text-slate-400 shrink-0 ml-1.5 transition-transform duration-200 ${
               isOpen ? 'rotate-180 text-blue-600' : ''
             }`}
@@ -111,8 +111,8 @@ export const LeadStageSelector: React.FC<LeadStageSelectorProps> = ({
 
         {/* Dropdown Menu Popover */}
         {isOpen && (
-          <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-50 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100">
-            <div className="px-2 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
+          <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-50 bg-white border border-slate-200/80 rounded-lg shadow-lg p-1 max-h-60 overflow-y-auto custom-scrollbar">
+            <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
               Chọn giai đoạn phễu
             </div>
 

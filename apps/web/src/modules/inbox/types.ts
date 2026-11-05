@@ -92,6 +92,21 @@ export interface CustomerProfile {
   notes: InternalNote[];
   channelIdentities?: ChannelIdentityItem[];
   linkedConversations?: { id: string; channel: ChannelType; channelAccountName?: string }[];
+  classification?: {
+    score: number;
+    tier: 'HOT' | 'WARM' | 'COLD' | 'IRRELEVANT';
+    reasons: Array<{ keyword: string; points: number }>;
+    reasonsFormatted: string;
+  };
+}
+
+export type ConversationTier = 'HOT' | 'WARM' | 'COLD' | 'IRRELEVANT';
+
+export interface ConversationClassificationData {
+  score: number;
+  tier: ConversationTier;
+  reasons: Array<{ keyword: string; points: number }>;
+  reasonsFormatted: string;
 }
 
 export interface AssignedStaff {

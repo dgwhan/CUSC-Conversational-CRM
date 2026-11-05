@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Button, type ButtonProps } from './Button.js';
 
@@ -97,22 +98,22 @@ export function Modal({
   const sizeClasses: Record<string, string> = {
     sm: 'max-w-md',
     md: 'max-w-lg',
-    lg: 'max-w-xl',
-    xl: 'max-w-2xl',
+    lg: 'max-w-2xl',
+    xl: 'max-w-3xl',
   };
 
   const isFlat = variant === 'flat';
 
-  return (
+  const modalElement = (
     <div
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto"
       role="dialog"
     >
-      {/* Backdrop mờ dần */}
+      {/* Backdrop mờ che phủ toàn bộ viewport (bao gồm cả Header và Sidebar) */}
       <div
         aria-hidden="true"
-        className={`fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity duration-200 ease-out ${
+        className={`fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-200 ease-out ${
           isAnimating ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={() => {
@@ -122,12 +123,12 @@ export function Modal({
         }}
       />
 
-      {/* Hộp thoại Modal */}
+      {/* Hộp thoại Modal có max-height và scroll nội bộ */}
       <div
-        className={`relative w-full ${sizeClasses[size] ?? sizeClasses.sm} overflow-hidden shadow-xl transform transition-all duration-200 ease-out ${
+        className={`relative w-full ${sizeClasses[size] ?? sizeClasses.sm} max-h-[90vh] flex flex-col overflow-hidden shadow-2xl transform transition-all duration-200 ease-out ${
           isFlat
             ? 'rounded-xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xl'
-            : 'rounded-2xl border border-border-default/60 bg-bg-surface p-7 sm:p-8'
+            : 'rounded-2xl border border-border-default/60 bg-bg-surface p-6 sm:p-7'
         } ${
           isAnimating
             ? 'opacity-100 scale-100 pointer-events-auto'
@@ -139,7 +140,7 @@ export function Modal({
           <>
             {/* Header phẳng (Flat header) */}
             {(title || description || (showCloseButton && onClose)) && (
-              <div className="flex items-start justify-between pb-3 border-b border-slate-200 mb-4 gap-3">
+              <div className="flex items-start justify-between pb-3 border-b border-slate-200 mb-3 gap-3 shrink-0">
                 <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                   {title && (
                     <div className="text-sm font-bold text-slate-900 m-0">
@@ -165,11 +166,13 @@ export function Modal({
               </div>
             )}
 
-            {children}
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 my-1">
+              {children}
+            </div>
 
             {/* Footer hành động nếu có primary/secondary action */}
             {(primaryAction || secondaryAction) && (
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-4">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-3 shrink-0">
                 {secondaryAction && (
                   <button
                     type="button"
@@ -198,7 +201,7 @@ export function Modal({
             {showCloseButton && onClose && (
               <button
                 aria-label="Đóng popup"
-                className="absolute top-5 right-5 rounded-lg p-1.5 text-text-secondary hover:bg-bg-page hover:text-text-primary transition-colors"
+                className="absolute top-4 right-4 rounded-lg p-1.5 text-text-secondary hover:bg-bg-page hover:text-text-primary transition-colors cursor-pointer z-10"
                 onClick={onClose}
                 type="button"
               >
@@ -208,14 +211,14 @@ export function Modal({
 
             {/* Khối Icon */}
             {icon && (
-              <div className="mb-6 flex items-center justify-start shrink-0">
+              <div className="mb-4 flex items-center justify-start shrink-0">
                 {icon}
               </div>
             )}
 
             {/* Tiêu đề & Mô tả */}
             {(title || description) && (
-              <div className="text-left space-y-1.5 mb-5">
+              <div className="text-left space-y-1 mb-4 shrink-0 pr-8">
                 {title && (
                   <h2 className="font-sans text-base sm:text-lg font-bold tracking-tight text-slate-900 m-0">
                     {title}
@@ -229,11 +232,28 @@ export function Modal({
               </div>
             )}
 
-            {children && <div className="mb-6">{children}</div>}
+            {/* Vùng nội dung có thanh cuộn mượt khi dài */}
+            {children && (
+              <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 mb-2">
+                {children}
+              </div>
+            )}
 
             {/* Nút hành động */}
             {(primaryAction || secondaryAction) && (
-              <div className="flex flex-wrap items-center justify-start gap-3 mt-7">
+              <div className="flex flex-wrap items-center justify-end gap-2.5 pt-3 border-t border-slate-100 mt-2 shrink-0">
+                {secondaryAction && (
+                  <Button
+                    disabled={secondaryAction.disabled}
+                    onClick={secondaryAction.onClick}
+                    type="button"
+                    variant={secondaryAction.variant || 'secondary'}
+                    size="sm"
+                    className="px-4 py-2 text-xs"
+                  >
+                    {secondaryAction.label}
+                  </Button>
+                )}
                 {primaryAction && (
                   <Button
                     disabled={primaryAction.disabled}
@@ -241,20 +261,10 @@ export function Modal({
                     onClick={primaryAction.onClick}
                     type="button"
                     variant={primaryAction.variant || 'primary'}
-                    className="px-6 py-2.5 rounded-xl font-medium"
+                    size="sm"
+                    className="px-5 py-2 text-xs"
                   >
                     {primaryAction.label}
-                  </Button>
-                )}
-                {secondaryAction && (
-                  <Button
-                    disabled={secondaryAction.disabled}
-                    onClick={secondaryAction.onClick}
-                    type="button"
-                    variant={secondaryAction.variant || 'secondary'}
-                    className="px-6 py-2.5 rounded-xl font-medium"
-                  >
-                    {secondaryAction.label}
                   </Button>
                 )}
               </div>
@@ -264,4 +274,8 @@ export function Modal({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalElement, document.body)
+    : modalElement;
 }

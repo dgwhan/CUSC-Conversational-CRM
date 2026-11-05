@@ -6,8 +6,6 @@ import {
   Mic,
   Smile,
   AtSign,
-  Settings,
-  Zap,
 } from 'lucide-react';
 import type { ConversationItem, QuickReplyItem } from '../../../types.js';
 import { Button } from '../../../../../components/ui/Button.js';
@@ -49,20 +47,19 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const { t } = useTranslation();
 
   return (
-    <div className="p-3 bg-white border-t border-slate-200 flex flex-col gap-2 shrink-0 select-none">
-      {/* 1. Hàng Tin nhanh di chuyển LÊN TRÊN theo yêu cầu */}
+    <div className="p-3 bg-white border-t border-slate-200/80 flex flex-col gap-2 shrink-0 select-none">
+      {/* 1. Quick replies: Dạng button xám viền siêu mỏng, tối giản diện tích */}
       {quickReplies && quickReplies.length > 0 && onQuickReplySelect && (
-        <div className="flex items-center gap-2 pb-1 border-b border-slate-100 overflow-x-auto no-scrollbar scrollbar-none">
-          <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 whitespace-nowrap shrink-0">
-            <Zap size={13} className="text-amber-500" />
-            <span>Tin nhanh:</span>
-          </div>
+        <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100 overflow-x-auto no-scrollbar scrollbar-none">
+          <span className="text-[11px] font-medium text-slate-500 whitespace-nowrap shrink-0">
+            Mẫu phản hồi:
+          </span>
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none">
             {quickReplies.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                className="px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100/80 rounded-md transition-colors cursor-pointer truncate max-w-[200px] whitespace-nowrap shrink-0"
+                className="px-2 py-0.5 text-xs font-normal text-slate-600 bg-slate-50 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/70 rounded transition-colors cursor-pointer truncate max-w-[180px] whitespace-nowrap shrink-0"
                 onClick={() => onQuickReplySelect(item.content)}
                 title={item.content}
               >
@@ -73,25 +70,24 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           {onOpenQuickReplySettings && (
             <button
               type="button"
-              className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ml-auto"
+              className="text-[11px] font-medium text-slate-400 hover:text-slate-700 transition-colors cursor-pointer whitespace-nowrap shrink-0 ml-auto"
               onClick={onOpenQuickReplySettings}
-              title="Tùy chỉnh danh sách tin nhắn nhanh"
+              title="Quản lý danh sách tin nhắn mẫu"
             >
-              <Settings size={11} />
-              <span>Tùy chỉnh</span>
+              Quản lý
             </button>
           )}
         </div>
       )}
 
-      {/* 2. Khung soạn thảo tin nhắn (Input text gọn gàng, thanh thoát) */}
+      {/* 2. Khung soạn thảo tin nhắn */}
       <div className="w-full">
         <textarea
-          className="w-full min-h-[46px] max-h-[120px] resize-none border border-slate-200 rounded-xl px-3 py-2 text-[13px] leading-relaxed text-slate-800 placeholder:text-slate-400 bg-white hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all shadow-none"
+          className="w-full min-h-[44px] max-h-[120px] resize-none border border-slate-200/80 rounded-lg px-3 py-2 text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 bg-white hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
           placeholder={
             !isWithin24Hours && conversation.channel === 'FACEBOOK'
               ? 'Đã quá 24h Meta. Cần gắn Message Tag để phản hồi...'
-              : `Nhập tin nhắn phản hồi cho ${conversation.customer.fullName}... (Enter để gửi)`
+              : `Nhập tin nhắn phản hồi cho ${conversation.customer.fullName}...`
           }
           value={inputText}
           onChange={(e) => onInputChange(e.target.value)}
@@ -100,13 +96,13 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         />
       </div>
 
-      {/* 3. Hàng Toolbar công cụ & Nút Gửi (Đã BỎ dropdown Ghi chú nội bộ thừa) */}
+      {/* 3. Toolbar công cụ & Nút Gửi */}
       <div className="flex items-center justify-between">
-        {/* Bên trái: Các công cụ đính kèm tệp, ảnh, emoji, tag, mic */}
-        <div className="flex items-center gap-1 text-slate-500">
+        {/* Bên trái: Công cụ đính kèm */}
+        <div className="flex items-center gap-0.5 text-slate-400">
           <button
             type="button"
-            className="p-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
             title={t('inbox.chatInput.attachFile')}
             onClick={onAttachSimulated}
           >
@@ -114,7 +110,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           </button>
           <button
             type="button"
-            className="p-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
             title={t('inbox.chatInput.attachImage')}
             onClick={onAttachImageSimulated}
           >
@@ -122,7 +118,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           </button>
           <button
             type="button"
-            className="p-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
             title={t('inbox.chatInput.insertEmoji')}
             onClick={onInsertEmoji}
           >
@@ -130,16 +126,16 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           </button>
           <button
             type="button"
-            className="p-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
-            title="Nhắc đến hoặc chèn mã mẫu"
+            className="p-1.5 rounded hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+            title="Chèn ký hiệu @"
             onClick={() => onInputChange(inputText ? `${inputText} @` : '@')}
           >
             <AtSign size={16} />
           </button>
           <button
             type="button"
-            className={`p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer ${
-              isRecording ? 'text-red-500 animate-pulse bg-red-50' : 'hover:text-slate-800'
+            className={`p-1.5 rounded transition-colors cursor-pointer ${
+              isRecording ? 'text-red-500 animate-pulse bg-red-50' : 'hover:bg-slate-100 hover:text-slate-700'
             }`}
             title={t('inbox.chatInput.voiceMessage')}
             onClick={onSimulateVoice}
@@ -148,7 +144,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           </button>
         </div>
 
-        {/* Bên phải: Nút Gửi duy nhất, không còn dropdown thừa gây chật chội */}
+        {/* Bên phải: Nút Gửi */}
         <Button
           type="button"
           variant="primary"
@@ -159,14 +155,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             !inputText.trim() ||
             (conversation.channel === 'FACEBOOK' && !isWithin24Hours)
           }
-          className="h-8 px-4 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm gap-1.5 cursor-pointer"
-          title={
-            conversation.channel === 'FACEBOOK' && !isWithin24Hours
-              ? 'Đã hết cửa sổ phản hồi 24 giờ của Facebook'
-              : 'Gửi tin nhắn (Enter)'
-          }
         >
-          Gửi
+          {t('common.send')}
         </Button>
       </div>
     </div>

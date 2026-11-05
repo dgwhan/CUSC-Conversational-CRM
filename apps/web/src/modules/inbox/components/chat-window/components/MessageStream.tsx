@@ -16,7 +16,7 @@ export const MessageStream: React.FC<MessageStreamProps> = ({
   const hasMultipleChannels = (conversation.customer.channelIdentities || []).length > 1;
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-slate-50/60 custom-scrollbar">
+    <div className="flex-1 overflow-y-auto p-4 space-y-1.5 bg-white custom-scrollbar scrollbar-thin">
       {messages.map((msg, index) => {
         const currentDateLabel = getDateDividerLabel(msg.sentAt);
         const prevMsg = index > 0 ? messages[index - 1] : null;
@@ -28,7 +28,7 @@ export const MessageStream: React.FC<MessageStreamProps> = ({
             {/* Phân cách ngày */}
             {showDateDivider && (
               <div className="flex items-center justify-center my-3">
-                <span className="text-[11px] font-medium text-slate-500 bg-slate-200/70 px-2.5 py-0.5 rounded-full select-none">
+                <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full select-none border border-slate-200/60">
                   {currentDateLabel}
                 </span>
               </div>
@@ -48,4 +48,3 @@ export const MessageStream: React.FC<MessageStreamProps> = ({
     </div>
   );
 };
-

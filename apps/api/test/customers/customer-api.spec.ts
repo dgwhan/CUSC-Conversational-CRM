@@ -111,7 +111,7 @@ describe('CUS-05: Customer API & Unaccent Search', () => {
     });
 
     it('DoD CUS-05: Tìm "nguyen van a" ra đúng khách hàng "Nguyễn Văn A"', async () => {
-      const res = await controller.getCustomers(undefined, undefined, 'nguyen van a');
+      const res = await controller.getCustomers(undefined, undefined, undefined, undefined, 'nguyen van a');
 
       expect(res.items).toHaveLength(1);
       expect(res.items[0].fullName).toBe('Nguyễn Văn A');
@@ -120,14 +120,14 @@ describe('CUS-05: Customer API & Unaccent Search', () => {
     });
 
     it('Tìm "Nguyen Van A" viết hoa chữ cái đầu vẫn ra "Nguyễn Văn A"', async () => {
-      const res = await controller.getCustomers(undefined, undefined, 'Nguyen Van A');
+      const res = await controller.getCustomers(undefined, undefined, undefined, undefined, 'Nguyen Van A');
 
       expect(res.items).toHaveLength(1);
       expect(res.items[0].fullName).toBe('Nguyễn Văn A');
     });
 
     it('Tìm theo SĐT có dấu chấm hoặc khoảng trắng "0912.345.678" ra đúng khách hàng', async () => {
-      const res = await controller.getCustomers(undefined, undefined, '0912.345.678');
+      const res = await controller.getCustomers(undefined, undefined, undefined, undefined, '0912.345.678');
 
       expect(res.items).toHaveLength(1);
       expect(res.items[0].fullName).toBe('Nguyễn Văn A');
@@ -135,14 +135,14 @@ describe('CUS-05: Customer API & Unaccent Search', () => {
     });
 
     it('Tìm theo SĐT đầu số quốc tế "+84912345678" ra đúng khách hàng', async () => {
-      const res = await controller.getCustomers(undefined, undefined, '+84912345678');
+      const res = await controller.getCustomers(undefined, undefined, undefined, undefined, '+84912345678');
 
       expect(res.items).toHaveLength(1);
       expect(res.items[0].fullName).toBe('Nguyễn Văn A');
     });
 
     it('Hỗ trợ phân trang: page=1, limit=10 trả về đúng cấu trúc metadata', async () => {
-      const res = await controller.getCustomers(undefined, undefined, undefined, '1', '10');
+      const res = await controller.getCustomers(undefined, undefined, undefined, undefined, undefined, '1', '10');
 
       expect(res.page).toBe(1);
       expect(res.limit).toBe(10);
