@@ -15,9 +15,9 @@
    ========================================================================== */
 
 .pancake-col-left {
-  width: 320px;
+  width: 300px;
   min-width: 300px;
-  max-width: 340px;
+  max-width: 300px;
   border-right: 1px solid var(--color-border);
   background-color: var(--color-surface);
   display: flex;
@@ -949,9 +949,9 @@
    ========================================================================== */
 
 .pancake-col-right {
-  width: 340px;
+  width: 320px;
   min-width: 320px;
-  max-width: 360px;
+  max-width: 320px;
   height: 100%;
   background-color: var(--color-surface);
   border-left: 1px solid var(--color-border);

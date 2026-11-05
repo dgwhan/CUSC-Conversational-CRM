@@ -47,7 +47,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
   } = useChatComposer({ conversation, onSendMessage });
 
   return (
-    <section className="pancake-col-center flex-1 flex flex-col h-full bg-slate-50/40 border-r border-slate-200 min-w-[380px] overflow-hidden">
+    <section className="pancake-col-center flex-1 flex flex-col h-full bg-white border-r border-slate-200/80 min-w-[380px] overflow-hidden">
       {/* 1. Header cuộc trò chuyện */}
       <ChatHeader
         conversation={conversation}
@@ -72,7 +72,7 @@ export const ChatWindowColumn: React.FC<ChatWindowColumnProps> = ({
         messagesEndRef={messagesEndRef}
       />
 
-      {/* 4. Khung soạn thảo tin nhắn hiện đại tích hợp toolbar & quick replies theo mẫu */}
+      {/* 4. Khung soạn thảo tin nhắn hiện đại tích hợp toolbar & quick replies */}
       <ChatComposer
         conversation={conversation}
         inputText={inputText}

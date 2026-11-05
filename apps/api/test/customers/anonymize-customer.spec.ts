@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { CustomerService } from '../../src/modules/messaging/application/customer.service.js';
-import type { PrismaService } from '../../src/prisma/prisma.service.js';
+import type { PrismaService } from '../../src/platform/database/prisma.service.js';
 import type { RealtimeService } from '../../src/modules/realtime/realtime.service.js';
 
 describe('Customer Anonymization (Nghị định 13/2023/NĐ-CP)', () => {

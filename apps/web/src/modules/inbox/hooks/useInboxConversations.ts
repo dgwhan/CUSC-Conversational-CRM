@@ -692,9 +692,10 @@ export const useInboxConversations = ({
         conversationId?: string;
         leadStage?: LeadStage;
         leadStatus?: LeadStatus;
+        tags?: string[];
       }>;
       if (!customEvent.detail) return;
-      const { customerId, fullName, conversationId, leadStage, leadStatus } = customEvent.detail;
+      const { customerId, fullName, conversationId, leadStage, leadStatus, tags } = customEvent.detail;
       setConversations((prev) =>
         prev.map((c) => {
           if (
@@ -704,10 +705,12 @@ export const useInboxConversations = ({
           ) {
             return {
               ...c,
+              ...(tags !== undefined ? { tags } : {}),
               customer: {
                 ...c.customer,
-                ...(leadStage !== undefined ? { leadStage } : {}),
+                ...(leadStage !== undefined ? { leadStage } : (leadStatus === 'NEW' ? { leadStage: undefined } : {})),
                 ...(leadStatus !== undefined ? { leadStatus } : {}),
+                ...(tags !== undefined ? { tags } : {}),
               },
             };
           }

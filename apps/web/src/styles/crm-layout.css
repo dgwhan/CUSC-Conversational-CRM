@@ -43,7 +43,7 @@
   height: 56px;
   min-height: 56px;
   box-sizing: border-box;
-  padding: 0 14px;
+  padding: 0 12px 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -60,12 +60,11 @@
 
 .crm-brand-text {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  align-items: center;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
-  max-width: 170px;
+  max-width: 175px;
   opacity: 1;
   transform: translateX(0);
   transition: max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -80,11 +79,12 @@
 }
 
 .crm-brand-title {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--color-text-main, #0f172a);
   letter-spacing: -0.01em;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 /* Nút toggle thu gọn / mở rộng sidebar - Căn giữa chuẩn xác trên trục 68px */
@@ -93,9 +93,9 @@
   background: transparent;
   color: #64748b;
   cursor: pointer;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

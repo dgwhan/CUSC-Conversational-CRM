@@ -31,10 +31,15 @@ export const useCustomerDataActions = ({
           c.id === currentConv.id ||
           (c.customer?.id && currentConv.customer?.id && c.customer.id === currentConv.customer.id);
         if (!isMatch) return c;
+        const currentItemTags = Array.from(new Set([
+          ...(c.customer?.tags || []),
+          ...(c.tags || []),
+          tagNormalized,
+        ]));
         return {
           ...c,
-          tags: nextTags,
-          customer: { ...c.customer, tags: nextTags },
+          tags: currentItemTags,
+          customer: { ...c.customer, tags: currentItemTags },
         };
       })
     );
@@ -73,10 +78,15 @@ export const useCustomerDataActions = ({
           c.id === currentConv.id ||
           (c.customer?.id && currentConv.customer?.id && c.customer.id === currentConv.customer.id);
         if (!isMatch) return c;
+        const currentItemTags = Array.from(new Set([
+          ...(c.customer?.tags || []),
+          ...(c.tags || []),
+        ]));
+        const updatedTags = currentItemTags.filter((t) => !isTarget(t));
         return {
           ...c,
-          tags: nextTags,
-          customer: { ...c.customer, tags: nextTags },
+          tags: updatedTags,
+          customer: { ...c.customer, tags: updatedTags },
         };
       })
     );

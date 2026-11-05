@@ -7,7 +7,6 @@ import {
   LayoutGrid,
   Sliders,
   X,
-  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
@@ -33,9 +32,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
 }) => {
   const { t } = useTranslation();
-  const { myPresence, unreadCount } = useRealtime();
+  const { unreadCount } = useRealtime();
   const { config } = useWorkspaceConfig();
-  const { isOwner, isAgent, staffName, logout } = useUserRole();
+  const { isAgent } = useUserRole();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     try {
@@ -166,55 +165,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </nav>
-      </div>
-
-      {/* Footer Profile */}
-      <div className={`crm-sidebar-footer ${isCollapsed ? 'collapsed' : ''}`}>
-        <div className="crm-user-profile" title={isCollapsed ? (staffName || 'Người dùng') : undefined}>
-          <div className="crm-user-avatar-wrapper">
-            <div className="crm-user-avatar">
-              {staffName ? staffName.slice(0, 2).toUpperCase() : 'US'}
-            </div>
-            <span
-              className={`staff-status-dot ${myPresence.toLowerCase()}`}
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                right: 0,
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                border: '2px solid white',
-              }}
-            />
-          </div>
-
-          <div className="crm-user-info">
-            <span
-              className="crm-user-name"
-              title={staffName || ''}
-            >
-              {staffName}
-            </span>
-            <span
-              className="crm-user-role"
-              style={{
-                color: isOwner ? '#0284c7' : '#ea580c',
-              }}
-            >
-              {isOwner ? 'Chủ doanh nghiệp' : 'Tư vấn viên'}
-            </span>
-          </div>
-
-          <button
-            type="button"
-            className="crm-user-logout-btn"
-            onClick={logout}
-            title="Đăng xuất khỏi hệ thống"
-          >
-            <LogOut size={16} />
-          </button>
-        </div>
       </div>
     </aside>
   );

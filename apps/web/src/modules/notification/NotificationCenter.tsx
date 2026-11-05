@@ -203,24 +203,24 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
 
   return (
     <div className="relative inline-flex items-center" ref={containerRef}>
-      {/* Icon Chuông thông báo trên Header chuẩn Pill hệ thống */}
+      {/* Icon Chuông thông báo trên Header: Bỏ viền, số đếm đặt ở góc trên bên phải */}
       <button
         type="button"
-        className={`relative h-8 px-2.5 rounded-full border transition-all flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer ${
+        className={`relative w-8 h-8 rounded-lg transition-colors flex items-center justify-center cursor-pointer ${
           isOpen
-            ? 'bg-blue-50 border-blue-300 text-blue-600 shadow-xs'
-            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900'
+            ? 'bg-slate-100 text-slate-900'
+            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
         }`}
         onClick={() => {
           setIsOpen(!isOpen);
           if (!isOpen) fetchNotifications();
         }}
-        title="Thông báo Workspace"
+        title="Thông báo"
         aria-label="Thông báo"
       >
-        <Bell size={15} className={unreadCount > 0 ? 'text-blue-600' : 'text-slate-500'} />
+        <Bell size={17} className={unreadCount > 0 ? 'text-slate-700' : 'text-slate-500'} />
         {unreadCount > 0 && (
-          <span className="min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-xs">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-rose-500 text-white text-[10px] font-semibold rounded-full flex items-center justify-center ring-2 ring-white leading-none">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -228,7 +228,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNaviga
 
       {/* Popover / Dropdown Hộp thông báo chuẩn Light Theme CRM */}
       {isOpen && (
-        <div className="absolute left-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden flex flex-col max-h-[580px] animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] bg-white border border-slate-200/80 rounded-xl shadow-xl z-50 overflow-hidden flex flex-col max-h-[580px] animate-in fade-in zoom-in-95 duration-150">
           {/* Header */}
           <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <div className="flex items-center gap-2.5">

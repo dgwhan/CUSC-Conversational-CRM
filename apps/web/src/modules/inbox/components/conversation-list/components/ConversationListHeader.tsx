@@ -1,7 +1,6 @@
 import React from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useTranslation } from '../../../../../i18n/index.js';
-import { Button } from '../../../../../components/ui/Button.js';
 
 export interface ConversationListHeaderProps {
   totalCount: number;
@@ -23,49 +22,45 @@ export const ConversationListHeader: React.FC<ConversationListHeaderProps> = ({
   const { t } = useTranslation();
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-1.5">
-        <h2 className="text-[15px] font-bold text-slate-800 m-0">
+    <div className="flex items-center justify-between pb-1">
+      <div className="flex items-center gap-2">
+        <h2 className="text-sm font-semibold text-slate-900 m-0">
           {t('inbox.conversationsTitle')}
         </h2>
-        <span className="text-xs text-slate-400 font-medium">
-          ({totalCount})
+        <span className="text-xs text-slate-500 font-medium bg-slate-100 px-1.5 py-0.5 rounded">
+          {totalCount}
         </span>
         {totalUnread > 0 && (
-          <span className="text-[11px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full shadow-sm shadow-red-500/20 leading-none">
-            {totalUnread}
+          <span className="text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200/80 px-1.5 py-0.2 rounded-full leading-none">
+            {totalUnread} mới
           </span>
         )}
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         {onSyncFacebook && (
-          <Button
+          <button
             type="button"
-            variant="secondary"
-            size="sm"
-            icon={<RefreshCw size={11} className={isSyncingFacebook ? 'animate-spin' : ''} />}
-            className="h-[26px] px-2 text-[11px] font-semibold text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100"
             disabled={isSyncingFacebook}
             onClick={onSyncFacebook}
-            title="Kéo tin nhắn từ Fanpage Facebook"
+            className="inline-flex items-center gap-1 h-6 px-1.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded transition-colors cursor-pointer disabled:opacity-50"
+            title="Đồng bộ tin nhắn Fanpage Facebook"
           >
-            {isSyncingFacebook ? 'Kéo...' : 'FB'}
-          </Button>
+            <RefreshCw size={10} className={isSyncingFacebook ? 'animate-spin text-blue-600' : 'text-slate-400'} />
+            <span>FB</span>
+          </button>
         )}
         {onSyncZalo && (
-          <Button
+          <button
             type="button"
-            variant="secondary"
-            size="sm"
-            icon={<RefreshCw size={11} className={isSyncingZalo ? 'animate-spin' : ''} />}
-            className="h-[26px] px-2 text-[11px] font-semibold text-sky-600 bg-sky-50 border-sky-200 hover:bg-sky-100"
             disabled={isSyncingZalo}
             onClick={onSyncZalo}
-            title="Kéo tin nhắn từ Zalo OA & Zalo Cá nhân"
+            className="inline-flex items-center gap-1 h-6 px-1.5 text-[11px] font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded transition-colors cursor-pointer disabled:opacity-50"
+            title="Đồng bộ tin nhắn Zalo"
           >
-            {isSyncingZalo ? 'Kéo...' : 'Zalo'}
-          </Button>
+            <RefreshCw size={10} className={isSyncingZalo ? 'animate-spin text-blue-600' : 'text-slate-400'} />
+            <span>Zalo</span>
+          </button>
         )}
       </div>
     </div>

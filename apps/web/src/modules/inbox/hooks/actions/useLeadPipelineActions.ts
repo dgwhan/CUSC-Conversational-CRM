@@ -29,10 +29,12 @@ export const useLeadPipelineActions = ({
   const handleUpdateLeadStatus = (status: LeadStatus) => {
     if (!currentConv) return;
 
-    let stageForKanban: LeadStage =
-      currentConv.customer.leadStage || (config.pipelineStages[0]?.id as LeadStage) || PIPELINE_STAGE_ID.STAGE_NEW;
+    const isUnmarking = status === LEAD_STATUS.NEW;
+    let stageForKanban: any = isUnmarking
+      ? null
+      : currentConv.customer.leadStage || (config.pipelineStages[0]?.id as LeadStage) || PIPELINE_STAGE_ID.STAGE_NEW;
 
-    if (!currentConv.customer.leadStage) {
+    if (!currentConv.customer.leadStage && !isUnmarking) {
       if (status === LEAD_STATUS.CONVERTED) {
         stageForKanban = (config.pipelineStages.find((s) => s.isWon)?.id as LeadStage) || PIPELINE_STAGE_ID.STAGE_ENROLLED;
       } else if (status === LEAD_STATUS.POTENTIAL) {
@@ -51,16 +53,26 @@ export const useLeadPipelineActions = ({
       if (!nextTags.some((t) => t.trim().toLowerCase() === 'lead')) {
         nextTags.push('Lead');
       }
-    } else if (status === LEAD_STATUS.NEW) {
+    } else if (isUnmarking) {
       nextTags = nextTags.filter((t) => {
         const l = t.trim().toLowerCase();
         return l !== 'lead' && l !== 'facebook lead' && l !== 'fb lead';
       });
     }
 
+    // Cập nhật ngay trên currentConv để đồng bộ tức thì
+    if (currentConv.customer) {
+      currentConv.customer.leadStatus = status;
+      currentConv.customer.leadStage = stageForKanban;
+      currentConv.customer.tags = nextTags;
+    }
+
     setConversations((prev) =>
       prev.map((c) => {
-        if (c.id !== currentConv.id) return c;
+        const isMatch =
+          c.id === currentConv.id ||
+          (c.customer?.id && currentConv.customer?.id && c.customer.id === currentConv.customer.id);
+        if (!isMatch) return c;
         return {
           ...c,
           tags: nextTags,
@@ -73,9 +85,6 @@ export const useLeadPipelineActions = ({
         };
       })
     );
-
-    // Đồng bộ sang phễu Kanban trong LocalStorage để bên Kanban nhận ngay
-    // Đã loại bỏ ghi chép trực tiếp vào localStorage
 
     // Lưu vào Backend Database Customer qua API
     if (currentConv.customer.id) {
@@ -103,6 +112,11 @@ export const useLeadPipelineActions = ({
         .catch((err: any) => {
           console.warn('Lỗi cập nhật leadStatus vào DB:', err);
         });
+
+      if (isUnmarking) {
+        apiClient.deleteCustomerTag(currentConv.customer.id, 'Lead', currentConv.id).catch(() => {});
+        apiClient.deleteCustomerTag(currentConv.customer.id, 'Facebook Lead', currentConv.id).catch(() => {});
+      }
     }
 
     if (typeof window !== 'undefined') {
@@ -120,7 +134,11 @@ export const useLeadPipelineActions = ({
       );
     }
 
-    notify.success(`Đã cập nhật trạng thái khách hàng sang "${status}".`);
+    if (isUnmarking) {
+      notify.success(`Đã hủy trạng thái tiềm năng của "${currentConv.customer.fullName}".`);
+    } else {
+      notify.success(`Đã cập nhật trạng thái khách hàng sang "${status}".`);
+    }
   };
 
   // 2. Chuyển giai đoạn tuyển sinh Kanban

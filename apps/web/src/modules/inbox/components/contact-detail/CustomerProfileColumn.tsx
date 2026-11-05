@@ -23,8 +23,10 @@ import {
   InterestedCoursesSection,
   InternalNotesSection,
 } from './index.js';
+import { LeadIntentScoreSection } from './score/LeadIntentScoreSection.js';
 
 export interface CustomerProfileColumnProps {
+  messages?: any[];
   customer: CustomerProfile;
   assignedStaff?: AssignedStaff | null;
   staffList?: AssignedStaff[];
@@ -44,6 +46,7 @@ export interface CustomerProfileColumnProps {
 
 export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   customer,
+  messages = [],
   assignedStaff,
   staffList,
   onAssignStaff,
@@ -70,13 +73,26 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
   const [triggerEditEmail, setTriggerEditEmail] = useState(false);
 
   // Xác định giai đoạn hiện tại (Mặc định linh hoạt theo cấu hình Workspace)
+  const isExplicitlyNew = customer.leadStatus === LEAD_STATUS.NEW;
+  const isLead = !isExplicitlyNew && (
+    customer.leadStatus === LEAD_STATUS.POTENTIAL ||
+    customer.leadStatus === LEAD_STATUS.CONVERTED ||
+    customer.leadStatus === LEAD_STATUS.UNQUALIFIED ||
+    Boolean(customer.leadStage) ||
+    (Array.isArray(customer.tags) && customer.tags.some(
+      (t) => t.trim().toLowerCase() === 'lead' || t.trim().toLowerCase() === 'facebook lead'
+    ))
+  );
+
   const currentStageKey =
-    customer.leadStage ||
-    (customer.leadStatus === LEAD_STATUS.CONVERTED
-      ? (config.pipelineStages.find((s) => s.isWon)?.id || PIPELINE_STAGE_ID.STAGE_ENROLLED)
-      : customer.leadStatus === LEAD_STATUS.UNQUALIFIED
-      ? (config.pipelineStages.find((s) => s.isLost)?.id || PIPELINE_STAGE_ID.STAGE_LOST)
-      : (config.pipelineStages[0]?.id || PIPELINE_STAGE_ID.STAGE_NEW));
+    !isLead || isExplicitlyNew
+      ? null
+      : customer.leadStage ||
+      (customer.leadStatus === LEAD_STATUS.CONVERTED
+        ? (config.pipelineStages.find((s) => s.isWon)?.id || PIPELINE_STAGE_ID.STAGE_ENROLLED)
+        : customer.leadStatus === LEAD_STATUS.UNQUALIFIED
+          ? (config.pipelineStages.find((s) => s.isLost)?.id || PIPELINE_STAGE_ID.STAGE_LOST)
+          : (customer.leadStatus === LEAD_STATUS.POTENTIAL ? (config.pipelineStages[0]?.id || PIPELINE_STAGE_ID.STAGE_NEW) : null));
 
   const handleCopy = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
@@ -89,11 +105,11 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
     customer.channelIdentities && customer.channelIdentities.length > 0
       ? customer.channelIdentities
       : [
-          {
-            channel: customer.channel || 'FACEBOOK',
-            externalUserId: customer.socialId || '',
-          },
-        ];
+        {
+          channel: customer.channel || 'FACEBOOK',
+          externalUserId: customer.socialId || '',
+        },
+      ];
 
   const effectiveCourses =
     customer.interestCourses && customer.interestCourses.length > 0
@@ -107,15 +123,14 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
 
   return (
     <aside
-      className={`w-[340px] min-w-[320px] max-w-[360px] border-l border-slate-200 bg-white flex flex-col h-full shrink-0 select-none overflow-hidden transition-all ${
-        isMobileOpen
+      className={`pancake-col-right w-[320px] min-w-[320px] max-w-[320px] border-l border-slate-200/80 bg-white flex flex-col h-full shrink-0 select-none overflow-hidden transition-all ${isMobileOpen
           ? 'fixed inset-y-0 right-0 z-50 shadow-2xl w-full max-w-sm'
           : 'hidden lg:flex'
-      }`}
+        }`}
     >
       {/* 1. Header Cột: Customer Details */}
-      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-        <h3 className="m-0 text-sm font-bold text-slate-800">
+      <div className="h-14 px-4 border-b border-slate-200/80 flex items-center justify-between bg-white shrink-0">
+        <h3 className="m-0 text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Chi Tiết Khách Hàng
         </h3>
         {onCloseMobile && (
@@ -130,8 +145,8 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
         )}
       </div>
 
-      {/* 2. Nội dung cuộn với visual hierarchy phân tầng rõ ràng */}
-      <div className="flex-1 overflow-y-auto divide-y divide-slate-100 custom-scrollbar">
+      {/* 2. Nội dung cuộn phân cách bằng divider mảnh */}
+      <div className="flex-1 overflow-y-auto divide-y divide-slate-100/80 custom-scrollbar scrollbar-thin">
         {/* A. THÔNG TIN HỒ SƠ CHÍNH & TÁC VỤ (Contact Header) */}
         <ContactHeader
           customer={customer}
@@ -157,7 +172,14 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           onResetEditingEmailExternal={() => setTriggerEditEmail(false)}
         />
 
-        {/* C. NHÂN SỰ PHỤ TRÁCH (Assigned Agent) */}
+        {/* C. ĐÁNH GIÁ TIỀM NĂNG (Lead Intent Scoring) */}
+        <LeadIntentScoreSection
+          classification={customer.classification}
+          messages={messages}
+          customerPhone={customer.phone}
+        />
+
+        {/* D. NHÂN SỰ PHỤ TRÁCH (Assigned Agent) */}
         <AssignedAgentSection
           assignedStaff={assignedStaff}
           staffList={staffList}
@@ -165,7 +187,7 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           isOwner={isOwner}
         />
 
-        {/* D. TRẠNG THÁI / GIAI ĐOẠN PHỄU TUYỂN SINH (Status List) */}
+        {/* E. TRẠNG THÁI / GIAI ĐOẠN PHỄU (Status List) */}
         <ContactActivitySection
           customer={customer}
           currentStageKey={currentStageKey}
@@ -173,18 +195,17 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           onUpdateLeadStatus={onUpdateLeadStatus}
           onUpdateLeadStage={onUpdateLeadStage}
           onAddTag={onAddTag}
-          onRemoveTag={onRemoveTag}
           onNavigateToKanban={onNavigateToKanban}
         />
 
-        {/* E. NHÃN PHÂN LOẠI (Tags - pastel rounded pills) */}
+        {/* F. NHÃN PHÂN LOẠI (Tags) */}
         <ContactTagsSection
           tags={customer.tags}
           onAddTag={onAddTag}
           onRemoveTag={onRemoveTag}
         />
 
-        {/* F. KHÓA HỌC QUAN TÂM & HỌC PHÍ DỰ KIẾN */}
+        {/* G. KHÓA HỌC QUAN TÂM & HỌC PHÍ DỰ KIẾN */}
         <InterestedCoursesSection
           productLabel={config.terminology.productLabel}
           courses={customer.interestCourses}
@@ -201,14 +222,14 @@ export const CustomerProfileColumn: React.FC<CustomerProfileColumnProps> = ({
           }}
         />
 
-        {/* G. GHI CHÚ NỘI BỘ (Internal Notes) */}
+        {/* H. GHI CHÚ NỘI BỘ  */}
         <InternalNotesSection
           notes={customer.notes}
           onAddNote={onAddNote}
           onRemoveNote={onRemoveNote}
         />
 
-        {/* H. ĐỊNH DANH ĐA KÊNH (Chỉ hiển thị khi đã liên kết từ 2 kênh) */}
+        {/* I. ĐỊNH DANH ĐA KÊNH (Chỉ hiển thị khi đã liên kết từ 2 kênh) */}
         {effectiveIdentities.length > 1 && (
           <ChannelIdentitiesSection
             identities={effectiveIdentities}

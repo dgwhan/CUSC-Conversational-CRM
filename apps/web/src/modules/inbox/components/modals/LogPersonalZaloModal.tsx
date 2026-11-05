@@ -57,7 +57,7 @@ export const LogPersonalZaloModal: React.FC<LogPersonalZaloModalProps> = ({
                 Ghi Nhận Tư Vấn Zalo Cá Nhân
               </h3>
               <p className="m-0 text-xs text-slate-500">
-                Lưu vết tư vấn và cam kết tuyển sinh vào CRM
+                Lưu vết trao đổi và cam kết vào CRM
               </p>
             </div>
           </div>
@@ -77,9 +77,9 @@ export const LogPersonalZaloModal: React.FC<LogPersonalZaloModalProps> = ({
           <div className="flex gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs leading-relaxed">
             <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <strong className="font-bold text-amber-950">Lưu ý bắt buộc cho Tư vấn viên:</strong>
+              <strong className="font-bold text-amber-950">Lưu ý bắt buộc cho Nhân viên:</strong>
               <p className="m-0 mt-0.5 text-amber-800">
-                Zalo cá nhân không có API đồng bộ tự động. Toàn bộ thông tin thỏa thuận học phí, học bổng và SĐT học viên cần được lưu vào CRM để đảm bảo quyền lợi tính KPI hoa hồng và chăm sóc liên tục.
+                Zalo cá nhân không có API đồng bộ tự động. Toàn bộ thông tin trao đổi, cam kết và SĐT khách hàng cần được lưu vào CRM để đảm bảo quyền lợi KPI và chăm sóc liên tục.
               </p>
             </div>
           </div>
@@ -87,7 +87,7 @@ export const LogPersonalZaloModal: React.FC<LogPersonalZaloModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                Tên nick Zalo thí sinh / phụ huynh *
+                Tên nick Zalo khách hàng *
               </label>
               <input
                 type="text"
@@ -130,12 +130,12 @@ export const LogPersonalZaloModal: React.FC<LogPersonalZaloModalProps> = ({
 
           <div>
             <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-              Tóm tắt nội dung trao đổi & Cam kết tuyển sinh *
+              Tóm tắt nội dung trao đổi & Cam kết *
             </label>
             <textarea
               className="w-full min-h-[90px] p-2.5 text-xs text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-500 transition-colors resize-none leading-relaxed"
               rows={4}
-              placeholder="VD: Em An đã chat Zalo với mình, phụ huynh đồng ý đăng ký khóa Fullstack Web. Đã hẹn 9h sáng thứ 7 đến trung tâm CUSC hoàn tất thủ tục học bổng 20%..."
+              placeholder="VD: Khách đã trao đổi qua Zalo cá nhân, đồng ý giải pháp đã đề xuất. Đã hẹn 9h sáng thứ 7 đến văn phòng hoàn tất thủ tục..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
               required

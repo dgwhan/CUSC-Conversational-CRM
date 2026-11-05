@@ -220,6 +220,7 @@ export const UnifiedInboxPage: React.FC<UnifiedInboxPageProps> = ({
         {currentConv && (
           <CustomerProfileColumn
             customer={currentConv.customer}
+            messages={currentConv.messages}
             assignedStaff={currentConv.assignedStaff}
             staffList={staffList}
             onAssignStaff={handleAssignStaff}
