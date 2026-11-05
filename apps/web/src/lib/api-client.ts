@@ -96,11 +96,7 @@ class ApiClient {
     this.refreshPromise = null;
     if (typeof window !== 'undefined') {
       try {
-        localStorage.removeItem('polarisx_crm_auth_session');
-        localStorage.removeItem('cusc_crm_auth_session');
-        localStorage.removeItem('polarisx_crm_user_role');
-        localStorage.removeItem('cusc_crm_user_role');
-        localStorage.removeItem('polarisx_crm_active_workspace_id');
+        localStorage.clear();
       } catch {}
     }
   }
@@ -225,6 +221,7 @@ class ApiClient {
     }
 
     const defaultHeaders: Record<string, string> = {
+      'X-Requested-With': 'XMLHttpRequest',
       ...(this.activeWorkspaceId ? { 'x-workspace-id': this.activeWorkspaceId } : {}),
       ...(userRole ? { 'x-user-role': userRole } : {}),
       ...(currentStaffId ? { 'x-staff-id': currentStaffId } : {}),

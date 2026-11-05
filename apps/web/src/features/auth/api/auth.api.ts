@@ -114,6 +114,11 @@ export async function refreshAccessToken(refreshToken?: string): Promise<LoginRe
 }
 
 export async function logout(): Promise<void> {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.clear();
+    } catch {}
+  }
   await fetch(`${API_BASE_URL}/auth/logout`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

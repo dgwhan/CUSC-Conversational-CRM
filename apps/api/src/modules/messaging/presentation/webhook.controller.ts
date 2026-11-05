@@ -19,6 +19,7 @@ import { ReceiveInboundMessage } from "../application/receive-inbound-message.us
 import { ChannelAdapterRegistry } from "../application/channel-adapter.registry.js";
 import { Channel } from "../domain/channel.js";
 import { FacebookAdapter } from "../infrastructure/adapters/facebook.adapter.js";
+import { SkipCsrf } from "../../../common/decorators/skip-csrf.decorator.js";
 
 /**
  * Pipe chuẩn hóa channel không phân biệt hoa thường (hỗ trợ cả /facebook và /FACEBOOK)
@@ -34,6 +35,7 @@ export class ChannelPipe implements PipeTransform<string, Channel> {
     }
 }
 
+@SkipCsrf()
 @Controller('webhook')
 export class WebhookController {
     private readonly logger = new Logger(WebhookController.name);
