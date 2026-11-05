@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { notify } from '../../components/feedback/toastEmitter.js';
 import type { LoginResponse } from '../../features/auth/types/auth.types.js';
-import { apiClient } from '../../lib/api-client.js';
+import { apiClient } from '../../lib/api-client/index.js';
 import { USER_ROLES } from './userRole.types.js';
 import type { UserRole, UserRoleContextValue } from './userRole.types.js';
 

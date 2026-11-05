@@ -22,7 +22,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import type { ChannelKey, DiscoveredPageDto } from '../types.js';
-import { apiClient } from '../../../lib/api-client.js';
+import { apiClient } from '../../../lib/api-client/index.js';
 import { useTranslation } from '../../../i18n/index.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 

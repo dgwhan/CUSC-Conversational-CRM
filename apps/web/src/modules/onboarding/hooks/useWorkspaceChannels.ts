@@ -5,7 +5,7 @@ import type {
   DiscoveredPageDto,
   OnboardingState,
 } from '../types.js';
-import { apiClient } from '../../../lib/api-client.js';
+import { apiClient } from '../../../lib/api-client/index.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 
 export interface UseWorkspaceChannelsOptions {

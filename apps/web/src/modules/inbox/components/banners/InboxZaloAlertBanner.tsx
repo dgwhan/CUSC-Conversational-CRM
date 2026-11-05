@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AlertCircle, AlertTriangle, RotateCcw, X, QrCode } from 'lucide-react';
-import { apiClient } from '../../../../lib/api-client.js';
+import { apiClient } from '../../../../lib/api-client/index.js';
 import { useRealtime } from '../../../realtime/RealtimeContext.js';
 
 export interface InboxZaloAlertBannerProps {

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import type { StaffPresenceStatus, ChannelType } from '../inbox/types.js';
 import { playTingTingSound, playUrgentAlertSound, isSoundEnabled, setSoundEnabled } from './audioNotification.js';
 import { notify } from '../../components/feedback/toastEmitter.js';
-import { apiClient } from '../../lib/api-client.js';
+import { apiClient } from '../../lib/api-client/index.js';
 import { useUserRole } from '../auth/index.js';
 
 export interface InboundMessageEventData {

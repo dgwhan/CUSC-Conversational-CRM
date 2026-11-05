@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ConversationItem } from '../../types.js';
-import { apiClient } from '../../../../lib/api-client.js';
+import { apiClient } from '../../../../lib/api-client/index.js';
 import { notify } from '../../../../components/feedback/toastEmitter.js';
 
 interface UseCustomerDataActionsProps {

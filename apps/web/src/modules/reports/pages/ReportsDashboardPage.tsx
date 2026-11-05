@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BarChart3 } from 'lucide-react';
-import { apiClient } from '../../../lib/api-client.js';
+import { apiClient } from '../../../lib/api-client/index.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useWorkspaceConfig } from '../../workspace/WorkspaceConfigContext.js';
 import { MetricCardsGrid } from '../components/MetricCardsGrid.js';

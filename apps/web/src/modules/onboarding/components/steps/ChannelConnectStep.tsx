@@ -15,7 +15,7 @@ import type { ChannelKey, FanpageItem, DiscoveredPageDto } from '../../types.js'
 import { OAuthSimulationModal } from '../OAuthSimulationModal.js';
 import { OFFICIAL_CHANNEL_ICONS } from '../../../../lib/channel-meta.js';
 import { useTranslation } from '../../../../i18n/index.js';
-import { apiClient } from '../../../../lib/api-client.js';
+import { apiClient } from '../../../../lib/api-client/index.js';
 import { notify } from '../../../../components/feedback/toastEmitter.js';
 
 export interface ChannelConnectStepProps {

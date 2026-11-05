@@ -5,7 +5,7 @@ import type {
   MessageAttachment,
 } from '../../types.js';
 import { deduplicateMessages } from '../../utils/conversationUtils.js';
-import { apiClient } from '../../../../lib/api-client.js';
+import { apiClient } from '../../../../lib/api-client/index.js';
 import { notify } from '../../../../components/feedback/toastEmitter.js';
 import { useUserRole } from '../../../auth/index.js';
 

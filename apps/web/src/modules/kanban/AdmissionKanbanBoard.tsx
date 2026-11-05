@@ -9,7 +9,7 @@ import { useWorkspaceConfig } from '../workspace/WorkspaceConfigContext.js';
 import { SearchInput } from '../../components/ui/SearchInput.js';
 import { matchesSmartSearch } from '../../lib/unaccent.js';
 import { notify } from '../../components/feedback/toastEmitter.js';
-import { apiClient } from '../../lib/api-client.js';
+import { apiClient } from '../../lib/api-client/index.js';
 import { Avatar } from '../../components/common/Avatar.js';
 import { AssignProductModal } from '../../components/common/AssignProductModal.js';
 import {

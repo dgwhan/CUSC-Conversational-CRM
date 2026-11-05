@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiClient } from '../../../lib/api-client.js';
+import { apiClient } from '../../../lib/api-client/index.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 
 interface UseChannelSyncProps {

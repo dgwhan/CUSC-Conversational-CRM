@@ -12,7 +12,7 @@ import {
 } from '../components/workspace/tabs/index.js';
 import { EditWorkspaceModal, DeleteWorkspaceModal } from '../components/workspace/tabs/modals/index.js';
 import { WorkspaceDetailHeader } from '../components/workspace/WorkspaceDetailHeader.js';
-import { apiClient } from '../../../lib/api-client.js';
+import { apiClient } from '../../../lib/api-client/index.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 import { useUserRole } from '../../auth/index.js';
 import { StaffRole } from '../../../features/auth/constants/auth.constants.js';

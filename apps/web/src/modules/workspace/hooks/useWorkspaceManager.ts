@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { WorkspaceItem, WorkspaceConfig, BusinessDomain } from '../workspaceConfig.types.js';
 import { CLIENT_INDUSTRY_PRESETS } from '../workspacePresets.js';
 import { USER_ROLES, type UserRole } from '../../auth/userRole.types.js';
-import { apiClient } from '../../../lib/api-client.js';
+import { apiClient } from '../../../lib/api-client/index.js';
 import { notify } from '../../../components/feedback/toastEmitter.js';
 
 export const ACTIVE_WORKSPACE_KEY = 'polarisx_crm_active_workspace_id';

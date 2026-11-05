@@ -10,8 +10,8 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { apiClient } from '../../lib/api-client.js';
-import type { NotificationItem, NotificationSeverity } from '../../lib/api-client.js';
+import { apiClient } from '../../lib/api-client/index.js';
+import type { NotificationItem, NotificationSeverity } from '../../lib/api-client/index.js';
 import { useRealtime } from '../realtime/RealtimeContext.js';
 import { useWorkspaceConfig } from '../workspace/WorkspaceConfigContext.js';
 import type { ActiveNavTab } from '../../app/Sidebar.js';
