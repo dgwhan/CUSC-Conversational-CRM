@@ -3,8 +3,6 @@ import {
   Clock,
   Save,
   Moon,
-  CheckCircle2,
-  AlertCircle,
   Copy,
   Sparkles,
   Calendar,

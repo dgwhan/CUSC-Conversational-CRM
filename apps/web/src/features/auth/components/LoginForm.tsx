@@ -20,13 +20,7 @@ export type LoginFormProps = {
 
 function readRememberedIdentifier(): string {
   try {
-    localStorage.removeItem('cusc.rememberedEmail');
-    const saved = localStorage.getItem(REMEMBERED_IDENTIFIER_KEY) ?? '';
-    if (saved === 'staff@cusc.com' || saved === 'owner@cusc.com') {
-      localStorage.removeItem(REMEMBERED_IDENTIFIER_KEY);
-      return '';
-    }
-    return saved;
+    return localStorage.getItem(REMEMBERED_IDENTIFIER_KEY) ?? '';
   } catch {
     return '';
   }
@@ -98,7 +92,7 @@ export function LoginForm({
       {!hideHeading && (
         <PageHeading
           title="Chào mừng trở lại"
-          description="Đăng nhập để tiếp tục sử dụng hệ thống Conversational CRM của CUSC."
+          description="Đăng nhập để tiếp tục sử dụng hệ thống Conversational CRM."
         />
       )}
 

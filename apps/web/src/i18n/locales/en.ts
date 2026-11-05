@@ -2,7 +2,7 @@ import type { TranslationDictionary } from '../types.js';
 
 export const en: TranslationDictionary = {
   common: {
-    systemName: 'CUSC ',
+    systemName: '',
     portalName: 'Conversational CRM',
     save: 'Save',
     cancel: 'Cancel',
@@ -52,7 +52,7 @@ export const en: TranslationDictionary = {
   },
   onboarding: {
     badge: 'CRM SETUP PROCESS',
-    welcomeTitle: 'Welcome to CUSC Conversational CRM',
+    welcomeTitle: 'Welcome to Conversational CRM',
     welcomeDesc: 'It takes just 2 minutes to connect your Fanpages, Zalo OA, and centralize customer inquiries.',
     skipToInbox: 'Skip & Enter Inbox →',
     steps: {
@@ -65,7 +65,7 @@ export const en: TranslationDictionary = {
       title: 'Step 1: Set Up Organization Information',
       desc: 'Initialize your organization workspace to aggregate social messaging and assign admissions staff.',
       companyName: 'Company / Organization / University Name',
-      companyPlaceholder: 'e.g. Can Tho University Software Center (CUSC)',
+      companyPlaceholder: 'e.g. Acme Recruitment Corp',
       companyHint: 'This name will appear on the navigation bar and in system notifications.',
       industry: 'Industry / Sector',
       continueBtn: 'Continue: Connect Channels',
@@ -126,14 +126,14 @@ export const en: TranslationDictionary = {
       backBtn: 'Back',
       finishBtn: 'Complete & Enter Workspace',
       errors: {
-        invalidEmail: 'Please enter a valid email format (e.g. staff@cusc.ctu.edu.vn).',
+        invalidEmail: 'Please enter a valid email format (e.g. staff@gmail.com).',
         duplicateEmail: 'This email is already in the invitation list.',
       },
     },
     oauthModal: {
       authorizingAccount: 'Authorizing Account:',
       verified: 'Verified',
-      permissionsTitle: 'Permissions granted to CUSC Conversational CRM:',
+      permissionsTitle: 'Permissions granted to Conversational CRM:',
       termsNotice: 'By continuing, you agree to the platform provider Terms of Service and Privacy Policy.',
       cancelBtn: 'Cancel',
       authorizingBtn: 'Authorizing...',

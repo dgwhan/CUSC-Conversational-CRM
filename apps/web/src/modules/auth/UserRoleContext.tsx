@@ -38,7 +38,7 @@ export const UserRoleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Lấy session đã lưu từ localStorage nếu có
   const [session, setSession] = useState<LoginResponse | null>(() => {
     try {
-      const saved = localStorage.getItem(SESSION_STORAGE_KEY) || localStorage.getItem('cusc_crm_auth_session');
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as LoginResponse;
         if (parsed?.accessToken) {

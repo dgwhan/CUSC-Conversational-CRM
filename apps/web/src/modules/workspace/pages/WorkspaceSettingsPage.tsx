@@ -46,7 +46,7 @@ function generateDefaultProfiles(activeConfig: WorkspaceConfig): ConfigProfileIt
   return [
     {
       id: 'cfg-default-education',
-      name: activeConfig.workspaceName ? `Cấu hình ${activeConfig.workspaceName}` : 'Cấu hình Giáo dục & Tuyển sinh CUSC',
+      name: activeConfig.workspaceName ? `Cấu hình ${activeConfig.workspaceName}` : 'Cấu hình Giáo dục & Tuyển sinh',
       domain: activeConfig.domain || 'EDUCATION',
       config: JSON.parse(JSON.stringify(activeConfig)),
       createdAt: new Date().toISOString(),

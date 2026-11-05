@@ -71,26 +71,18 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({
 
   return (
     <div
-      className={`relative flex items-start gap-3 p-3 transition-colors cursor-pointer border-l-[3px] ${
+      onClick={() => onSelect(item.id)}
+      className={`group relative flex items-start gap-3 p-3 transition-colors cursor-pointer border-l-[3px] select-none ${
         isSelected
-          ? 'bg-blue-50/70 border-l-blue-600'
+          ? 'bg-blue-50/70 border-l-blue-600 shadow-xs'
           : isOutOfOffice
           ? 'bg-amber-50/20 border-l-amber-500 hover:bg-amber-50/50'
           : isOverdue
-          ? 'bg-rose-50/30 border-l-rose-500 hover:bg-rose-50/60'
+          ? 'bg-rose-50/40 border-l-rose-500 hover:bg-rose-50/70'
           : hasUnread
-          ? 'bg-slate-50/60 border-l-transparent hover:bg-slate-100/70'
-          : 'bg-white border-l-transparent hover:bg-slate-50/80'
+          ? 'bg-slate-50 border-l-transparent hover:bg-slate-100/70'
+          : 'bg-white border-l-transparent hover:bg-slate-50'
       }`}
-      onClick={() => onSelect(item.id)}
-      className={`group relative flex items-start gap-3 p-3 transition-colors cursor-pointer border-l-2 select-none ${isSelected
-          ? 'bg-white border-l-blue-600 shadow-xs'
-          : isOverdue
-            ? 'bg-rose-50/40 border-l-rose-500 hover:bg-rose-50/70'
-            : hasUnread
-              ? 'bg-slate-50 border-l-transparent hover:bg-slate-100/70'
-              : 'bg-white border-l-transparent hover:bg-slate-50'
-        }`}
     >
       {/* 1. Avatar người gửi */}
       <div className="relative shrink-0 mt-0.5">

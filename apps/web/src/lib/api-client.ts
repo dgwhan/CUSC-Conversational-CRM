@@ -47,9 +47,7 @@ class ApiClient {
     if (typeof window !== 'undefined') {
       this.activeWorkspaceId = localStorage.getItem('polarisx_crm_active_workspace_id') || '';
       try {
-        const saved =
-          localStorage.getItem('polarisx_crm_auth_session') ||
-          localStorage.getItem('cusc_crm_auth_session');
+        const saved = localStorage.getItem('polarisx_crm_auth_session');
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && typeof parsed.accessToken === 'string') {
@@ -71,9 +69,7 @@ class ApiClient {
     if (this.isLoggingOut) return null;
     if (!this.accessToken && typeof window !== 'undefined') {
       try {
-        const saved =
-          localStorage.getItem('polarisx_crm_auth_session') ||
-          localStorage.getItem('cusc_crm_auth_session');
+        const saved = localStorage.getItem('polarisx_crm_auth_session');
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && typeof parsed.accessToken === 'string') {
@@ -155,9 +151,7 @@ class ApiClient {
 
         // Cập nhật session storage đồng bộ
         try {
-          const saved =
-            localStorage.getItem('polarisx_crm_auth_session') ||
-            localStorage.getItem('cusc_crm_auth_session');
+          const saved = localStorage.getItem('polarisx_crm_auth_session');
           const prev = saved ? JSON.parse(saved) : {};
           const updated = {
             ...prev,
@@ -212,7 +206,7 @@ class ApiClient {
     if (typeof window !== 'undefined') {
       try {
         userRole = localStorage.getItem('polarisx_crm_user_role') || '';
-        const savedSession = localStorage.getItem('polarisx_crm_auth_session') || localStorage.getItem('cusc_crm_auth_session');
+        const savedSession = localStorage.getItem('polarisx_crm_auth_session');
         if (savedSession) {
           const parsed = JSON.parse(savedSession);
           currentStaffId = parsed?.user?.id || parsed?.staff?.id || '';

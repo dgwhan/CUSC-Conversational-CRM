@@ -1,9 +1,5 @@
 import { useState } from 'react';
 import { AuthLayout } from '../../../layouts/AuthLayout.js';
-import cuscLogo1xWebp from '../../../assets/logo/CUSC-Logo-1x.webp';
-import cuscLogoWebp from '../../../assets/logo/CUSC-Logo.webp';
-import cuscLogo1xPng from '../../../assets/logo/CUSC-Logo-1x.png';
-import cuscLogoPng from '../../../assets/logo/CUSC-Logo@2x.png';
 import { LoginForm } from '../components/LoginForm.js';
 import { SignUpForm } from '../components/SignUpForm.js';
 import { AUTH_TAB, type AuthTab } from '../constants/auth.constants.js';
@@ -37,22 +33,16 @@ export function AuthPage({
 
   return (
     <AuthLayout>
-      <picture>
-        <source
-          type="image/webp"
-          srcSet={`${cuscLogo1xWebp} 1x, ${cuscLogoWebp} 2x`}
-        />
+      <div className="flex flex-col items-center justify-center mb-6">
         <img
-          className="mx-auto mb-6 h-[76px] w-auto object-contain"
-          src={cuscLogo1xPng}
-          srcSet={`${cuscLogo1xPng} 1x, ${cuscLogoPng} 2x`}
-          alt="CUSC Logo"
-          width={154}
-          height={76}
-          fetchPriority="high"
-          decoding="async"
+          src="/logo.svg"
+          alt="Conversational CRM Logo"
+          className="h-16 w-16 object-contain rounded-2xl shadow-xs"
+          width={64}
+          height={64}
         />
-      </picture>
+        <h1 className="mt-3 text-xl font-bold text-slate-900 tracking-tight">Conversational CRM</h1>
+      </div>
 
       {isRecoveryOpen ? (
         <PasswordRecoveryFlow

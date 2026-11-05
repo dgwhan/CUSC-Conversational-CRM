@@ -65,7 +65,7 @@ export function useChatComposer({ conversation, onSendMessage }: UseChatComposer
     notify.info(t('inbox.chatInput.voiceRecordingNotice'));
     setTimeout(() => {
       setIsRecording(false);
-      onSendMessage('Tin nhắn thoại (Ghi âm từ nhân viên tư vấn CUSC)', [
+      onSendMessage('Tin nhắn thoại (Ghi âm từ nhân viên tư vấn)', [
         {
           id: `att-voice-${Date.now()}`,
           type: 'AUDIO',

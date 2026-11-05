@@ -181,7 +181,7 @@ export const useOnboardingWizard = ({ onComplete }: UseOnboardingWizardOptions) 
    */
   const handleComplete = async () => {
     notify.success(
-      `Khởi tạo Workspace "${state.business.companyName || activeConfiguringWs?.name || 'CUSC Conversational CRM'}" hoàn tất! Đang chuyển hướng vào Hộp thư Trực tuyến...`,
+      `Khởi tạo Workspace "${state.business.companyName || activeConfiguringWs?.name || 'Conversational CRM'}" hoàn tất! Đang chuyển hướng vào Hộp thư Trực tuyến...`,
       'Onboarding Thành công',
     );
     onComplete(state);
